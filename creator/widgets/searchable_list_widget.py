@@ -7,6 +7,8 @@ class SearchableListWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
+        self.never_overwrite = False
+
         self.application = QtWidgets.QApplication.instance()
 
         grid_layout = QtWidgets.QGridLayout()
@@ -83,6 +85,7 @@ class SearchableListWidget(QtWidgets.QWidget):
 
     def add_item(self, searchable_name_field: str, widget: QtWidgets.QWidget) -> bool:
         # We want stuff to be unique, but will just overwrite if it isn't
+        # Return success state, if "self.never_overwrite" is True, we do not overwrite nor ask, but return False on collision
         # TODO: proper logging
         if not hasattr(widget, searchable_name_field):
             return False
@@ -90,6 +93,9 @@ class SearchableListWidget(QtWidgets.QWidget):
         value = getattr(widget, searchable_name_field)
 
         if self.get_widget_by_value(value):
+            if self.never_overwrite:
+                return False
+
             dialog = Dialog(
                 title="Item bestaat al",
                 text="Een item met dezelfde naam bestaat al. Wil je dit overschrijven?",
@@ -116,6 +122,11 @@ class SearchableListWidget(QtWidgets.QWidget):
 
 
 class SearchableSelectionListView(SearchableListWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.never_overwrite = True
+
     def get_selected(self):
         selected_dossiers = []
 

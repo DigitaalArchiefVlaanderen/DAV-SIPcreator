@@ -34,12 +34,19 @@ class MainWindow(QtWidgets.QMainWindow):
         central_widget.setLayout(grid_layout)
 
         # Dossiers
-        add_dossier_button = QtWidgets.QPushButton(text="Voeg dossier(s) toe")
+        add_dossier_button = QtWidgets.QPushButton(text="Voeg een dossier toe")
         add_dossier_button.clicked.connect(self.add_dossier_clicked)
+
+        add_dossiers_button = QtWidgets.QPushButton(text="Voeg folder met dossiers toe")
+        add_dossiers_button.clicked.connect(
+            lambda: self.add_dossier_clicked(multi=True)
+        )
+
         self.dossiers_list_view = SearchableSelectionListView()
 
         grid_layout.addWidget(add_dossier_button, 0, 0)
-        grid_layout.addWidget(self.dossiers_list_view, 1, 0)
+        grid_layout.addWidget(add_dossiers_button, 0, 1)
+        grid_layout.addWidget(self.dossiers_list_view, 1, 0, 1, 2)
 
         # SIPS
         create_sip_button = QtWidgets.QPushButton(text="Start SIP")
@@ -50,8 +57,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.toolbar = Toolbar()
         self.addToolBar(self.toolbar)
 
-        grid_layout.addWidget(create_sip_button, 0, 1)
-        grid_layout.addWidget(self.sip_list_view, 1, 1)
+        grid_layout.addWidget(create_sip_button, 0, 2, 1, 2)
+        grid_layout.addWidget(self.sip_list_view, 1, 2, 1, 2)
 
     def load_items(self):
         for dossier in self.application.state.dossiers:
@@ -87,19 +94,33 @@ class MainWindow(QtWidgets.QMainWindow):
                 widget=sip_widget,
             )
 
-    def add_dossier_clicked(self):
+    def add_dossier_clicked(self, multi=False):
         dossier_path = QtWidgets.QFileDialog.getExistingDirectory(
             caption="Selecteer dossier om toe te voegen"
         )
 
         if dossier_path != "":
-            dossier = Dossier(path=dossier_path)
+            paths = [dossier_path]
 
-            self.dossiers_list_view.add_item(
-                searchable_name_field="dossier_label",
-                widget=DossierWidget(dossier=dossier),
-            )
-            self.application.state.add_dossier(dossier)
+            if multi:
+                paths = os.listdir(dossier_path)
+
+            for partial_path in paths:
+                path = os.path.normpath(os.path.join(dossier_path, partial_path))
+
+                # NOTE: we do not care about files in there, we only take the folders as dossiers
+                if not os.path.isdir(path):
+                    continue
+
+                dossier = Dossier(path=path)
+
+                success = self.dossiers_list_view.add_item(
+                    searchable_name_field="dossier_label",
+                    widget=DossierWidget(dossier=dossier),
+                )
+
+                if success:
+                    self.application.state.add_dossier(dossier)
 
     def create_sip_clicked(self):
         selected_dossiers = list(self.dossiers_list_view.get_selected())
@@ -118,13 +139,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 widget=sip_widget,
             )
 
-            if not success:
-                return
+            if success:
+                self.application.state.add_sip(sip)
 
-            self.application.state.add_sip(sip)
-
-            # Open the SIP
-            sip_widget.open_button_clicked()
+                # Open the SIP
+                sip_widget.open_button_clicked()
 
     def closeEvent(self, event):
         # If the main window dies, kill the whole application
