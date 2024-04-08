@@ -7,8 +7,6 @@ class SearchableListWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
-        self.never_overwrite = False
-
         self.application = QtWidgets.QApplication.instance()
 
         grid_layout = QtWidgets.QGridLayout()
@@ -92,21 +90,6 @@ class SearchableListWidget(QtWidgets.QWidget):
 
         value = getattr(widget, searchable_name_field)
 
-        if self.get_widget_by_value(value):
-            if self.never_overwrite:
-                return False
-
-            dialog = Dialog(
-                title="Item bestaat al",
-                text="Een item met dezelfde naam bestaat al. Wil je dit overschrijven?",
-            )
-            dialog.exec_()
-
-            if not dialog.result():
-                return False
-
-            self.remove_widget_by_value(value)
-
         self.widgets.append(
             {
                 "reference": widget,
@@ -122,11 +105,6 @@ class SearchableListWidget(QtWidgets.QWidget):
 
 
 class SearchableSelectionListView(SearchableListWidget):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.never_overwrite = True
-
     def get_selected(self):
         selected_dossiers = []
 

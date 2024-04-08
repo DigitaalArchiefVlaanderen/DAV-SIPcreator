@@ -1,6 +1,7 @@
 from PySide6 import QtWidgets, QtGui
 
 import os
+import json
 
 from .widgets.searchable_list_widget import (
     SearchableListWidget,
@@ -10,6 +11,7 @@ from .widgets.dossier_widget import DossierWidget
 from .widgets.sip_widget import SIPWidget
 from .widgets.toolbar import Toolbar
 from .widgets.dialog import YesNoDialog
+from .widgets.warning_dialog import WarningDialog
 
 from .controllers.file_controller import FileController
 
@@ -127,6 +129,8 @@ class MainWindow(QtWidgets.QMainWindow):
             if multi:
                 paths = os.listdir(dossier_path)
 
+            bad_dossiers = []
+
             for partial_path in paths:
                 path = os.path.normpath(os.path.join(dossier_path, partial_path))
 
@@ -135,6 +139,15 @@ class MainWindow(QtWidgets.QMainWindow):
                     continue
 
                 dossier = Dossier(path=path)
+
+                # Do not allow overlapping names
+                if (
+                    self.dossiers_list_view.get_widget_by_value(dossier.dossier_label)
+                    is not None
+                ):
+                    bad_dossiers.append(path)
+                    continue
+
                 dossier_widget = DossierWidget(dossier=dossier)
                 dossier_widget.set_selected(True)
 
@@ -145,6 +158,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 if success:
                     self.application.state.add_dossier(dossier)
+
+            if len(bad_dossiers) > 0:
+                WarningDialog(
+                    title="Dossiers niet toegevoegd",
+                    text=f"Sommige dossiers overlappen in naamgeving met bestaande dossiers.\n\nDossiers die overlappen: {json.dumps(bad_dossiers, indent=4)}.\n\nVerander de namen van de dossiers (foldernamen) zodat ze uniek zijn in de lijst van dossiers en voeg opnieuw toe.",
+                ).exec()
 
     def create_sip_clicked(self):
         selected_dossiers = list(self.dossiers_list_view.get_selected())
