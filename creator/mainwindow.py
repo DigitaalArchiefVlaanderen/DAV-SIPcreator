@@ -155,7 +155,6 @@ class MainWindow(QtWidgets.QMainWindow):
                     continue
 
                 dossier_widget = DossierWidget(dossier=dossier)
-                dossier_widget.set_selected(True)
                 dossier_widget.selection_changed.connect(self.dossier_selection_changed)
 
                 success = self.dossiers_list_view.add_item(
@@ -163,9 +162,10 @@ class MainWindow(QtWidgets.QMainWindow):
                     widget=dossier_widget,
                 )
 
+                dossier_widget.set_selected(True)
+
                 if success:
                     self.application.state.add_dossier(dossier)
-                    self.dossier_selection_changed()
 
             if len(bad_dossiers) > 0:
                 WarningDialog(

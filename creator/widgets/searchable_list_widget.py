@@ -2,6 +2,7 @@ from PySide6 import QtWidgets, QtCore
 
 from ..application import Application
 
+from .dossier_widget import DossierWidget
 from .dialog import Dialog
 
 
@@ -107,7 +108,7 @@ class SearchableListWidget(QtWidgets.QWidget):
         self.list_layout.addWidget(widget)
         widget.destroyed.connect(lambda: self.remove_widget_by_value(value))
         self.reload_widgets()
-        self.count_label.setText(str(len(self.widgets)))
+        self.count_label.setText(str(self.list_layout.count()))
 
         return True
 
@@ -116,18 +117,49 @@ class SearchableSelectionListView(SearchableListWidget):
     def __init__(self):
         super().__init__()
 
-        remove_selected_button = QtWidgets.QPushButton(
+        self.count_label.setText("0 / 0")
+
+        self.remove_selected_button = QtWidgets.QPushButton(
             text="Verwijder geselecteerde dossiers"
         )
-        remove_selected_button.clicked.connect(self.remove_selected_clicked)
+        self.remove_selected_button.clicked.connect(self.remove_selected_clicked)
+        self.remove_selected_button.setEnabled(False)
 
-        self.grid_layout.addWidget(remove_selected_button, 2, 0, 1, 2)
+        self.grid_layout.addWidget(self.remove_selected_button, 2, 0, 1, 2)
+
+    def add_item(self, searchable_name_field: str, widget: DossierWidget) -> bool:
+        response = super().add_item(
+            searchable_name_field=searchable_name_field, widget=widget
+        )
+
+        widget.selection_changed.connect(self.selection_changed)
+        self.selection_changed()
+
+        return response
+
+    def remove_widget_by_value(self, value: str):
+        super().remove_widget_by_value(value=value)
+
+        self.selection_changed()
+
+    def selection_changed(self):
+        amount_selected = len(self.get_selected())
+
+        self.count_label.setText(f"{amount_selected} / {len(self.widgets)}")
+
+        if amount_selected == 0:
+            self.remove_selected_button.setEnabled(False)
+        else:
+            self.remove_selected_button.setEnabled(True)
 
     def get_selected(self) -> list:
         selected_dossiers = []
 
         for i in range(self.list_layout.count()):
             dossier = self.list_layout.itemAt(i).widget()
+
+            if not isinstance(dossier, DossierWidget):
+                continue
 
             if dossier.is_selected():
                 selected_dossiers.append(dossier)
