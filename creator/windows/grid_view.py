@@ -36,30 +36,65 @@ class GridView(QtWidgets.QMainWindow):
         central_widget.setLayout(grid_layout)
 
         series_label = QtWidgets.QLabel(text=self.sip_widget.sip.series.get_name())
-        grid_layout.addWidget(series_label, 0, 0, 1, 2)
+        grid_layout.addWidget(series_label, 0, 0, 1, 4)
 
-        name_extension_radio = QtWidgets.QRadioButton(
+        self.name_extension_checkbox = QtWidgets.QCheckBox(
             text="Verwijder file-extensie uit 'Naam' kolom"
         )
-        name_extension_radio.setChecked(False)
-        grid_layout.addWidget(name_extension_radio, 1, 0)
+        self.name_extension_checkbox.setChecked(False)
+        grid_layout.addWidget(self.name_extension_checkbox, 1, 0)
+
+        self.show_bad_rows_checkbox = QtWidgets.QCheckBox(
+            text="Toon enkel rijen met fouten"
+        )
+        self.show_bad_rows_checkbox.setChecked(False)
+        self.show_bad_rows_checkbox.stateChanged.connect(self._bad_rows_clicked)
+        grid_layout.addWidget(self.show_bad_rows_checkbox, 1, 1)
 
         self.table_view = TableView()
-        grid_layout.addWidget(self.table_view, 2, 0, 1, 2)
-
-        name_extension_radio.toggled.connect(
-            lambda checked: self.table_view.model()._filter_name_column(active=checked)
-        )
+        grid_layout.addWidget(self.table_view, 2, 0, 1, 4)
 
         save_button = QtWidgets.QPushButton(text="Opslaan")
         save_button.clicked.connect(self.save_button_click)
-        grid_layout.addWidget(save_button, 3, 0)
+        grid_layout.addWidget(save_button, 3, 0, 1, 2)
 
         self.create_sip_button = QtWidgets.QPushButton(text="Maak SIP")
         self.create_sip_button.clicked.connect(self.create_sip_click)
         self.create_sip_button.setEnabled(False)
-        grid_layout.addWidget(self.create_sip_button, 3, 1)
+        grid_layout.addWidget(self.create_sip_button, 3, 2, 1, 2)
 
+    # Grid filters
+    def _set_grid_filter_connections(self) -> None:
+        model: PandasModel = self.table_view.model()
+
+        self.name_extension_checkbox.stateChanged.connect(
+            lambda state: model.filter_name_column(
+                active=state == QtCore.Qt.CheckState.Checked.value
+            )
+        )
+
+    def _bad_rows_clicked(self, state: QtCore.Qt.CheckState) -> None:
+        model: PandasModel = self.table_view.model()
+        data: pd.DataFrame = model.get_data()
+        active = state == QtCore.Qt.CheckState.Checked.value
+
+        if active:
+            model.bad_rows_changed.connect(
+                lambda row, is_bad: self.table_view.setRowHidden(row, not is_bad)
+            )
+        else:
+            model.bad_rows_changed.disconnect()
+
+        bad_rows = model.get_bad_rows()
+        hide_row = active
+
+        for row in range(model.rowCount()):
+            data_row = data.index[row]
+
+            if data_row not in bad_rows:
+                self.table_view.setRowHidden(row, hide_row)
+
+    # Loading grid
     def _fill_from_files(self, sip_folder_structure: dict):
         df = pd.DataFrame(columns=self.sip_widget.import_template_df.columns)
 
@@ -150,6 +185,7 @@ class GridView(QtWidgets.QMainWindow):
                 sip_folder_structure=sip_folder_structure,
             )
         )
+        self._set_grid_filter_connections()
 
     def fill_table(self):
         sip_folder_structure = self.sip_widget.sip.get_sip_folder_structure()
@@ -170,7 +206,9 @@ class GridView(QtWidgets.QMainWindow):
                 sip_folder_structure=sip_folder_structure,
             )
         )
+        self._set_grid_filter_connections()
 
+    # Actions
     def create_sip_click(self):
         self.save_button_click(filter_save=True)
         table = self.table_view.model()

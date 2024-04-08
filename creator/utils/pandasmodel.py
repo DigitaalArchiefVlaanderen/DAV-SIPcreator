@@ -14,6 +14,10 @@ class Color(Enum):
 
 
 class PandasModel(QtCore.QAbstractTableModel):
+    bad_rows_changed: QtCore.Signal = QtCore.Signal(
+        *(int, bool), arguments=["row", "is_bad"]
+    )
+
     def __init__(
         self,
         data: pd.DataFrame,
@@ -50,29 +54,28 @@ class PandasModel(QtCore.QAbstractTableModel):
         if not index.isValid():
             return
 
+        row, col = index.row(), index.column()
+        data_row = self._data.index[row]
+        value = self._data.iloc[index.row(), index.column()]
+
         if (
             role == QtCore.Qt.ItemDataRole.DisplayRole
             or role == QtCore.Qt.ItemDataRole.EditRole
         ):
-            value = self._data.iloc[index.row(), index.column()]
-
             # If the filter is active, and we are on the name column, filter the name
-            if (
-                self.filter_name_column
-                and self._data.columns.get_loc("Naam") == index.column()
-            ):
+            if self.filter_name_column and self._data.columns.get_loc("Naam") == col:
                 value, *_ = value.rsplit(".", 1)
 
             return value
 
         elif role == QtCore.Qt.ItemDataRole.BackgroundRole:
-            color = self.colors.get((self._data.index[index.row()], index.column()))
+            color = self.colors.get((data_row, col))
 
             if color:
                 return color.value
 
         elif role == QtCore.Qt.ItemDataRole.ToolTipRole:
-            tooltip = self.tooltips.get((self._data.index[index.row()], index.column()))
+            tooltip = self.tooltips.get((data_row, col))
 
             if tooltip:
                 return tooltip
@@ -151,6 +154,9 @@ class PandasModel(QtCore.QAbstractTableModel):
 
     def get_data(self):
         return self._data
+
+    def get_bad_rows(self) -> set:
+        return set(row for (row, _), color in self.colors.items() if color == Color.RED)
 
     def is_data_valid(self):
         # NOTE: we are using the colors dict to see if anything is marked invalid
@@ -275,10 +281,15 @@ class PandasModel(QtCore.QAbstractTableModel):
     def _mark_bad_cell(
         self, row: int, col: int, color: Color = Color.RED, tooltip: str = None
     ) -> None:
-        self.colors[(row, col)] = color
+        data_row = self._data.index[row]
+
+        self.colors[(data_row, col)] = color
 
         if tooltip is not None:
-            self.tooltips[(row, col)] = tooltip
+            self.tooltips[(data_row, col)] = tooltip
+
+        if color == Color.RED:
+            self.bad_rows_changed.emit(row, True)
 
     def _mark_warning_row(
         self, row: int, color: Color = Color.YELLOW, tooltip: str = None
@@ -287,11 +298,17 @@ class PandasModel(QtCore.QAbstractTableModel):
             self._mark_bad_cell(row=row, col=c, color=color, tooltip=tooltip)
 
     def _unmark_bad_cell(self, row: int, col: int) -> None:
-        if (row, col) in self.colors:
-            del self.colors[(row, col)]
+        data_row = self._data.index[row]
 
-        if (row, col) in self.tooltips:
-            del self.tooltips[(row, col)]
+        if (data_row, col) in self.colors:
+            del self.colors[(data_row, col)]
+
+            # We have cleared the row
+            if data_row not in self.get_bad_rows():
+                self.bad_rows_changed.emit(row, False)
+
+        if (data_row, col) in self.tooltips:
+            del self.tooltips[(data_row, col)]
 
     def _mark_name_cell(self, row: int) -> None:
         col = self._data.columns.get_loc("Naam")
@@ -453,7 +470,7 @@ class PandasModel(QtCore.QAbstractTableModel):
         return True
 
     # Filters
-    def _filter_name_column(self, active: bool) -> None:
+    def filter_name_column(self, active: bool) -> None:
         # We just set the value here, the filtering happens when showing data
         self.filter_name_column = active
 
