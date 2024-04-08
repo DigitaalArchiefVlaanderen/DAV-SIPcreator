@@ -116,6 +116,7 @@ class SIPWidget(QtWidgets.QFrame):
         controls_layout.addWidget(self.open_button)
         controls_layout.addWidget(self.upload_button)
         controls_layout.addWidget(self.open_explorer_button)
+        controls_layout.addStretch()
 
         # Layout
         layout.addWidget(sip_info_widget)
