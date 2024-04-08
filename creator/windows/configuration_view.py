@@ -1,4 +1,4 @@
-from PySide6 import QtWidgets
+from PySide6 import QtWidgets, QtCore
 
 import os
 import json
@@ -11,6 +11,8 @@ from ..widgets.configuration_tab_widget import (
 
 
 class ConfigurationWidget(QtWidgets.QMainWindow):
+    closed: QtCore.Signal = QtCore.Signal()
+
     def __init__(self):
         super().__init__()
 
@@ -181,3 +183,4 @@ class ConfigurationWidget(QtWidgets.QMainWindow):
         self._write_configuration(configuration)
 
         self.close()
+        self.closed.emit()

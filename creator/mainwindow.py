@@ -31,7 +31,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.application: Application = QtWidgets.QApplication.instance()
         self.state: State = self.application.state
-        self.configuration: Configuration = self.state.configuration
 
     def setup_ui(self):
         self.resize(800, 600)
@@ -66,6 +65,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Toolbar
         self.toolbar = Toolbar()
+        self.toolbar.configuration_changed.connect(self.sip_list_view.reload_widgets)
         self.addToolBar(self.toolbar)
 
         grid_layout.addWidget(self.create_sip_button, 0, 2, 1, 2)
@@ -113,7 +113,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 SIPStatus.REJECTED,
             ):
                 base_sip_path = os.path.join(
-                    self.configuration.misc.save_location, FileController.SIP_STORAGE
+                    self.state.configuration.misc.save_location,
+                    FileController.SIP_STORAGE,
                 )
                 # Check if the saved SIP and sidecar still exists
                 if not os.path.exists(

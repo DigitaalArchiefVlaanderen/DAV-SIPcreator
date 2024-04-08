@@ -1,9 +1,11 @@
-from PySide6 import QtWidgets, QtGui
+from PySide6 import QtWidgets, QtGui, QtCore
 
 from ..windows.configuration_view import ConfigurationWidget
 
 
 class Toolbar(QtWidgets.QToolBar):
+    configuration_changed: QtCore.Signal = QtCore.Signal()
+
     def __init__(self):
         super().__init__()
 
@@ -16,6 +18,7 @@ class Toolbar(QtWidgets.QToolBar):
         configuration_button.setStyleSheet("border: 1px solid black")
 
         self.configuration_view = ConfigurationWidget()
+        self.configuration_view.closed.connect(self.configuration_changed.emit)
         self.configuration_view.setup_ui()
 
     def configuration_clicked(self):

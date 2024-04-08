@@ -3,7 +3,11 @@ from PySide6 import QtWidgets, QtCore
 from ..application import Application
 
 from .dossier_widget import DossierWidget
+from .sip_widget import SIPWidget
 from .dialog import Dialog
+
+from ..utils.configuration import Environment
+from ..utils.state import State
 
 
 class SearchableListWidget(QtWidgets.QWidget):
@@ -11,6 +15,7 @@ class SearchableListWidget(QtWidgets.QWidget):
         super().__init__()
 
         self.application: Application = QtWidgets.QApplication.instance()
+        self.state: State = self.application.state
 
         self.grid_layout = QtWidgets.QGridLayout()
         self.grid_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
@@ -36,7 +41,7 @@ class SearchableListWidget(QtWidgets.QWidget):
         self.widgets = []
 
     # NOTE: not optimal to always do it all over, but shouldn't be too much of an issue
-    def reload_widgets(self, *args):
+    def reload_widgets(self):
         # Instead of deleting and adding items, we simply set their visibility
         widgets_to_show = self.search_widgets()
 
@@ -45,7 +50,15 @@ class SearchableListWidget(QtWidgets.QWidget):
             widget.setVisible(False)
 
             if widget in widgets_to_show:
-                widget.setVisible(True)
+                if not isinstance(widget, SIPWidget):
+                    widget.setVisible(True)
+                    continue
+
+                if (
+                    widget.sip.environment.name
+                    == self.state.configuration.active_environment
+                ):
+                    widget.setVisible(True)
 
     def get_widget_by_value(self, value: str):
         for w in self.widgets:
@@ -90,7 +103,7 @@ class SearchableListWidget(QtWidgets.QWidget):
         except RuntimeError:
             pass
 
-    def add_item(self, searchable_name_field: str, widget: QtWidgets.QWidget) -> bool:
+    def add_item(self, searchable_name_field: str, widget: SIPWidget) -> bool:
         # We want stuff to be unique, but will just overwrite if it isn't
         # Return success state, if "self.never_overwrite" is True, we do not overwrite nor ask, but return False on collision
         # TODO: proper logging
