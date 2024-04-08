@@ -17,7 +17,7 @@ class SIP:
     environment_name: str
     dossiers: List[Dossier]
 
-    _id: str = str(uuid.uuid4())
+    _id: str = field(default_factory=lambda *_: str(uuid.uuid4()))
 
     name: str = "SIP"
     status: SIPStatus = SIPStatus.IN_PROGRESS
