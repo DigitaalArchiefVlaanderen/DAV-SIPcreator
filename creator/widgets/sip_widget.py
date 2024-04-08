@@ -5,6 +5,7 @@ import os
 import ftplib
 import uuid
 import socket
+import threading
 
 from ..application import Application
 
@@ -65,6 +66,8 @@ class SIPWidget(QtWidgets.QFrame):
             text=self.sip.status.get_status_label()
         )
         self.sip_status_label.setStyleSheet(self.sip.status.value)
+        self.sip.status_changed.connect(self._update_status)
+        self.sip.name_changed.connect(self._update_name)
 
         sip_info_layout.addWidget(self.sip_name_label)
         sip_info_layout.addWidget(self.sip_status_label)
@@ -157,22 +160,13 @@ class SIPWidget(QtWidgets.QFrame):
             ).exec()
             return
 
+        # Check the connection
         try:
-            with ftplib.FTP_TLS(
+            ftplib.FTP_TLS(
                 self.sip.environment.ftps_url,
                 self.sip.environment.ftps_username,
                 self.sip.environment.ftps_password,
-            ) as session:
-                session.prot_p()
-
-                with open(sip_location, "rb") as f:
-                    session.storbinary(
-                        f"STOR {self.sip.series._id}-{self.sip.name}.zip", f
-                    )
-                with open(sidecar_location, "rb") as f:
-                    session.storbinary(
-                        f"STOR {self.sip.series._id}-{self.sip.name}.xml", f
-                    )
+            )
         except ftplib.error_perm:
             WarningDialog(
                 title="Connectie fout",
@@ -186,12 +180,13 @@ class SIPWidget(QtWidgets.QFrame):
             ).exec()
             return
 
-        self.sip.sip_status = SIPStatus.ARCHIVED
-        self.application.state.update_sip(self.sip)
-        self.sip_status_label.setText(self.sip.sip_status.get_status_label())
-        self.sip_status_label.setStyleSheet(self.sip.sip_status.value)
-        self.open_button.setEnabled(False)
-        self.upload_button.setEnabled(False)
+        # Perform upload in background
+        t = threading.Thread(
+            target=self._perform_upload,
+            kwargs={"sip_location": sip_location, "sidecar_location": sidecar_location},
+        )
+        self.sip.set_status(SIPStatus.UPLOADING)
+        t.start()
 
     def get_sip_folder_structure(self) -> dict:
         def _get_dossier_folder_structure(base_path: str, dossier_path: str) -> dict:
@@ -256,3 +251,42 @@ class SIPWidget(QtWidgets.QFrame):
             }
 
         return sip_structure
+
+    # Handlers
+    def _update_status(self, status: SIPStatus) -> None:
+        self.sip_status_label.setText(status.get_status_label())
+        self.sip_status_label.setStyleSheet(status.value)
+
+        if status == SIPStatus.IN_PROGRESS:
+            self.open_button.setEnabled(True)
+            self.upload_button.setEnabled(False)
+        elif status == SIPStatus.SIP_CREATED:
+            self.open_button.setEnabled(False)
+            self.upload_button.setEnabled(True)
+        elif status in (
+            SIPStatus.UPLOADING,
+            SIPStatus.ARCHIVED,
+            SIPStatus.REJECTED,
+        ):
+            self.open_button.setEnabled(False)
+            self.upload_button.setEnabled(False)
+
+    def _update_name(self, name: str) -> None:
+        # The updating of the status is handled separately
+        self.sip_name_label.setText(name)
+
+    # Upload
+    def _perform_upload(self, sip_location: str, sidecar_location: str) -> None:
+        with ftplib.FTP_TLS(
+            self.sip.environment.ftps_url,
+            self.sip.environment.ftps_username,
+            self.sip.environment.ftps_password,
+        ) as session:
+            session.prot_p()
+
+            with open(sip_location, "rb") as f:
+                session.storbinary(f"STOR {self.sip.file_name}", f)
+            with open(sidecar_location, "rb") as f:
+                session.storbinary(f"STOR {self.sip.sidecar_file_name}", f)
+
+        self.sip.set_status(SIPStatus.ARCHIVED)

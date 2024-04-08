@@ -227,16 +227,8 @@ class GridView(QtWidgets.QMainWindow):
             sip=self.sip_widget.sip,
         )
 
-        self.sip_widget.sip.status = SIPStatus.SIP_CREATED
-        self.sip_widget.sip_status_label.setText(
-            self.sip_widget.sip.status.get_status_label()
-        )
-        self.sip_widget.sip_status_label.setStyleSheet(self.sip_widget.sip.status.value)
-        self.sip_widget.upload_button.setEnabled(True)
-        self.sip_widget.open_button.setEnabled(False)
+        self.sip_widget.sip.set_status(SIPStatus.SIP_CREATED)
         self.sip_widget.sip_name_label.setEnabled(False)
-
-        self.application.state.update_sip(self.sip_widget.sip)
 
         self.close()
 

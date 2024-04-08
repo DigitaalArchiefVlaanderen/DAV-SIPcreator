@@ -3,8 +3,8 @@ import enum
 
 class SIPStatus(enum.Enum):
     IN_PROGRESS = "color: black;"
-    SIP_CREATED = "color: green;"
-    UPLOADING = "color: green;"
+    SIP_CREATED = "color: #42A362;"
+    UPLOADING = "color: #68B581;"
     ARCHIVED = "color: grey;"
     REJECTED = "color: red;"
 

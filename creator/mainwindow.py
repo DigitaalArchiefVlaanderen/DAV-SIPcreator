@@ -128,6 +128,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
                     continue
 
+            sip.value_changed.connect(self.state.update_sip)
+
             sip_widget = SIPWidget(sip=sip)
             result = FileController.existing_grid(
                 self.application.state.configuration, sip
@@ -219,6 +221,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 environment_name=self.application.state.configuration.active_environment,
                 dossiers=dossiers,
             )
+            sip.value_changed.connect(self.state.update_sip)
             sip_widget = SIPWidget(sip=sip)
 
             success = self.sip_list_view.add_item(

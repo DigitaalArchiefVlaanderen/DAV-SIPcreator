@@ -43,6 +43,9 @@ class SIPView(QtWidgets.QMainWindow):
         font.setPointSize(20)
         self.title = QtWidgets.QLineEdit(text=self.sip_widget.sip.name)
         self.title.setFont(font)
+        self.title.editingFinished.connect(
+            lambda: self.sip_widget.sip.set_name(self.title.text())
+        )
 
         status = QtWidgets.QLabel(text=self.sip_widget.sip.status.get_status_label())
         status.setStyleSheet(self.sip_widget.sip.status.value)
@@ -161,7 +164,7 @@ class SIPView(QtWidgets.QMainWindow):
         self.tag_mapping_widget.add_to_import_template(
             self.sip_widget.import_template_df.columns
         )
-        self.sip_widget.sip.series = series
+        self.sip_widget.sip.set_series(series)
 
         self.open_grid_button.setEnabled(True)
 
@@ -177,14 +180,10 @@ class SIPView(QtWidgets.QMainWindow):
                 return
 
             # Save the data as part of the SIPWidget
-            self.sip_widget.sip.name = self.title.text()
             self.sip_widget.sip.mapping = mapping
 
             # NOTE: this should not be needed if proper linking is provided
-            self.sip_widget.sip_name_label.setText(self.sip_widget.sip.name)
             self.sip_widget.import_template_location = self.import_template_location
-
-            self.application.state.update_sip(self.sip_widget.sip)
 
         # Open grid with sip_widget as info
         self.__grid_view = GridView(self.sip_widget)

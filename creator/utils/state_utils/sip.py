@@ -1,6 +1,4 @@
-from PySide6 import QtWidgets
-
-from dataclasses import dataclass, field
+from PySide6 import QtWidgets, QtCore
 
 from typing import List, Callable
 import uuid
@@ -18,19 +16,40 @@ def get_next_sip_name():
     return f"SIP {db_controller.get_sip_count() + 1}"
 
 
-@dataclass
-class SIP:
-    environment_name: str
-    dossiers: List[Dossier]
+class SIP(QtCore.QObject):
+    def __init__(
+        self,
+        environment_name: str,
+        dossiers: List[Dossier],
+        _id: str = None,
+        name: str = None,
+        status: SIPStatus = None,
+        series: Series = None,
+        metadata_file_path: str = None,
+        mapping: dict = None,
+    ):
+        super().__init__()
 
-    _id: str = field(default_factory=lambda: str(uuid.uuid4()))
+        self.environment_name = environment_name
+        self.dossiers = dossiers
 
-    name: str = field(default_factory=get_next_sip_name)
-    status: SIPStatus = SIPStatus.IN_PROGRESS
-    series: Series = field(default_factory=Series)
+        self._id = str(uuid.uuid4()) if _id is None else _id
 
-    metadata_file_path: str = "Nog geen pad geselecteerd"
-    mapping: dict = field(default_factory=dict)
+        self.name = get_next_sip_name() if name is None else name
+        self.status = SIPStatus.IN_PROGRESS if status is None else status
+        self.series = Series() if series is None else series
+
+        self.metadata_file_path = (
+            "Nog geen pad geselecteerd"
+            if metadata_file_path is None
+            else metadata_file_path
+        )
+        self.mapping = {} if mapping is None else mapping
+
+    # Signals
+    status_changed: QtCore.Signal = QtCore.Signal(*(SIPStatus,), arguments=["status"])
+    name_changed: QtCore.Signal = QtCore.Signal(*(str,), arguments=["name"])
+    value_changed: QtCore.Signal = QtCore.Signal(*(QtCore.QObject,), arguments=["sip"])
 
     @property
     def file_name(self):
@@ -116,3 +135,18 @@ class SIP:
         return QtWidgets.QApplication.instance().state.configuration.get_environment(
             self.environment_name
         )
+
+    # Setters
+    def set_name(self, name: str) -> None:
+        self.name = name
+        self.name_changed.emit(name)
+        self.value_changed.emit(self)
+
+    def set_status(self, status: SIPStatus) -> None:
+        self.status = status
+        self.status_changed.emit(self.status)
+        self.value_changed.emit(self)
+
+    def set_series(self, series: Series) -> None:
+        self.series = series
+        self.value_changed.emit(self)
