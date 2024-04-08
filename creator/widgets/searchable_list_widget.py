@@ -81,11 +81,11 @@ class SearchableListWidget(QtWidgets.QWidget):
         self.widgets.remove(widget)
         self.count_label.setText(str(len(self.widgets)))
 
-    def add_item(self, searchable_name_field: str, widget: QtWidgets.QWidget):
+    def add_item(self, searchable_name_field: str, widget: QtWidgets.QWidget) -> bool:
         # We want stuff to be unique, but will just overwrite if it isn't
         # TODO: proper logging
         if not hasattr(widget, searchable_name_field):
-            return
+            return False
 
         value = getattr(widget, searchable_name_field)
 
@@ -97,7 +97,7 @@ class SearchableListWidget(QtWidgets.QWidget):
             dialog.exec_()
 
             if not dialog.result():
-                return
+                return False
 
             self.remove_widget_by_value(value)
 
@@ -111,6 +111,8 @@ class SearchableListWidget(QtWidgets.QWidget):
         widget.destroyed.connect(lambda _: self.remove_widget_by_value(value))
         self.reload_widgets()
         self.count_label.setText(str(len(self.widgets)))
+
+        return True
 
 
 class SearchableSelectionListView(SearchableListWidget):
