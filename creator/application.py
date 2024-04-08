@@ -48,12 +48,13 @@ class SIPStatusThread(threading.Thread):
             if sip.edepot_sip_id is None:
                 sip.set_edepot_sip_id(APIController.get_sip_id(sip))
 
-            new_status = APIController.get_sip_status(sip)
+            new_status, fail_reason = APIController.get_sip_status(sip)
 
             if new_status == sip.status:
                 continue
 
-            sip.set_status(new_status)
+            sip.status = new_status
+            self.state.update_sip(sip, fail_reason=fail_reason)
 
 
 class Application(QtWidgets.QApplication):

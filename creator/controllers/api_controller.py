@@ -298,12 +298,36 @@ class APIController:
             warn=False,
         ).json()
 
+        status = None
+        fail_reason = None
+
         match response["SipStatus"]:
             case "Uploaded":
-                return SIPStatus.UPLOADED
+                status = SIPStatus.UPLOADED
             case "Processing":
-                return SIPStatus.PROCESSING
+                status = SIPStatus.PROCESSING
             case "Accepted":
-                return SIPStatus.ACCEPTED
+                status = SIPStatus.ACCEPTED
             case "Rejected":
-                return SIPStatus.REJECTED
+                status = SIPStatus.REJECTED
+
+                fail_reasons = []
+
+                for r in response["RecordRejections"]["Rejection"]:
+                    fail_reason_row = []
+
+                    if r["Row"] is not None:
+                        fail_reason_row.append(f"Rij: {r['Row']}")
+
+                    if r["Path"] is not None:
+                        fail_reason_row.append(f"Path in SIP: {r['Path']}")
+
+                    if r["Value"] is not None:
+                        fail_reason_row.append(f"Waarde in veld: {r['Value']}")
+
+                    fail_reason_row.append(r["Motivation"])
+                    fail_reasons.append("\n".join(fail_reason_row))
+
+                fail_reason = "\n\n".join(fail_reasons)
+
+        return status, fail_reason

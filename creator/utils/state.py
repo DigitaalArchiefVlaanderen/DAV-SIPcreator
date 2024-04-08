@@ -1,24 +1,28 @@
-from dataclasses import dataclass, field
-import os
-import json
 from typing import Callable, List
 
-from PySide6.QtWidgets import QApplication
+from PySide6 import QtCore
 
 from ..controllers.db_controller import DBController
 from .configuration import Configuration
 from .state_utils.dossier import Dossier
 from .state_utils.sip import SIP
+from .sip_status import SIPStatus
 from .series import Series
 
 
-@dataclass
-class State:
-    configuration_callback: Callable
-    db_controller: DBController
+class State(QtCore.QObject):
+    sip_edepot_failed: QtCore.Signal = QtCore.Signal(
+        *(str, str), arguments=["sip_name", "fail_reason"]
+    )
 
-    _dossiers: List[Dossier] = None
-    _sips: List[SIP] = None
+    def __init__(self, configuration_callback: Callable, db_controller: DBController):
+        super().__init__()
+
+        self.configuration_callback = configuration_callback
+        self.db_controller = db_controller
+
+        self._dossiers: List[Dossier] = None
+        self._sips: List[SIP] = None
 
     @property
     def configuration(self) -> Configuration:
@@ -49,9 +53,12 @@ class State:
         self.db_controller.insert_sip(sip)
         self.sips.append(sip)
 
-    def update_sip(self, sip: SIP):
+    def update_sip(self, sip: SIP, fail_reason=None):
         self.db_controller.insert_series(sip.series)
         self.db_controller.update_sip(sip)
+
+        if fail_reason is not None and fail_reason != "":
+            self.sip_edepot_failed.emit(sip.name, fail_reason)
 
     def update_series(self, series: Series):
         self.db_controller.update_series(series)

@@ -17,6 +17,7 @@ from .widgets.dialog import YesNoDialog
 from .widgets.warning_dialog import WarningDialog
 
 from .controllers.file_controller import FileController
+from .controllers.api_controller import APIController
 
 from .utils.state import State
 from .utils.state_utils.dossier import Dossier
@@ -30,6 +31,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.application: Application = QtWidgets.QApplication.instance()
         self.state: State = self.application.state
+
+        self.state.sip_edepot_failed.connect(
+            lambda sip_name, reason: WarningDialog(
+                title="SIP upload gefaald",
+                text=f"SIP '{sip_name}' is geweigerd door het Edepot met volgende reden:\n\n{reason}",
+            ).exec()
+        )
 
     def setup_ui(self):
         self.resize(800, 600)
