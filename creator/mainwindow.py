@@ -9,6 +9,7 @@ from .widgets.searchable_list_widget import (
 from .widgets.dossier_widget import DossierWidget
 from .widgets.sip_widget import SIPWidget
 from .widgets.toolbar import Toolbar
+from .widgets.dialog import YesNoDialog
 
 from .controllers.file_controller import FileController
 
@@ -61,14 +62,32 @@ class MainWindow(QtWidgets.QMainWindow):
         grid_layout.addWidget(self.sip_list_view, 1, 2, 1, 2)
 
     def load_items(self):
+        removed_dossiers = []
+
         for dossier in self.application.state.dossiers:
             if dossier.disabled:
+                continue
+
+            if not os.path.exists(dossier.path):
+                removed_dossiers.append(dossier)
                 continue
 
             self.dossiers_list_view.add_item(
                 searchable_name_field="dossier_label",
                 widget=DossierWidget(dossier=dossier),
             )
+
+        if len(removed_dossiers) > 0:
+            dialog = YesNoDialog(
+                title="Verwijderde dossiers",
+                text="Een aantal dossiers lijken niet meer op hun plaats te staan.\nWilt u deze ook uit de lijst verwijderen?\n\nDeze boodschap zal anders blijven verschijnen.",
+            )
+            dialog.exec()
+
+            if dialog.result():
+                for dossier in removed_dossiers:
+                    dossier.disabled = True
+                    self.application.state.remove_dossier(dossier)
 
         for sip in self.application.state.sips:
             sip_widget = SIPWidget(sip=sip)
