@@ -9,88 +9,91 @@ class TableView(QtWidgets.QTableView):
 
         self.setSortingEnabled(True)
 
-    def copy_content(self):
-        index_range = self.selectionModel().selection().first()
-
+    def copy_content(self, indexes: list):
         # Single cell copy
-        if (
-            index_range.bottom() == index_range.top()
-            and index_range.left() == index_range.right()
-        ):
-            QtWidgets.QApplication.clipboard().setText(
-                self.model().index(index_range.top(), index_range.left()).data()
-            )
+        if len(indexes) == 1:
+            QtWidgets.QApplication.clipboard().setText(self.model().data(indexes[0]))
             return
+
+        # Dictionary with key being the row, value being a list of columns
+        rows = {}
+
+        for index in indexes:
+            rows[index.row()] = rows.get(index.row(), []) + [index.column()]
 
         copy_text = TableView.GRID_COPY_FLAG
 
-        for row in range(index_range.top(), index_range.bottom() + 1):
-            row_contents = []
-
-            for col in range(index_range.left(), index_range.right() + 1):
-                row_contents.append(self.model().index(row, col).data())
-
-            copy_text += "\t".join(row_contents)
+        for row, columns in rows.items():
+            copy_text += "\t".join(
+                [self.model().index(row, col).data() for col in columns]
+            )
             copy_text += "\n"
 
         QtWidgets.QApplication.clipboard().setText(copy_text)
 
-    def paste_content(self):
+    def paste_content(self, indexes: list):
         copy_text = QtWidgets.QApplication.clipboard().text()
 
         if copy_text == "":
             return
 
         if copy_text.startswith(TableView.GRID_COPY_FLAG):
-            self.paste_grid_content(copy_text[len(TableView.GRID_COPY_FLAG) :])
+            self.paste_grid_content(copy_text[len(TableView.GRID_COPY_FLAG) :], indexes)
         else:
-            self.paste_grid_value(copy_text)
+            self.paste_grid_value(copy_text, indexes)
 
-    def paste_grid_value(self, copy_text: str):
-        index_range = self.selectionModel().selection().first()
+    def paste_grid_value(self, copy_text: str, indexes: list):
+        for index in indexes:
+            self.model().setData(
+                index,
+                copy_text,
+                QtCore.Qt.ItemDataRole.EditRole,
+            )
 
-        for row in range(index_range.top(), index_range.bottom() + 1):
-            for col in range(index_range.left(), index_range.right() + 1):
-                self.model().setData(
-                    self.model().index(row, col),
-                    copy_text,
-                    QtCore.Qt.ItemDataRole.EditRole,
-                )
+            self.model().dataChanged.emit(index, index)
 
-        self.model().dataChanged.emit(
-            self.model().index(index_range.top(), index_range.left()),
-            self.model().index(index_range.bottom(), index_range.right()),
-        )
-
-    def paste_grid_content(self, copy_text: str):
+    def paste_grid_content(self, copy_text: str, indexes: list):
         row_contents = copy_text.split("\n")[:-1]
 
-        init_index = self.selectedIndexes()[0]
-        init_row, init_col = init_index.row(), init_index.column()
+        init_index = indexes[0]
+
+        visible_rows = [
+            r for r in range(self.model().rowCount()) if not self.isRowHidden(r)
+        ]
+
+        # Find the index of the row we have selected in our visible rows
+        for init_visible_row, r in enumerate(visible_rows):
+            if r == init_index.row():
+                break
+        else:
+            return
+
+        usable_rows = visible_rows[
+            init_visible_row : init_visible_row + len(row_contents)
+        ]
 
         # Make sure we do not paste outside the window
-        if init_row + len(row_contents) > self.model().rowCount():
+        if len(usable_rows) != len(row_contents):
             return
-        elif init_col + len(row_contents[0].split("\t")) > self.model().columnCount():
+        elif (
+            init_index.column() + len(row_contents[0].split("\t"))
+            > self.model().columnCount()
+        ):
             return
 
-        for row, row_content in enumerate(row_contents):
+        for row, row_content in zip(usable_rows, row_contents):
             col_contents = row_content.split("\t")
 
             for col, col_content in enumerate(col_contents):
+                index = self.model().index(row, init_index.column() + col)
+
                 self.model().setData(
-                    self.model().index(init_row + row, init_col + col),
+                    index,
                     col_content,
                     QtCore.Qt.ItemDataRole.EditRole,
                 )
 
-        self.model().dataChanged.emit(
-            init_index,
-            self.model().index(
-                init_row + len(row_contents),
-                init_col + len(row_contents[0].split("\t")),
-            ),
-        )
+                self.model().dataChanged.emit(index, index)
 
     def keyPressEvent(self, event):
         if not (indexes := self.selectedIndexes()):
@@ -105,11 +108,11 @@ class TableView(QtWidgets.QTableView):
 
         # COPY
         elif event.matches(QtGui.QKeySequence.Copy):
-            self.copy_content()
+            self.copy_content(indexes)
 
         # PASTE
         elif event.matches(QtGui.QKeySequence.Paste):
-            self.paste_content()
+            self.paste_content(indexes)
 
         # OVERFLOW
         else:
