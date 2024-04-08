@@ -11,6 +11,7 @@ import math
 class Color(Enum):
     RED = QtGui.QBrush(QtGui.QColor(255, 0, 0))
     YELLOW = QtGui.QBrush(QtGui.QColor(255, 255, 0))
+    GREY = QtGui.QBrush(QtGui.QColor(230, 230, 230))
 
 
 class PandasModel(QtCore.QAbstractTableModel):
@@ -77,6 +78,10 @@ class PandasModel(QtCore.QAbstractTableModel):
             if color:
                 return color.value
 
+            # Mark first 3 columns as grey, only if no other color is assigned
+            if col < 3:
+                return Color.GREY.value
+
         elif role == QtCore.Qt.ItemDataRole.ToolTipRole:
             tooltip = self.tooltips.get((data_row, col))
 
@@ -134,13 +139,17 @@ class PandasModel(QtCore.QAbstractTableModel):
 
     def flags(self, index):
         if index.column() < 3:
-            return QtCore.Qt.ItemFlag.ItemIsSelectable
+            return (
+                QtCore.Qt.ItemFlag.ItemIsSelectable | QtCore.Qt.ItemFlag.ItemIsEnabled
+            )
 
         if (
             self.colors.get((self._data.index[index.row()], index.column()))
             == Color.YELLOW
         ):
-            return QtCore.Qt.ItemFlag.ItemIsSelectable
+            return (
+                QtCore.Qt.ItemFlag.ItemIsSelectable | QtCore.Qt.ItemFlag.ItemIsEnabled
+            )
 
         return (
             QtCore.Qt.ItemFlag.ItemIsSelectable
