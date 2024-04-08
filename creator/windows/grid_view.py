@@ -125,21 +125,6 @@ class GridView(QtWidgets.QMainWindow):
 
         self.sip_widget.import_template_df = temp_df
 
-    def _set_invalid_rows(self):
-        table = self.table_view.model()
-
-        for index in table.get_invalid_name_rows().index:
-            # Column 4 is "Naam"
-            table.colors[(index, 4)] = Color.RED
-
-        for index in table.get_invalid_opening_date_rows().index:
-            # Column 8 is "Openingsdatum"
-            table.colors[(index, 8)] = Color.RED
-
-        for index in table.get_invalid_closing_date_rows().index:
-            # Column 9 is "Sluitingsdatum"
-            table.colors[(index, 9)] = Color.RED
-
     def load_table(self):
         self.table_view.setModel(
             PandasModel(
@@ -151,8 +136,6 @@ class GridView(QtWidgets.QMainWindow):
                 ),
             )
         )
-
-        self._set_invalid_rows()
 
     def fill_table(self):
         sip_folder_structure = self.sip_widget.sip.get_sip_folder_structure()
@@ -172,8 +155,6 @@ class GridView(QtWidgets.QMainWindow):
                 ),
             )
         )
-
-        self._set_invalid_rows()
 
     def create_sip_click(self):
         self.save_button_click()
