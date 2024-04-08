@@ -3,6 +3,7 @@ from enum import Enum
 
 class Tables(Enum):
     DOSSIER = "dossier"
+    SERIES = "series"
     SIP = "SIP"
     SIP_DOSSIER_LINK = "SIP_dossier_link"
 
@@ -54,6 +55,33 @@ WHERE d.path IN (
 )
 """
 
+create_series_table = f"""
+CREATE TABLE IF NOT EXISTS {Tables.SERIES.value} (
+    id text PRIMARY KEY,
+    status text NOT NULL,
+    name text NOT NULL,
+    valid_from text NOT NULL,
+    valid_to text NOT NULL
+)
+"""
+get_series_by_id = f"""
+SELECT *
+FROM {Tables.SERIES.value}
+WHERE id=?
+"""
+insert_series = f"""
+INSERT INTO {Tables.SERIES.value}(id, status, name, valid_from, valid_to)
+VALUES (?,?,?,?,?)
+"""
+update_series = f"""
+UPDATE {Tables.SERIES.value}
+SET status=?,
+    name=?,
+    valid_from=?,
+    valid_to=?
+WHERE id=?
+"""
+
 create_sip_table = f"""
 CREATE TABLE IF NOT EXISTS {Tables.SIP.value} (
     id text PRIMARY KEY,
@@ -61,7 +89,6 @@ CREATE TABLE IF NOT EXISTS {Tables.SIP.value} (
     name text NOT NULL,
     status text NOT NULL,
     series_id text NOT NULL,
-    series_name text NOT NULL,
     metadata_file_path text NOT NULL,
     mapping_dict text NOT NULL
 )
@@ -73,8 +100,8 @@ get_sip_count = f"""
 SELECT count(*) FROM {Tables.SIP.value}
 """
 insert_sip = f"""
-INSERT INTO {Tables.SIP.value}(id, environment_name, name, status, series_id, series_name, metadata_file_path, mapping_dict)
-VALUES(?,?,?,?,?,?,?,?)
+INSERT INTO {Tables.SIP.value}(id, environment_name, name, status, series_id, metadata_file_path, mapping_dict)
+VALUES(?,?,?,?,?,?,?)
 """
 update_sip = f"""
 UPDATE {Tables.SIP.value}
@@ -82,7 +109,6 @@ SET environment_name=?,
     name=?,
     status=?,
     series_id=?,
-    series_name=?,
     metadata_file_path=?,
     mapping_dict=?
 WHERE id=?

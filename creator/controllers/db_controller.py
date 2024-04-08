@@ -19,6 +19,7 @@ class DBController:
 
         with self.conn as conn:
             conn.execute(tables.create_dossier_table)
+            conn.execute(tables.create_series_table)
             conn.execute(tables.create_sip_table)
             conn.execute(tables.create_sip_dossier_link_table)
             conn.commit()
@@ -27,6 +28,7 @@ class DBController:
     def conn(self) -> sql.Connection:
         return sql.connect(self.db_location)
 
+    # Dossiers
     def read_dossiers(self) -> List[Dossier]:
         dossiers = []
 
@@ -69,13 +71,82 @@ class DBController:
 
         dossier.disabled = False
 
+    # Series
+    def find_series(self, series_id: str) -> Series:
+        with self.conn as conn:
+            cursor = conn.execute(tables.get_series_by_id, (series_id,))
+
+            for _id, status, name, valid_from, valid_to in cursor.fetchall():
+                return Series(
+                    _id=_id,
+                    name=name,
+                    status=status,
+                    valid_from=(
+                        None
+                        if valid_from == ""
+                        else Series.datetime_from_str(valid_from)
+                    ),
+                    valid_to=(
+                        None if valid_to == "" else Series.datetime_from_str(valid_to)
+                    ),
+                )
+
+    def insert_series(self, series: Series):
+        if self.find_series(series_id=series._id) is not None:
+            self.update_series(series=series)
+            return
+
+        with self.conn as conn:
+            conn.execute(
+                tables.insert_series,
+                (
+                    series._id,
+                    series.status,
+                    series.name,
+                    (
+                        ""
+                        if series.valid_from is None
+                        else Series.str_from_datetime(series.valid_from)
+                    ),
+                    (
+                        ""
+                        if series.valid_to is None
+                        else Series.str_from_datetime(series.valid_to)
+                    ),
+                ),
+            )
+            conn.commit()
+
+    def update_series(self, series: Series):
+        with self.conn as conn:
+            conn.execute(
+                tables.update_series,
+                (
+                    series.status,
+                    series.name,
+                    (
+                        ""
+                        if series.valid_from is None
+                        else Series.str_from_datetime(series.valid_from)
+                    ),
+                    (
+                        ""
+                        if series.valid_to is None
+                        else Series.str_from_datetime(series.valid_to)
+                    ),
+                    series._id,
+                ),
+            )
+            conn.commit()
+
+    # Sips
     def get_sip_count(self) -> int:
         with self.conn as conn:
             cursor = conn.execute(tables.get_sip_count)
 
             return cursor.fetchone()[0]
 
-    def read_sips(self, configuration: Configuration) -> List[SIP]:
+    def read_sips(self) -> List[SIP]:
         sips = []
 
         with self.conn as conn:
@@ -87,7 +158,6 @@ class DBController:
                 name,
                 status,
                 series_id,
-                series_name,
                 metadata_file_path,
                 mapping_dict,
             ) in cursor.fetchall():
@@ -105,7 +175,7 @@ class DBController:
                         dossiers=dossiers,
                         name=name,
                         status=SIPStatus[status],
-                        series=Series(_id=series_id, name=series_name),
+                        series=self.find_series(series_id=series_id),
                         metadata_file_path=metadata_file_path,
                         mapping=json.loads(mapping_dict),
                     )
@@ -123,7 +193,6 @@ class DBController:
                     sip.name,
                     sip.status.name,
                     sip.series._id,
-                    sip.series.name,
                     sip.metadata_file_path,
                     json.dumps(sip.mapping),
                 ),
@@ -143,7 +212,6 @@ class DBController:
                     sip.name,
                     sip.status.name,
                     sip.series._id,
-                    sip.series.name,
                     sip.metadata_file_path,
                     json.dumps(sip.mapping),
                     sip._id,

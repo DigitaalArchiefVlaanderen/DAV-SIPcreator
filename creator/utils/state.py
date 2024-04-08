@@ -9,6 +9,7 @@ from ..controllers.db_controller import DBController
 from .configuration import Configuration
 from .state_utils.dossier import Dossier
 from .state_utils.sip import SIP
+from .series import Series
 
 
 @dataclass
@@ -32,10 +33,14 @@ class State:
 
     @property
     def sips(self) -> List[SIP]:
-        return self.db_controller.read_sips(self.configuration)
+        return self.db_controller.read_sips()
 
     def add_sip(self, sip: SIP):
         self.db_controller.insert_sip(sip)
 
     def update_sip(self, sip: SIP):
+        self.db_controller.insert_series(sip.series)
         self.db_controller.update_sip(sip)
+
+    def update_series(self, series: Series):
+        self.db_controller.update_series(series)
