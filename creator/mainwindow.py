@@ -109,7 +109,8 @@ class MainWindow(QtWidgets.QMainWindow):
             if sip.status in (
                 SIPStatus.SIP_CREATED,
                 SIPStatus.UPLOADING,
-                SIPStatus.ARCHIVED,
+                SIPStatus.UPLOADED,
+                SIPStatus.ACCEPTED,
                 SIPStatus.REJECTED,
             ):
                 base_sip_path = os.path.join(
@@ -147,7 +148,13 @@ class MainWindow(QtWidgets.QMainWindow):
             if sip.status == SIPStatus.UPLOADING:
                 sip.set_status(SIPStatus.SIP_CREATED)
 
-            if sip.status in (SIPStatus.ARCHIVED, SIPStatus.SIP_CREATED):
+            if sip.status in (
+                SIPStatus.UPLOADED,
+                SIPStatus.PROCESSING,
+                SIPStatus.ACCEPTED,
+                SIPStatus.REJECTED,
+                SIPStatus.SIP_CREATED,
+            ):
                 sip_widget.open_explorer_button.setEnabled(True)
 
             result = FileController.existing_grid(

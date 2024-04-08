@@ -2,20 +2,29 @@ import enum
 
 
 class SIPStatus(enum.Enum):
-    IN_PROGRESS = "color: black;"
-    SIP_CREATED = "color: #42A362;"
+    IN_PROGRESS = "color: #000000;"
+    SIP_CREATED = "color: #010101;"
     UPLOADING = "color: #68B581;"
-    ARCHIVED = "color: grey;"
+
+    # Status coming from API
+    UPLOADED = "color: #42A362;"
+    PROCESSING = "color: #888888;"
+    ACCEPTED = "color: grey;"
     REJECTED = "color: red;"
 
     def get_status_label(self):
-        if self.name == "IN_PROGRESS":
-            return "In verwerking"
-        elif self.name == "SIP_CREATED":
-            return "Klaar voor upload"
-        elif self.name == "UPLOADING":
-            return "Bezig met upload"
-        elif self.name == "ARCHIVED":
-            return "Gearchiveerd"
-        elif self.name == "REJECTED":
-            return "Geweigerd"
+        match self.name:
+            case "IN_PROGRESS":
+                return "In verwerking"
+            case "SIP_CREATED":
+                return "Klaar voor upload"
+            case "UPLOADING":
+                return "Bezig met upload"
+            case "UPLOADED":
+                return "Klaar met upload"
+            case "PROCESSING":
+                return "Edepot verwerking"
+            case "ACCEPTED":
+                return "Gearchiveerd"
+            case "REJECTED":
+                return "Geweigerd"

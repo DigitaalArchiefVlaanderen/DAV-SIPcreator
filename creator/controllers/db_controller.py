@@ -12,7 +12,6 @@ from ..utils.series import Series
 from ..utils.configuration import Configuration
 
 
-# TODO: also move config into the db?
 class DBController:
     def __init__(self, db_location: str):
         self.db_location = db_location
@@ -23,6 +22,15 @@ class DBController:
             conn.execute(tables.create_sip_table)
             conn.execute(tables.create_sip_dossier_link_table)
             conn.commit()
+
+        # Perform the sequential table updates if needed
+        for sip_update in tables.update_sip_table:
+            with self.conn as conn:
+                try:
+                    conn.execute(sip_update)
+                    conn.commit()
+                except sql.Error:
+                    conn.rollback()
 
     @property
     def conn(self) -> sql.Connection:
@@ -161,6 +169,7 @@ class DBController:
                 metadata_file_path,
                 tag_mapping_dict,
                 folder_mapping_list,
+                edepot_sip_id,
             ) in cursor.fetchall():
                 c = conn.execute(tables.get_dossiers_by_sip_id, (_id,))
 
@@ -180,6 +189,7 @@ class DBController:
                         metadata_file_path=metadata_file_path,
                         tag_mapping=json.loads(tag_mapping_dict),
                         folder_mapping=json.loads(folder_mapping_list),
+                        edepot_sip_id=edepot_sip_id,
                     )
                 )
 
@@ -198,6 +208,7 @@ class DBController:
                     sip.metadata_file_path,
                     json.dumps(sip.tag_mapping),
                     json.dumps(sip.folder_mapping),
+                    sip.edepot_sip_id,
                 ),
             )
 
@@ -218,6 +229,7 @@ class DBController:
                     sip.metadata_file_path,
                     json.dumps(sip.tag_mapping),
                     json.dumps(sip.folder_mapping),
+                    sip.edepot_sip_id,
                     sip._id,
                 ),
             )

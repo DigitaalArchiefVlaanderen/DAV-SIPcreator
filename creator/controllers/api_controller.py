@@ -4,8 +4,15 @@ import json
 import requests
 
 from ..utils.series import Series
+from ..utils.state_utils.sip import SIP
+from ..utils.sip_status import SIPStatus
+from ..utils.configuration import Environment
 
 from ..widgets.warning_dialog import WarningDialog
+
+
+class APIException(Exception):
+    pass
 
 
 class APIController:
@@ -17,40 +24,45 @@ class APIController:
         data: dict = None,
         params: dict = None,
         timeout=10,
-        reraise=False,
+        reraise=True,
+        warn=True,
     ) -> dict:
         try:
             response = request_type(
                 url, headers=headers, data=data, params=params, timeout=timeout
             )
             response.raise_for_status()
-        except requests.exceptions.Timeout as exc:
-            WarningDialog(
-                title="Timeout",
-                text="De API request duurde te lang, probeer later opnieuw.",
-            ).exec()
+        except requests.exceptions.Timeout:
+            if warn:
+                WarningDialog(
+                    title="Timeout",
+                    text="De API request duurde te lang, probeer later opnieuw.",
+                ).exec()
 
             if reraise:
-                raise exc
-        except requests.exceptions.HTTPError as exc:
-            WarningDialog(
-                title="HTTPError",
-                text="Onbekende HTTPError bij het ophalen van API data.\nCredentials zijn mogelijks fout.",
-            ).exec()
+                raise APIException("Timeout")
+        except requests.exceptions.HTTPError:
+            if warn:
+                WarningDialog(
+                    title="HTTPError",
+                    text="Onbekende HTTPError bij het ophalen van API data.\nCredentials zijn mogelijks fout.",
+                ).exec()
 
             if reraise:
-                raise exc
-        except requests.exceptions.RequestException as exc:
-            WarningDialog(
-                title="Fout",
-                text="Onbekende fout bij het ophalen van API data.\nDe API url is mogelijks fout.",
-            ).exec()
+                raise APIException("HTTPError")
+        except requests.exceptions.RequestException:
+            if warn:
+                WarningDialog(
+                    title="Fout",
+                    text="Onbekende fout bij het ophalen van API data.\nDe API url is mogelijks fout.",
+                ).exec()
 
             if reraise:
-                raise exc
+                raise APIException("Request fout")
 
         return response
 
+    # TODO: do this manually everywhere, cus we want to decide which environment to use before we do the call
     @staticmethod
     def _get_connection_details(configuration: dict):
         environment = [
@@ -59,8 +71,9 @@ class APIController:
 
         return configuration[environment]["API"]
 
+    # TODO: depricate this
     @staticmethod
-    def _get_access_token(connection_details: dict, reraise=False) -> str:
+    def _get_access_token_old(connection_details: dict, reraise=True) -> str:
         base_url = connection_details["url"]
         endpoint = "auth/ropc.php"
 
@@ -85,6 +98,32 @@ class APIController:
         return response.json()["access_token"]
 
     @staticmethod
+    def _get_access_token(environment: Environment, reraise=True, warn=True) -> str:
+        base_url = environment.api_url
+        endpoint = "auth/ropc.php"
+
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        data = {
+            "grant_type": "password",
+            "username": environment.api_username,
+            "password": environment.api_password,
+            "scope": "read:sample",
+            "client_id": environment.api_client_id,
+            "client_secret": environment.api_client_secret,
+        }
+
+        response = APIController._perform_request(
+            request_type=requests.post,
+            url=f"{base_url}/{endpoint}",
+            headers=headers,
+            data=data,
+            reraise=reraise,
+            warn=warn,
+        )
+
+        return response.json()["access_token"]
+
+    @staticmethod
     def _get_user_group_id(access_token, connection_details: dict) -> str:
         base_url = connection_details["url"]
         endpoint = "edepot/api/v1/users/current"
@@ -98,6 +137,7 @@ class APIController:
             request_type=requests.get,
             url=f"{base_url}/{endpoint}",
             headers=headers,
+            reraise=True,
         ).json()
 
         for group in response["Groups"]:
@@ -108,12 +148,9 @@ class APIController:
     def get_series(configuration: dict, search: str = None) -> list:
         connection_details = APIController._get_connection_details(configuration)
 
-        try:
-            access_token = APIController._get_access_token(
-                connection_details, reraise=True
-            )
-        except Exception:
-            return []
+        access_token = APIController._get_access_token_old(
+            connection_details, reraise=True
+        )
 
         user_group_id = APIController._get_user_group_id(
             access_token, connection_details
@@ -145,6 +182,7 @@ class APIController:
                 url=f"{base_url}/{endpoint}",
                 headers=headers,
                 params=params,
+                reraise=True,
             ).json()
 
             series += Series.from_list(response["Content"])
@@ -160,7 +198,9 @@ class APIController:
     def get_import_template(configuration: dict, series_id: str) -> str:
         connection_details = APIController._get_connection_details(configuration)
 
-        access_token = APIController._get_access_token(connection_details)
+        access_token = APIController._get_access_token_old(
+            connection_details, reraise=True
+        )
 
         base_url = connection_details["url"]
         endpoint = "edepot/api/v1/sips/metadata-template"
@@ -179,6 +219,7 @@ class APIController:
             url=f"{base_url}/{endpoint}",
             headers=headers,
             data=json.dumps(data),
+            reraise=True,
         )
 
         storage_location = configuration["misc"]["SIP Creator opslag locatie"]
@@ -192,3 +233,77 @@ class APIController:
             f.write(response.content)
 
             return file_location
+
+    @staticmethod
+    def get_sip_id(sip: SIP) -> str:
+        environment = sip.environment
+        access_token = APIController._get_access_token(
+            environment, reraise=True, warn=False
+        )
+
+        base_url = environment.api_url
+        endpoint = "edepot/api/v1/sips"
+
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
+
+        params = {
+            "size": 100,
+            "page": 0,
+        }
+
+        while True:
+            response = APIController._perform_request(
+                request_type=requests.get,
+                url=f"{base_url}/{endpoint}",
+                headers=headers,
+                params=params,
+                reraise=True,
+                warn=False,
+            ).json()
+
+            sip_objects = response["Content"]
+
+            for sip_object in sip_objects:
+                if sip_object["OriginalFilename"] == sip.file_name:
+                    return sip_object["Id"]
+
+            if (response["Page"] + 1) * 100 > response["Total"]:
+                break
+
+            params["page"] = params["page"] + 1
+
+    @staticmethod
+    def get_sip_status(sip: SIP) -> SIPStatus:
+        environment = sip.environment
+        access_token = APIController._get_access_token(
+            environment, reraise=True, warn=False
+        )
+
+        base_url = environment.api_url
+        endpoint = f"edepot/api/v1/sips/{sip.edepot_sip_id}"
+
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
+
+        response = APIController._perform_request(
+            request_type=requests.get,
+            url=f"{base_url}/{endpoint}",
+            headers=headers,
+            reraise=True,
+            warn=False,
+        ).json()
+
+        match response["SipStatus"]:
+            case "Uploaded":
+                return SIPStatus.UPLOADED
+            case "Processing":
+                return SIPStatus.PROCESSING
+            case "Accepted":
+                return SIPStatus.ACCEPTED
+            case "Rejected":
+                return SIPStatus.REJECTED

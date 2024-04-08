@@ -199,70 +199,6 @@ class SIPWidget(QtWidgets.QFrame):
         self.sip.set_status(SIPStatus.UPLOADING)
         t.start()
 
-    def get_sip_folder_structure(self) -> dict:
-        def _get_dossier_folder_structure(base_path: str, dossier_path: str) -> dict:
-            structure = {}
-
-            for location in os.listdir(dossier_path):
-                location_path = os.path.join(dossier_path, location)
-
-                if os.path.isfile(location_path):
-                    structure[location] = os.path.relpath(
-                        location_path,
-                        base_path,
-                    ).replace("\\", "/")
-                else:
-                    structure = {
-                        **structure,
-                        **_get_dossier_folder_structure(base_path, location_path),
-                    }
-
-            return structure
-
-        sip_structure = {}
-
-        for dossier in self.dossiers:
-            sip_structure = {
-                **sip_structure,
-                dossier.dossier_label: {
-                    "Path in SIP": dossier.dossier_label,
-                    "path": dossier.dossier_path,
-                    "Type": "dossier",
-                    "DossierRef": dossier.dossier_label,
-                    # To be determined based on the files for this dossier
-                    "Openingsdatum": None,
-                    "Sluitingsdatum": None,
-                },
-                **{
-                    file_name: {
-                        "Path in SIP": f"{dossier.dossier_label}/{location}",
-                        "path": os.path.join(dossier.dossier_path, location),
-                        "Type": "stuk",
-                        "DossierRef": dossier.dossier_label,
-                        # There is no cross-platform way of doing this sadly
-                        # nt is Windows
-                        "Openingsdatum": (
-                            os.path.getctime(
-                                os.path.join(dossier.dossier_path, location)
-                            )
-                            if os.name == "nt"
-                            else os.stat(
-                                os.path.join(dossier.dossier_path, location)
-                            ).st_birthtime
-                        ),
-                        # This works as a cross-platform way of getting modification time
-                        "Sluitingsdatum": os.path.getmtime(
-                            os.path.join(dossier.dossier_path, location)
-                        ),
-                    }
-                    for file_name, location in _get_dossier_folder_structure(
-                        dossier.dossier_path, dossier.dossier_path
-                    ).items()
-                },
-            }
-
-        return sip_structure
-
     # Handlers
     def _update_status(self, status: SIPStatus) -> None:
         self.sip_status_label.setText(status.get_status_label())
@@ -278,7 +214,8 @@ class SIPWidget(QtWidgets.QFrame):
             self.open_explorer_button.setEnabled(True)
         elif status in (
             SIPStatus.UPLOADING,
-            SIPStatus.ARCHIVED,
+            SIPStatus.UPLOADED,
+            SIPStatus.ACCEPTED,
             SIPStatus.REJECTED,
         ):
             self.open_button.setEnabled(False)
@@ -303,4 +240,5 @@ class SIPWidget(QtWidgets.QFrame):
             with open(sidecar_location, "rb") as f:
                 session.storbinary(f"STOR {self.sip.sidecar_file_name}", f)
 
-        self.sip.set_status(SIPStatus.ARCHIVED)
+        # NOTE: this status will periodically get checked through the API, setting it to UPLOADED allows it to be picked up to be checked
+        self.sip.set_status(SIPStatus.UPLOADED)

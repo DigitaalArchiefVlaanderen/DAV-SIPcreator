@@ -159,7 +159,11 @@ class PandasModel(QtCore.QAbstractTableModel):
         return self._data
 
     def get_bad_rows(self) -> set:
-        return set(row for (row, _), color in self.colors.items() if color == Color.RED)
+        return set(
+            row
+            for (row, _), color in self.colors.items()
+            if color in (Color.RED, Color.YELLOW)
+        )
 
     def is_data_valid(self):
         # NOTE: we are using the colors dict to see if anything is marked invalid
@@ -167,44 +171,41 @@ class PandasModel(QtCore.QAbstractTableModel):
 
     # Utils
     def _check_empty_rows(self) -> None:
-        for row in range(self.rowCount()):
-            path_in_sip = self._data.loc[row, "Path in SIP"]
+        # Mark rows with "Type" == "geen" as empty
+        empty_rows = self._data.loc[self._data["Type"] == "geen"]
+
+        for row, row_values in empty_rows.iterrows():
+            path_in_sip = row_values["Path in SIP"]
             real_path = [
                 p["path"]
                 for p in self.sip_folder_structure.values()
                 if p["Path in SIP"] == path_in_sip
             ][0]
 
-            is_dossier = self._data.loc[row, "Type"] == "dossier"
+            is_dossier = not "/" in path_in_sip
 
-            if is_dossier and len(os.listdir(real_path)) == 0:
+            if is_dossier:
                 self._mark_warning_row(
-                    row,
-                    tooltip="Lege dossiers worden niet meegenomen wanneer we een SIP maken",
+                    row, tooltip="Lege dossiers worden niet meegenomen in de SIP"
                 )
                 continue
 
-            if (
-                not is_dossier
-                and os.path.isfile(real_path)
-                and os.path.getsize(real_path) == 0
-            ):
+            if os.path.isdir(real_path):
                 self._mark_warning_row(
-                    row,
-                    tooltip="Lege bestanden worden niet meegenomen wanneer we een SIP maken",
+                    row, tooltip="Lege folders worden niet meegenomen in de SIP"
                 )
                 continue
 
-            if (
-                not is_dossier
-                and os.path.isdir(real_path)
-                and len(os.listdir(real_path)) == 0
-            ):
+            if os.path.isfile(real_path):
                 self._mark_warning_row(
-                    row,
-                    tooltip="Lege folders worden niet meegenomen wanneer we een SIP maken",
+                    row, tooltip="Lege stukken worden niet meegenomen in de SIP"
                 )
                 continue
+
+            self._mark_warning_row(
+                row,
+                tooltip="Onbekend probleem met rij, deze wordt niet meegenomen in de SIP",
+            )
 
     def _trigger_fill_data(self) -> None:
         for r in range(self.rowCount()):

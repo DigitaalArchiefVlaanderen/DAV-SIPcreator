@@ -6,7 +6,7 @@ import numpy as np
 from typing import List
 
 from ..application import Application
-from ..controllers.api_controller import APIController
+from ..controllers.api_controller import APIController, APIException
 from ..utils.sip_status import SIPStatus
 from ..utils.series import Series
 from ..widgets.mapping_widget import TagMappingWidget
@@ -72,7 +72,10 @@ class SIPView(QtWidgets.QMainWindow):
         # Text will be set dynamically later
         self.series_amount_label = QtWidgets.QLabel()
 
-        self.listed_series = APIController.get_series(configuration)
+        try:
+            self.listed_series = APIController.get_series(configuration)
+        except APIException:
+            self.listed_series = []
 
         # We had no series to show
         if len(self.listed_series) == 0:
@@ -178,10 +181,13 @@ class SIPView(QtWidgets.QMainWindow):
         except IndexError:
             return
 
-        self.import_template_location = APIController.get_import_template(
-            self.toolbar.configuration_view.get_configuration(),
-            series_id=series._id,
-        )
+        try:
+            self.import_template_location = APIController.get_import_template(
+                self.toolbar.configuration_view.get_configuration(),
+                series_id=series._id,
+            )
+        except APIException:
+            return
 
         self.sip_widget.import_template_df = pd.read_excel(
             self.import_template_location, engine="openpyxl", dtype=str
