@@ -30,6 +30,8 @@ class PandasModel(QtCore.QAbstractTableModel):
         self.colors = dict()
         self.tooltips = dict()
 
+        self.filter_name_column = False
+
         # Warning rows
         self._check_empty_rows()
 
@@ -54,7 +56,14 @@ class PandasModel(QtCore.QAbstractTableModel):
         ):
             value = self._data.iloc[index.row(), index.column()]
 
-            return str(value)
+            # If the filter is active, and we are on the name column, filter the name
+            if (
+                self.filter_name_column
+                and self._data.columns.get_loc("Naam") == index.column()
+            ):
+                value, *_ = value.rsplit(".", 1)
+
+            return value
 
         elif role == QtCore.Qt.ItemDataRole.BackgroundRole:
             color = self.colors.get((self._data.index[index.row()], index.column()))
@@ -442,3 +451,15 @@ class PandasModel(QtCore.QAbstractTableModel):
             )
 
         return True
+
+    # Filters
+    def _filter_name_column(self, active: bool) -> None:
+        # We just set the value here, the filtering happens when showing data
+        self.filter_name_column = active
+
+        name_column = self._data.columns.get_loc("Naam")
+
+        self.dataChanged.emit(
+            self.index(0, name_column),
+            self.index(self.rowCount(), name_column),
+        )

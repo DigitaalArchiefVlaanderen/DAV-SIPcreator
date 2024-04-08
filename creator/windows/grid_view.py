@@ -38,17 +38,27 @@ class GridView(QtWidgets.QMainWindow):
         series_label = QtWidgets.QLabel(text=self.sip_widget.sip.series.get_name())
         grid_layout.addWidget(series_label, 0, 0, 1, 2)
 
+        name_extension_radio = QtWidgets.QRadioButton(
+            text="Verwijder file-extensie uit 'Naam' kolom"
+        )
+        name_extension_radio.setChecked(False)
+        grid_layout.addWidget(name_extension_radio, 1, 0)
+
         self.table_view = TableView()
-        grid_layout.addWidget(self.table_view, 1, 0, 1, 2)
+        grid_layout.addWidget(self.table_view, 2, 0, 1, 2)
+
+        name_extension_radio.toggled.connect(
+            lambda checked: self.table_view.model()._filter_name_column(active=checked)
+        )
 
         save_button = QtWidgets.QPushButton(text="Opslaan")
         save_button.clicked.connect(self.save_button_click)
-        grid_layout.addWidget(save_button, 2, 0)
+        grid_layout.addWidget(save_button, 3, 0)
 
         self.create_sip_button = QtWidgets.QPushButton(text="Maak SIP")
         self.create_sip_button.clicked.connect(self.create_sip_click)
         self.create_sip_button.setEnabled(False)
-        grid_layout.addWidget(self.create_sip_button, 2, 1)
+        grid_layout.addWidget(self.create_sip_button, 3, 1)
 
     def _fill_from_files(self, sip_folder_structure: dict):
         df = pd.DataFrame(columns=self.sip_widget.import_template_df.columns)
@@ -193,13 +203,19 @@ class GridView(QtWidgets.QMainWindow):
         self.close()
 
     def save_button_click(self, filter_save=False):
+        # Filter_save means we are applying all the filters to the actual save
         try:
             df = self.table_view.model().get_data()
 
             if filter_save:
+                # Bad rows filter
                 df = df.loc[df["Type"] != "geen"]
                 df.sort_values(df.columns[0], ascending=True)
                 df.reset_index(drop=True, inplace=True)
+
+                # Naam column filter
+                if self.table_view.model().filter_name_column:
+                    df["Naam"] = df["Naam"].map(lambda n: n.rsplit(".", 1)[0])
 
             FileController.save_grid(
                 configuration=self.application.state.configuration,
