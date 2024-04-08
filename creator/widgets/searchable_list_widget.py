@@ -1,5 +1,7 @@
 from PySide6 import QtWidgets, QtCore
 
+from ..application import Application
+
 from .dialog import Dialog
 
 
@@ -7,7 +9,7 @@ class SearchableListWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
-        self.application = QtWidgets.QApplication.instance()
+        self.application: Application = QtWidgets.QApplication.instance()
 
         grid_layout = QtWidgets.QGridLayout()
         grid_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
@@ -79,7 +81,13 @@ class SearchableListWidget(QtWidgets.QWidget):
             pass
 
         self.widgets.remove(widget)
-        self.count_label.setText(str(len(self.widgets)))
+
+        # On closing of the application this raises a runtime error
+        # NOTE: not safe to just catch runtime errors like this
+        try:
+            self.count_label.setText(str(len(self.widgets)))
+        except RuntimeError:
+            pass
 
     def add_item(self, searchable_name_field: str, widget: QtWidgets.QWidget) -> bool:
         # We want stuff to be unique, but will just overwrite if it isn't
@@ -97,7 +105,7 @@ class SearchableListWidget(QtWidgets.QWidget):
             }
         )
         self.list_layout.addWidget(widget)
-        widget.destroyed.connect(lambda _: self.remove_widget_by_value(value))
+        widget.destroyed.connect(lambda: self.remove_widget_by_value(value))
         self.reload_widgets()
         self.count_label.setText(str(len(self.widgets)))
 

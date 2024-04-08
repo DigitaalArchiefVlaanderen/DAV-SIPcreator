@@ -5,7 +5,7 @@ import numpy as np
 from datetime import datetime
 import os
 
-
+from ..application import Application
 from ..controllers.file_controller import FileController
 from ..utils.sip_status import SIPStatus
 from ..utils.pandasmodel import PandasModel, Color
@@ -20,7 +20,7 @@ class GridView(QtWidgets.QMainWindow):
 
         self.sip_widget = sip_widget
 
-        self.application = QtWidgets.QApplication.instance()
+        self.application: Application = QtWidgets.QApplication.instance()
 
     def setup_ui(self):
         self.resize(800, 600)

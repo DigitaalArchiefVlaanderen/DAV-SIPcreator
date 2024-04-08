@@ -30,7 +30,7 @@ WHERE path=?
 """
 enable_dossier = f"""
 UPDATE {Tables.DOSSIER.value}
-SET disabled=true
+SET disabled=false
 WHERE path=?
 """
 

@@ -1,6 +1,7 @@
 from PySide6 import QtWidgets, QtGui, QtCore
 import pandas as pd
 
+from ..application import Application
 from ..controllers.api_controller import APIController
 from ..utils.sip_status import SIPStatus
 from ..utils.series import Series
@@ -14,7 +15,7 @@ class SIPView(QtWidgets.QMainWindow):
     def __init__(self, sip_widget):
         super().__init__()
 
-        self.application = QtWidgets.QApplication.instance()
+        self.application: Application = QtWidgets.QApplication.instance()
         self.sip_widget = sip_widget
 
         self.listed_series = []

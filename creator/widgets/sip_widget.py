@@ -6,6 +6,7 @@ import os
 import ftplib
 import uuid
 
+from ..application import Application
 from ..utils.state_utils.sip import SIP
 from ..utils.sip_status import SIPStatus
 from ..utils.series import Series
@@ -18,7 +19,7 @@ class SIPWidget(QtWidgets.QFrame):
     def __init__(self, sip: SIP):
         super().__init__()
 
-        self.application = QtWidgets.QApplication.instance()
+        self.application: Application = QtWidgets.QApplication.instance()
         self.sip = sip
         self.sip_id = sip._id
 

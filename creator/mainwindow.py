@@ -3,6 +3,8 @@ from PySide6 import QtWidgets, QtGui
 import os
 import json
 
+from .application import Application
+
 from .widgets.searchable_list_widget import (
     SearchableListWidget,
     SearchableSelectionListView,
@@ -24,7 +26,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.application = QtWidgets.QApplication.instance()
+        self.application: Application = QtWidgets.QApplication.instance()
 
     def setup_ui(self):
         self.resize(800, 600)
