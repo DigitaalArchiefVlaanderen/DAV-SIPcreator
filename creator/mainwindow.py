@@ -125,3 +125,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # Open the SIP
             sip_widget.open_button_clicked()
+
+    def closeEvent(self, event):
+        # If the main window dies, kill the whole application
+        event.accept()
+        self.application.quit()
