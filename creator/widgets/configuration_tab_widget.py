@@ -77,7 +77,7 @@ class MiscConfigurationTab(QtWidgets.QWidget):
         value = tab_info[key]
         label = QtWidgets.QLabel(text=key)
         self.location_label = QtWidgets.QLabel(text=value)
-        change_location_button = QtWidgets.QPushButton(text="Pas aan")
+        change_location_button = QtWidgets.QPushButton(text="Selecteer opslag locatie")
         change_location_button.clicked.connect(self.change_location_clicked)
         self.tab_links[key] = self.location_label
 

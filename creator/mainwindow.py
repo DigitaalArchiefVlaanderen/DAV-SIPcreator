@@ -42,7 +42,7 @@ class MainWindow(QtWidgets.QMainWindow):
         grid_layout.addWidget(self.dossiers_list_view, 1, 0)
 
         # SIPS
-        create_sip_button = QtWidgets.QPushButton(text="Maak SIP")
+        create_sip_button = QtWidgets.QPushButton(text="Start SIP")
         create_sip_button.clicked.connect(self.create_sip_clicked)
         self.sip_list_view = SearchableListWidget()
 
