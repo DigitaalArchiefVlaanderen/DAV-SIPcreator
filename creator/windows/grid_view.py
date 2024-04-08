@@ -11,6 +11,7 @@ from ..utils.sip_status import SIPStatus
 from ..utils.pandasmodel import PandasModel, Color
 from ..widgets.toolbar import Toolbar
 from ..widgets.warning_dialog import WarningDialog
+from ..widgets.dialog import Dialog
 from ..widgets.tableview_widget import TableView
 
 
@@ -194,11 +195,20 @@ class GridView(QtWidgets.QMainWindow):
                 df=self.table_view.model().get_data(),
                 sip_widget=self.sip_widget,
             )
+
+            Dialog(
+                title="Opgeslagen", text="De metadata is succesvol opgeslagen."
+            ).exec()
         except PermissionError:
             WarningDialog(
                 title="Ongeldige rechten",
                 text="Ongeldige rechten om het bestand op te slaan, zorg er zeker voor dat je de excel niet open hebt staan en probeer opnieuw.",
-            )
+            ).exec()
+        except Exception:
+            WarningDialog(
+                title="Ongekende fout",
+                text="Ongekende fout is opgetreden tijdens het opslaan.",
+            ).exec()
 
     def closeEvent(self, event):
         if (

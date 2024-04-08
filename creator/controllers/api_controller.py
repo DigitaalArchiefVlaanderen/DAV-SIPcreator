@@ -17,26 +17,37 @@ class APIController:
         data: dict = None,
         params: dict = None,
         timeout=10,
+        reraise=False,
     ) -> dict:
         try:
             response = request_type(
-                url, headers=headers, data=data, params=params, timeout=5
+                url, headers=headers, data=data, params=params, timeout=timeout
             )
             response.raise_for_status()
-        except requests.exceptions.Timeout:
+        except requests.exceptions.Timeout as exc:
             WarningDialog(
                 title="Timeout",
-                text="De API request duurde te lang, probeer later opnieuw",
+                text="De API request duurde te lang, probeer later opnieuw.",
             ).exec()
-        except requests.exceptions.HTTPError:
+
+            if reraise:
+                raise exc
+        except requests.exceptions.HTTPError as exc:
             WarningDialog(
                 title="HTTPError",
-                text="Onbekende HTTPError bij het ophalen van API data",
+                text="Onbekende HTTPError bij het ophalen van API data.\nCredentials zijn mogelijks fout.",
             ).exec()
-        except requests.exceptions.RequestException:
+
+            if reraise:
+                raise exc
+        except requests.exceptions.RequestException as exc:
             WarningDialog(
-                title="Fout", text="Onbekende fout bij het ophalen van API data"
+                title="Fout",
+                text="Onbekende fout bij het ophalen van API data.\nDe API url is mogelijks fout.",
             ).exec()
+
+            if reraise:
+                raise exc
 
         return response
 
@@ -49,7 +60,7 @@ class APIController:
         return configuration[environment]["API"]
 
     @staticmethod
-    def _get_access_token(connection_details: dict) -> str:
+    def _get_access_token(connection_details: dict, reraise=False) -> str:
         base_url = connection_details["url"]
         endpoint = "auth/ropc.php"
 
@@ -68,6 +79,7 @@ class APIController:
             url=f"{base_url}/{endpoint}",
             headers=headers,
             data=data,
+            reraise=reraise,
         )
 
         return response.json()["access_token"]
@@ -96,7 +108,13 @@ class APIController:
     def get_series(configuration: dict, search: str = None) -> list:
         connection_details = APIController._get_connection_details(configuration)
 
-        access_token = APIController._get_access_token(connection_details)
+        try:
+            access_token = APIController._get_access_token(
+                connection_details, reraise=True
+            )
+        except Exception:
+            return []
+
         user_group_id = APIController._get_user_group_id(
             access_token, connection_details
         )

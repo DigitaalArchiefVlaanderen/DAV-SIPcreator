@@ -63,6 +63,11 @@ class SIPView(QtWidgets.QMainWindow):
         self.series_amount_label = QtWidgets.QLabel()
 
         self.listed_series = APIController.get_series(configuration)
+
+        # We had no series to show
+        if len(self.listed_series) == 0:
+            self.deleteLater()
+
         self.set_series_combobox_items(status="Published")
 
         published_radiobutton = QtWidgets.QRadioButton(text="Published")

@@ -5,6 +5,7 @@ import shutil
 import os
 import ftplib
 import uuid
+import socket
 
 from ..application import Application
 from ..utils.state_utils.sip import SIP
@@ -152,17 +153,34 @@ class SIPWidget(QtWidgets.QFrame):
         with open(sidecar_location, "w", encoding="utf-8") as f:
             f.write(side_car_info)
 
-        with ftplib.FTP_TLS(
-            self.sip.environment.ftps_url,
-            self.sip.environment.ftps_username,
-            self.sip.environment.ftps_password,
-        ) as session:
-            session.prot_p()
+        try:
+            with ftplib.FTP_TLS(
+                self.sip.environment.ftps_url,
+                self.sip.environment.ftps_username,
+                self.sip.environment.ftps_password,
+            ) as session:
+                session.prot_p()
 
-            with open(sip_location, "rb") as f:
-                session.storbinary(f"STOR {self.sip.series._id}-{self.sip.name}.zip", f)
-            with open(sidecar_location, "rb") as f:
-                session.storbinary(f"STOR {self.sip.series._id}-{self.sip.name}.xml", f)
+                with open(sip_location, "rb") as f:
+                    session.storbinary(
+                        f"STOR {self.sip.series._id}-{self.sip.name}.zip", f
+                    )
+                with open(sidecar_location, "rb") as f:
+                    session.storbinary(
+                        f"STOR {self.sip.series._id}-{self.sip.name}.xml", f
+                    )
+        except ftplib.error_perm:
+            WarningDialog(
+                title="Connectie fout",
+                text=f"Je FTPS connectie login gegevens staan niet in orde voor omgeving '{self.sip.environment.name}'",
+            ).exec()
+            return
+        except socket.gaierror:
+            WarningDialog(
+                title="Connectie fout",
+                text=f"Je FTPS connectie url staat niet in orde voor omgeving '{self.sip.environment.name}'",
+            ).exec()
+            return
 
         self.sip.sip_status = SIPStatus.ARCHIVED
         self.application.state.update_sip(self.sip)
