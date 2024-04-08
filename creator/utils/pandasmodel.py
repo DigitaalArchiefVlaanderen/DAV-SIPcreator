@@ -241,7 +241,6 @@ class PandasModel(QtCore.QAbstractTableModel):
         self, value: str, row: int, col: int, is_stuk: bool, re_evaluation=False
     ) -> bool:
         # Return True if cell was ok, otherwise return False
-
         data_row = self._data.iloc[[row]]
 
         opening_date = data_row["Openingsdatum"].to_list()[0]
@@ -330,7 +329,7 @@ class PandasModel(QtCore.QAbstractTableModel):
         if not re_evaluation:
             if col == opening_col:
                 self._date_data_check(
-                    value=value,
+                    value=closing_date,
                     row=row,
                     col=closing_col,
                     is_stuk=is_stuk,
@@ -338,7 +337,7 @@ class PandasModel(QtCore.QAbstractTableModel):
                 )
             elif col == closing_col:
                 self._date_data_check(
-                    value=value,
+                    value=opening_date,
                     row=row,
                     col=opening_col,
                     is_stuk=is_stuk,
@@ -358,6 +357,8 @@ class PandasModel(QtCore.QAbstractTableModel):
             dossier_opening = dossier["Openingsdatum"].to_list()[0]
             dossier_closing = dossier["Sluitingsdatum"].to_list()[0]
 
+            self._update_dossier_date_range(dossier_ref=dossier_ref, column=col)
+
             self._date_data_check(
                 value=dossier_opening,
                 row=dossier_row,
@@ -372,11 +373,5 @@ class PandasModel(QtCore.QAbstractTableModel):
                 is_stuk=False,
                 re_evaluation=True,
             )
-
-        # Make sure we update the values again where needed
-        if re_evaluation and is_stuk:
-            dossier_ref = data_row["DossierRef"].to_list()[0]
-
-            self._update_dossier_date_range(dossier_ref=dossier_ref, column=col)
 
         return True
