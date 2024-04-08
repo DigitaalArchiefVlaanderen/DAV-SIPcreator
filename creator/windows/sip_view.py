@@ -1,6 +1,8 @@
 from PySide6 import QtWidgets, QtGui, QtCore
 import pandas as pd
 
+from typing import List
+
 from ..application import Application
 from ..controllers.api_controller import APIController
 from ..utils.sip_status import SIPStatus
@@ -18,7 +20,7 @@ class SIPView(QtWidgets.QMainWindow):
         self.application: Application = QtWidgets.QApplication.instance()
         self.sip_widget = sip_widget
 
-        self.listed_series = []
+        self.listed_series: List[Series] = []
 
     def setup_ui(self):
         self.setWindowTitle("SIP")
@@ -135,7 +137,13 @@ class SIPView(QtWidgets.QMainWindow):
             self.tag_mapping_widget.add_to_metadata(self.sip_widget.metadata_df.columns)
 
     def import_template_clicked(self):
-        series = self.listed_series[self.series_combobox.currentIndex()]
+        series_label = self.series_combobox.currentText()
+
+        # Only select series if given text matches an existing series
+        try:
+            series = [s for s in self.listed_series if s.get_name() == series_label][0]
+        except IndexError:
+            return
 
         self.import_template_location = APIController.get_import_template(
             self.toolbar.configuration_view.get_configuration(),
