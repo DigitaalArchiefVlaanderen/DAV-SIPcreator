@@ -28,7 +28,6 @@ class SIPWidget(QtWidgets.QFrame):
 
         self.application: Application = QtWidgets.QApplication.instance()
         self.state: State = self.application.state
-        self.configuration: Configuration = self.state.configuration
 
         self.sip = sip
         self.sip_id = sip._id
@@ -102,8 +101,20 @@ class SIPWidget(QtWidgets.QFrame):
         self.upload_button.clicked.connect(self.upload_button_clicked)
         self.upload_button.setEnabled(False)
 
+        self.open_explorer_button = QtWidgets.QPushButton(text="Bestandslocatie")
+        self.open_explorer_button.clicked.connect(
+            lambda: os.startfile(
+                os.path.join(
+                    self.state.configuration.misc.save_location,
+                    FileController.SIP_STORAGE,
+                )
+            )
+        )
+        self.open_explorer_button.setEnabled(False)
+
         controls_layout.addWidget(self.open_button)
         controls_layout.addWidget(self.upload_button)
+        controls_layout.addWidget(self.open_explorer_button)
 
         # Layout
         layout.addWidget(sip_info_widget)
@@ -143,12 +154,12 @@ class SIPWidget(QtWidgets.QFrame):
             return
 
         sip_location = os.path.join(
-            self.configuration.misc.save_location,
+            self.state.configuration.misc.save_location,
             FileController.SIP_STORAGE,
             self.sip.file_name,
         )
         sidecar_location = os.path.join(
-            self.configuration.misc.save_location,
+            self.state.configuration.misc.save_location,
             FileController.SIP_STORAGE,
             self.sip.sidecar_file_name,
         )
@@ -260,9 +271,11 @@ class SIPWidget(QtWidgets.QFrame):
         if status == SIPStatus.IN_PROGRESS:
             self.open_button.setEnabled(True)
             self.upload_button.setEnabled(False)
+            self.open_explorer_button.setEnabled(False)
         elif status == SIPStatus.SIP_CREATED:
             self.open_button.setEnabled(False)
             self.upload_button.setEnabled(True)
+            self.open_explorer_button.setEnabled(True)
         elif status in (
             SIPStatus.UPLOADING,
             SIPStatus.ARCHIVED,
@@ -270,6 +283,7 @@ class SIPWidget(QtWidgets.QFrame):
         ):
             self.open_button.setEnabled(False)
             self.upload_button.setEnabled(False)
+            self.open_explorer_button.setEnabled(True)
 
     def _update_name(self, name: str) -> None:
         # The updating of the status is handled separately
