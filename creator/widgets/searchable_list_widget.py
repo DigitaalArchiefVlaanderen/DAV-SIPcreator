@@ -18,10 +18,10 @@ class SearchableListWidget(QtWidgets.QWidget):
 
         self.searchbox = QtWidgets.QLineEdit()
         self.searchbox.textEdited.connect(self.reload_widgets)
-        self.grid_layout.addWidget(self.searchbox, 0, 0)
+        self.grid_layout.addWidget(self.searchbox, 1, 0)
 
         self.count_label = QtWidgets.QLabel(text="0")
-        self.grid_layout.addWidget(self.count_label, 0, 1)
+        self.grid_layout.addWidget(self.count_label, 1, 1)
 
         scroll_area = QtWidgets.QScrollArea()
         central_widget = QtWidgets.QWidget()
@@ -31,7 +31,7 @@ class SearchableListWidget(QtWidgets.QWidget):
         scroll_area.setWidget(central_widget)
         scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
         scroll_area.setWidgetResizable(True)
-        self.grid_layout.addWidget(scroll_area, 1, 0, 1, 2)
+        self.grid_layout.addWidget(scroll_area, 2, 0, 1, 2)
 
         self.widgets = []
 
@@ -125,7 +125,11 @@ class SearchableSelectionListView(SearchableListWidget):
         self.remove_selected_button.clicked.connect(self.remove_selected_clicked)
         self.remove_selected_button.setEnabled(False)
 
-        self.grid_layout.addWidget(self.remove_selected_button, 2, 0, 1, 2)
+        self.select_all_button = QtWidgets.QCheckBox(text="Selecteer alle dossiers")
+        self.select_all_button.clicked.connect(self.select_all_clicked)
+
+        self.grid_layout.addWidget(self.select_all_button, 0, 0, 1, 2)
+        self.grid_layout.addWidget(self.remove_selected_button, 3, 0, 1, 2)
 
     def add_item(self, searchable_name_field: str, widget: DossierWidget) -> bool:
         response = super().add_item(
@@ -152,6 +156,11 @@ class SearchableSelectionListView(SearchableListWidget):
         else:
             self.remove_selected_button.setEnabled(True)
 
+        if amount_selected == len(self.widgets):
+            self.select_all_button.setCheckState(QtCore.Qt.CheckState.Checked)
+        else:
+            self.select_all_button.setCheckState(QtCore.Qt.CheckState.Unchecked)
+
     def get_selected(self) -> list:
         selected_dossiers = []
 
@@ -170,3 +179,17 @@ class SearchableSelectionListView(SearchableListWidget):
         for dossier_widget in self.get_selected():
             self.application.state.remove_dossier(dossier_widget.dossier)
             dossier_widget.deleteLater()
+
+    def select_all_clicked(self):
+        if self.select_all_button.checkState() == QtCore.Qt.CheckState.Checked:
+            selected = True
+        else:
+            selected = False
+
+        for i in range(self.list_layout.count()):
+            dossier = self.list_layout.itemAt(i).widget()
+
+            if not isinstance(dossier, DossierWidget):
+                continue
+
+            dossier.set_selected(selected)
