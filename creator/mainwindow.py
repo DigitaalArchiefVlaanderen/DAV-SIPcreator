@@ -102,7 +102,6 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.application.state.remove_dossier(dossier)
 
         missing_sips = []
-        missing_sidecars = []
 
         for sip in self.application.state.sips:
             # Check for missing sips
@@ -112,25 +111,22 @@ class MainWindow(QtWidgets.QMainWindow):
                 SIPStatus.ARCHIVED,
                 SIPStatus.REJECTED,
             ):
+                base_sip_path = os.path.join(
+                    self.configuration.misc.save_location, FileController.SIP_STORAGE
+                )
                 # Check if the saved SIP and sidecar still exists
                 if not os.path.exists(
-                    (
-                        sip_path := os.path.join(
-                            self.configuration.misc.save_location, sip.file_name
-                        )
+                    os.path.join(
+                        base_sip_path,
+                        sip.file_name,
+                    )
+                    or not os.path.exists(
+                        os.path.join(base_sip_path, sip.sidecare_file_name)
                     )
                 ):
-                    missing_sips.append(sip_path)
-                if not os.path.exists(
-                    (
-                        sidecar_path := os.path.join(
-                            self.configuration.misc.save_location, sip.sidecar_file_name
-                        )
-                    )
-                ):
-                    missing_sidecars.append(sidecar_path)
+                    missing_sips.append(sip.name)
 
-                continue
+                    continue
 
             sip_widget = SIPWidget(sip=sip)
             result = FileController.existing_grid(
@@ -158,10 +154,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 widget=sip_widget,
             )
 
-        if len(missing_sips) + len(missing_sidecars) > 0:
+        if len(missing_sips) > 0:
             WarningDialog(
                 title="Missende bestanden",
-                text=f"Een of meerdere sips of sidecars zijn niet aanwezig.\n\nMissende sips: {json.dumps(missing_sips, indent=4)}\n\nMissende sidecars: {json.dumps(missing_sidecars, indent=4)}\n\nDeze bestanden zijn nodig om gegevens in te laden, deze sips worden overgeslagen.",
+                text=f"Een of meerdere sips of sidecars zijn niet aanwezig.\n\nMissende sips: {json.dumps(missing_sips, indent=4)}\n\nDeze bestanden zijn nodig om gegevens in te laden, deze sips worden overgeslagen.",
             ).exec()
 
     def add_dossier_clicked(self, multi=False):
