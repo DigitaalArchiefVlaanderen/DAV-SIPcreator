@@ -1,6 +1,5 @@
 from PySide6 import QtWidgets, QtGui, QtCore
 
-import hashlib
 import shutil
 import os
 import ftplib
@@ -8,12 +7,18 @@ import uuid
 import socket
 
 from ..application import Application
+
+from ..controllers.file_controller import FileController
+
+from ..utils.state import State
+from ..utils.configuration import Configuration
 from ..utils.state_utils.sip import SIP
 from ..utils.sip_status import SIPStatus
 from ..utils.series import Series
+
 from ..widgets.warning_dialog import WarningDialog
+
 from ..windows.sip_view import SIPView
-from ..controllers.file_controller import FileController
 
 
 class SIPWidget(QtWidgets.QFrame):
@@ -21,6 +26,9 @@ class SIPWidget(QtWidgets.QFrame):
         super().__init__()
 
         self.application: Application = QtWidgets.QApplication.instance()
+        self.state: State = self.application.state
+        self.configuration: Configuration = self.state.configuration
+
         self.sip = sip
         self.sip_id = sip._id
 
@@ -132,26 +140,22 @@ class SIPWidget(QtWidgets.QFrame):
             return
 
         sip_location = os.path.join(
-            self.application.state.configuration.misc.save_location,
+            self.configuration.misc.save_location,
             FileController.SIP_STORAGE,
             self.sip.file_name,
         )
-
-        md5 = hashlib.md5(open(sip_location, "rb").read()).hexdigest()
-        sidecar_location = f"{sip_location[:-4]}.xml"
-
-        side_car_info = """
-<?xml version="1.0" encoding="UTF-8"?>
-<mhs:Sidecar xmlns:mhs="https://zeticon.mediahaven.com/metadata/20.3/mhs/" version="20.3" xmlns:mh="https://zeticon.mediahaven.com/metadata/20.3/mh/">
-     <mhs:Technical>
-              <mh:Md5>{md5}</mh:Md5>
-     </mhs:Technical>
-</mhs:Sidecar>""".format(
-            md5=md5
+        sidecar_location = os.path.join(
+            self.configuration.misc.save_location,
+            FileController.SIP_STORAGE,
+            self.sip.sidecar_file_name,
         )
 
-        with open(sidecar_location, "w", encoding="utf-8") as f:
-            f.write(side_car_info)
+        if not os.path.exists(sip_location) or not os.path.exists(sidecar_location):
+            WarningDialog(
+                title="Missende bestanden",
+                text="De zip of sidecar is niet aanwezig, upload kan niet verder gaan.",
+            ).exec()
+            return
 
         try:
             with ftplib.FTP_TLS(

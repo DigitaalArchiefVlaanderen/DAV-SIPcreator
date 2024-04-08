@@ -224,7 +224,7 @@ class GridView(QtWidgets.QMainWindow):
 
         FileController.create_sip(
             configuration=self.application.state.configuration,
-            sip_widget=self.sip_widget,
+            sip=self.sip_widget.sip,
         )
 
         self.sip_widget.sip.status = SIPStatus.SIP_CREATED

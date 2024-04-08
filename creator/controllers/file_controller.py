@@ -1,4 +1,5 @@
 import os
+import hashlib
 
 import pandas as pd
 from openpyxl import load_workbook
@@ -53,7 +54,7 @@ class FileController:
         shutil.copyfile(sip_widget.import_template_location, path)
 
     @staticmethod
-    def create_sip(configuration: Configuration, sip_widget):
+    def create_sip(configuration: Configuration, sip: SIP):
         storage_location = configuration.misc.save_location
         location = os.path.join(storage_location, FileController.SIP_STORAGE)
         import_template_location = os.path.join(
@@ -61,13 +62,14 @@ class FileController:
         )
 
         FileController.ensure_folder_exists(location)
-        sip_name = f"{sip_widget.sip.series._id}-{sip_widget.sip.name}.zip"
-        import_template_name = f"{sip_widget.sip._id}.xlsx"
+        sip_location = os.path.join(location, sip.file_name)
+        sidecar_location = os.path.join(location, sip.sidecar_file_name)
+        import_template_name = f"{sip._id}.xlsx"
 
-        sip_folder_structure = sip_widget.sip.get_sip_folder_structure()
+        sip_folder_structure = sip.get_sip_folder_structure()
 
         with zipfile.ZipFile(
-            os.path.join(location, sip_name), "w", compression=zipfile.ZIP_DEFLATED
+            sip_location, "w", compression=zipfile.ZIP_DEFLATED
         ) as zfile:
             zfile.write(
                 os.path.join(import_template_location, import_template_name),
@@ -81,6 +83,21 @@ class FileController:
                 # Ignore bad types
                 if location["Type"] != "geen":
                     zfile.write(device_location, path_in_sip)
+
+        md5 = hashlib.md5(open(sip_location, "rb").read()).hexdigest()
+
+        side_car_info = """
+<?xml version="1.0" encoding="UTF-8"?>
+<mhs:Sidecar xmlns:mhs="https://zeticon.mediahaven.com/metadata/20.3/mhs/" version="20.3" xmlns:mh="https://zeticon.mediahaven.com/metadata/20.3/mh/">
+     <mhs:Technical>
+              <mh:Md5>{md5}</mh:Md5>
+     </mhs:Technical>
+</mhs:Sidecar>""".format(
+            md5=md5
+        )
+
+        with open(sidecar_location, "w", encoding="utf-8") as f:
+            f.write(side_car_info)
 
     @staticmethod
     def existing_grid_path(configuration: dict, sip: SIP) -> str:

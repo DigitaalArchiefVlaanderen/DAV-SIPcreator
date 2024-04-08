@@ -17,6 +17,8 @@ from .widgets.warning_dialog import WarningDialog
 
 from .controllers.file_controller import FileController
 
+from .utils.state import State
+from .utils.configuration import Configuration
 from .utils.state_utils.dossier import Dossier
 from .utils.state_utils.sip import SIP
 from .utils.sip_status import SIPStatus
@@ -27,6 +29,8 @@ class MainWindow(QtWidgets.QMainWindow):
         super().__init__()
 
         self.application: Application = QtWidgets.QApplication.instance()
+        self.state: State = self.application.state
+        self.configuration: Configuration = self.state.configuration
 
     def setup_ui(self):
         self.resize(800, 600)
@@ -97,7 +101,37 @@ class MainWindow(QtWidgets.QMainWindow):
                     dossier.disabled = True
                     self.application.state.remove_dossier(dossier)
 
+        missing_sips = []
+        missing_sidecars = []
+
         for sip in self.application.state.sips:
+            # Check for missing sips
+            if sip.status in (
+                SIPStatus.SIP_CREATED,
+                SIPStatus.UPLOADING,
+                SIPStatus.ARCHIVED,
+                SIPStatus.REJECTED,
+            ):
+                # Check if the saved SIP and sidecar still exists
+                if not os.path.exists(
+                    (
+                        sip_path := os.path.join(
+                            self.configuration.misc.save_location, sip.file_name
+                        )
+                    )
+                ):
+                    missing_sips.append(sip_path)
+                if not os.path.exists(
+                    (
+                        sidecar_path := os.path.join(
+                            self.configuration.misc.save_location, sip.sidecar_file_name
+                        )
+                    )
+                ):
+                    missing_sidecars.append(sidecar_path)
+
+                continue
+
             sip_widget = SIPWidget(sip=sip)
             result = FileController.existing_grid(
                 self.application.state.configuration, sip
@@ -123,6 +157,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 searchable_name_field="sip_id",
                 widget=sip_widget,
             )
+
+        if len(missing_sips) + len(missing_sidecars) > 0:
+            WarningDialog(
+                title="Missende bestanden",
+                text=f"Een of meerdere sips of sidecars zijn niet aanwezig.\n\nMissende sips: {json.dumps(missing_sips, indent=4)}\n\nMissende sidecars: {json.dumps(missing_sidecars, indent=4)}\n\nDeze bestanden zijn nodig om gegevens in te laden, deze sips worden overgeslagen.",
+            ).exec()
 
     def add_dossier_clicked(self, multi=False):
         dossier_path = QtWidgets.QFileDialog.getExistingDirectory(

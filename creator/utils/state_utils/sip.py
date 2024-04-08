@@ -36,6 +36,10 @@ class SIP:
     def file_name(self):
         return f"{self.series._id}-{self.name}.zip"
 
+    @property
+    def sidecar_file_name(self):
+        return f"{self.series._id}-{self.name}.xml"
+
     def get_sip_folder_structure(self) -> dict:
         def _get_dossier_folder_structure(base_path: str, dossier_path: str) -> dict:
             structure = {}
