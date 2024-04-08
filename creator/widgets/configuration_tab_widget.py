@@ -74,7 +74,7 @@ class MiscConfigurationTab(QtWidgets.QWidget):
         self.grid_layout.addWidget(title, 0, 0)
 
         key = "SIP Creator opslag locatie"
-        value = tab_info[key]
+        value = os.path.normpath(tab_info[key])
         label = QtWidgets.QLabel(text=key)
         self.location_label = QtWidgets.QLabel(text=value)
         change_location_button = QtWidgets.QPushButton(text="Selecteer opslag locatie")
@@ -120,4 +120,6 @@ class MiscConfigurationTab(QtWidgets.QWidget):
         )
 
         if folder_path != "":
-            self.location_label.setText(os.path.join(folder_path, "SIP_Creator"))
+            self.location_label.setText(
+                os.path.normpath(os.path.join(folder_path, "SIP_Creator"))
+            )
