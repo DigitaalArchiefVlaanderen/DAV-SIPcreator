@@ -11,7 +11,10 @@ from ..configuration import Environment
 
 
 class FilenameNotUniqueException(Exception):
-    pass
+    def __init__(self, overlap: list, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.overlap = overlap
 
 
 def get_next_sip_name():
@@ -151,8 +154,14 @@ class SIP(QtCore.QObject):
             if all(f["Type"] == "geen" for f in file_structure.values()):
                 dossier_structure[dossier.dossier_label]["Type"] = "geen"
 
-            if any(file_name in sip_structure for file_name in file_structure):
-                raise FilenameNotUniqueException()
+            overlapping_names = []
+
+            for file_name in file_structure:
+                if file_name in sip_structure:
+                    overlapping_names.append(file_name)
+
+            if len(overlapping_names):
+                raise FilenameNotUniqueException(overlap=overlapping_names)
 
             sip_structure = {
                 **sip_structure,

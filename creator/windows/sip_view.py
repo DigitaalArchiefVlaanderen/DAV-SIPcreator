@@ -1,7 +1,7 @@
 from PySide6 import QtWidgets, QtGui, QtCore
 
 import pandas as pd
-import numpy as np
+import json
 
 from typing import List
 
@@ -227,10 +227,10 @@ class SIPView(QtWidgets.QMainWindow):
                 self.__grid_view.load_table()
             else:
                 self.__grid_view.fill_table()
-        except FilenameNotUniqueException:
+        except FilenameNotUniqueException as exc:
             WarningDialog(
                 title="Overlapende naam",
-                text="Er is een overlappende stuk-naam in deze dossiers.\nPas de naam aan en maak een nieuwe SIP aan.",
+                text=f"Er is een overlappende stuk-naam in deze dossiers.\nPas de naam aan en maak een nieuwe SIP aan.\n\nOverlappende items:\n{json.dumps(exc.overlap, indent=4)}",
             ).exec()
             return
 
