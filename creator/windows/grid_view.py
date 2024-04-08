@@ -203,5 +203,6 @@ class GridView(QtWidgets.QMainWindow):
             )
 
     def closeEvent(self, event):
-        self.save_button_click()
+        if FileController.existing_grid_path(self.application.state.configuration, self.sip_widget.sip) is None:
+            self.save_button_click()
         event.accept()
