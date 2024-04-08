@@ -113,8 +113,15 @@ class MainWindow(QtWidgets.QMainWindow):
             )
             sip_widget = SIPWidget(sip=sip)
 
-            self.sip_list_view.add_item(
+            success = self.sip_list_view.add_item(
                 searchable_name_field="sip_id",
                 widget=sip_widget,
             )
+
+            if not success:
+                return
+
             self.application.state.add_sip(sip)
+
+            # Open the SIP
+            sip_widget.open_button_clicked()
