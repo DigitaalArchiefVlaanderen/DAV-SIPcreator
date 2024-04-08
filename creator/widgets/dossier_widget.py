@@ -10,7 +10,7 @@ class DossierWidget(QtWidgets.QFrame):
         super().__init__()
 
         self.dossier = dossier
-        self.dossier_label = dossier.path
+        self.dossier_label = dossier.dossier_label
 
         self.setFrameShape(QtWidgets.QFrame.Panel)
 
