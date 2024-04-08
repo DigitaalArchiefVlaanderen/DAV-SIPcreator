@@ -59,11 +59,25 @@ class SIPView(QtWidgets.QMainWindow):
             QtCore.Qt.MatchFlag.MatchContains
         )
 
+        # Text will be set dynamically later
+        self.series_amount_label = QtWidgets.QLabel()
+
         if self.active:
-            listed_series = APIController.get_series(configuration)
-            self.set_series_combobox_items(listed_series)
+            self.listed_series = APIController.get_series(configuration)
+            self.set_series_combobox_items(status="Published")
         else:
             self.series_combobox.setCurrentText(repr(self.sip_widget.sip.series))
+
+        published_radiobutton = QtWidgets.QRadioButton(text="Published")
+        published_radiobutton.setChecked(True)
+        published_radiobutton.clicked.connect(
+            lambda: self.set_series_combobox_items(status="Published")
+        )
+
+        submitted_radiobutton = QtWidgets.QRadioButton(text="Submitted")
+        submitted_radiobutton.clicked.connect(
+            lambda: self.set_series_combobox_items(status="Submitted")
+        )
 
         import_template_button = QtWidgets.QPushButton(text="Haal importsjabloon op")
         import_template_button.clicked.connect(self.import_template_clicked)
@@ -89,6 +103,8 @@ class SIPView(QtWidgets.QMainWindow):
             self.series_combobox.setEnabled(False)
             import_template_button.setEnabled(False)
             metadata_file_button.setEnabled(False)
+            published_radiobutton.setEnabled(False)
+            submitted_radiobutton.setEnabled(False)
 
             # Load data where needed
             self.tag_mapping_widget.fill_from_sip_widget(self.sip_widget)
@@ -96,22 +112,30 @@ class SIPView(QtWidgets.QMainWindow):
             self.open_grid_button.setEnabled(True)
 
         # Layout
-        grid_layout.addWidget(self.title, 0, 0)
-        grid_layout.addWidget(status, 0, 1)
-        grid_layout.addWidget(self.series_combobox, 1, 0)
-        grid_layout.addWidget(import_template_button, 1, 1)
-        grid_layout.addWidget(metadata_file_button, 2, 0)
-        # grid_layout.addWidget(self.metadata_path_label, 2, 1)
-        grid_layout.addWidget(scrollarea, 2, 1)
-        grid_layout.addWidget(self.tag_mapping_widget, 3, 0, 5, 2)
-        grid_layout.addWidget(self.open_grid_button, 8, 0, 1, 2)
+        grid_layout.addWidget(self.title, 0, 0, 1, 3)
+        grid_layout.addWidget(status, 0, 3, 1, 3)
 
-    def set_series_combobox_items(self, series: list):
+        grid_layout.addWidget(self.series_amount_label, 1, 0)
+        grid_layout.addWidget(published_radiobutton, 1, 1)
+        grid_layout.addWidget(submitted_radiobutton, 1, 2)
+
+        grid_layout.addWidget(self.series_combobox, 2, 0, 1, 3)
+        grid_layout.addWidget(import_template_button, 2, 3)
+
+        grid_layout.addWidget(metadata_file_button, 3, 0, 1, 3)
+        grid_layout.addWidget(scrollarea, 3, 3)
+
+        grid_layout.addWidget(self.tag_mapping_widget, 4, 0, 5, 4)
+        grid_layout.addWidget(self.open_grid_button, 9, 0, 1, 4)
+
+    def set_series_combobox_items(self, status: str):
         for i in reversed(range(self.series_combobox.count())):
             self.series_combobox.removeItem(i)
 
-        self.series_combobox.addItems([s.get_name() for s in series])
-        self.listed_series = series
+        self.series_combobox.addItems(
+            [s.get_name() for s in self.listed_series if s.status == status]
+        )
+        self.series_amount_label.setText(f"{self.series_combobox.count()} serie(s)")
 
     def metadata_file_clicked(self):
         metadata_path, _ = QtWidgets.QFileDialog.getOpenFileName(

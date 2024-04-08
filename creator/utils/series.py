@@ -6,6 +6,8 @@ from datetime import datetime
 class Series:
     _id: str = ""
     name: str = ""
+    status: str = ""
+
     valid_from: datetime = None
     valid_to: datetime = None
 
@@ -36,6 +38,7 @@ class Series:
         return Series(
             _id=series["Id"],
             name=series["Content"]["Name"],
+            status=series["Status"]["Status"],
             valid_from=valid_from,
             valid_to=valid_to,
         )

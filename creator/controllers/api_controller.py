@@ -112,7 +112,7 @@ class APIController:
         params = {
             "size": 100,
             "page": 0,
-            "status": "Published",
+            "status": "Submitted",
             "securityGroupId": user_group_id,
         }
 
@@ -137,37 +137,6 @@ class APIController:
             params["page"] = params["page"] + 1
 
         return series
-
-    @staticmethod
-    def get_series_old(configuration: dict, search: str = None) -> list:
-        connection_details = APIController._get_connection_details(configuration)
-
-        access_token = APIController._get_access_token(connection_details)
-
-        base_url = connection_details["url"]
-        endpoint = "edepot/api/v1/series"
-
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json",
-        }
-
-        params = {
-            "size": 100,
-            "status": "Published",
-        }
-
-        if search is not None:
-            params = {"q": search}
-
-        response = APIController._perform_request(
-            request_type=requests.get,
-            url=f"{base_url}/{endpoint}",
-            headers=headers,
-            params=params,
-        )
-
-        return Series.from_list(response.json())
 
     @staticmethod
     def get_import_template(configuration: dict, series_id: str) -> str:
