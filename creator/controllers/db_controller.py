@@ -33,20 +33,41 @@ class DBController:
         with self.conn as conn:
             cursor = conn.execute(tables.read_all_dossier)
 
-            for path, *_ in cursor.fetchall():
-                dossiers.append(Dossier(path=path))
+            for path, disabled in cursor.fetchall():
+                dossiers.append(Dossier(path=path, disabled=bool(disabled)))
 
         return dossiers
 
+    def find_dossier(self, path: str) -> Dossier:
+        with self.conn as conn:
+            cursor = conn.execute(tables.find_dossier, (path,))
+
+            for path, disabled in cursor.fetchall():
+                return Dossier(path=path, disabled=bool(disabled))
+
     def insert_dossier(self, dossier: Dossier):
+        # If dossier already exists, enable it again
+        if self.find_dossier(dossier.path) is not None:
+            self.enable_dossier(dossier=dossier)
+            return
+
         with self.conn as conn:
             conn.execute(tables.insert_dossier, (dossier.path,))
             conn.commit()
 
-    def delete_dossier(self, dossier: Dossier):
+    def disable_dossier(self, dossier: Dossier):
         with self.conn as conn:
-            conn.execute(tables.delete_dossier, (dossier.path,))
+            conn.execute(tables.disable_dossier, (dossier.path,))
             conn.commit()
+
+        dossier.disabled = True
+
+    def enable_dossier(self, dossier: Dossier):
+        with self.conn as conn:
+            conn.execute(tables.enable_dossier, (dossier.path,))
+            conn.commit()
+
+        dossier.disabled = False
 
     def get_sip_count(self) -> int:
         with self.conn as conn:

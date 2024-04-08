@@ -9,16 +9,29 @@ class Tables(Enum):
 
 create_dossier_table = f"""
 CREATE TABLE IF NOT EXISTS {Tables.DOSSIER.value} (
-    path text PRIMARY KEY
+    path text PRIMARY KEY,
+    disabled int DEFAULT false
 )
 """
 read_all_dossier = f"""SELECT * FROM {Tables.DOSSIER.value};"""
+find_dossier = f"""
+SELECT *
+FROM {Tables.DOSSIER.value}
+WHERE path=?
+"""
 insert_dossier = f"""
 INSERT INTO {Tables.DOSSIER.value}(path)
 VALUES(?)
 """
-delete_dossier = f"""
-DELETE FROM {Tables.DOSSIER.value} WHERE path=?
+disable_dossier = f"""
+UPDATE {Tables.DOSSIER.value}
+SET disabled=true
+WHERE path=?
+"""
+enable_dossier = f"""
+UPDATE {Tables.DOSSIER.value}
+SET disabled=true
+WHERE path=?
 """
 
 create_sip_dossier_link_table = f"""

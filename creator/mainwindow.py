@@ -62,6 +62,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def load_items(self):
         for dossier in self.application.state.dossiers:
+            if dossier.disabled:
+                continue
+
             self.dossiers_list_view.add_item(
                 searchable_name_field="dossier_label",
                 widget=DossierWidget(dossier=dossier),

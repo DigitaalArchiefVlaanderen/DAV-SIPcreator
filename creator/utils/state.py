@@ -28,7 +28,7 @@ class State:
         self.db_controller.insert_dossier(dossier)
 
     def remove_dossier(self, dossier: Dossier):
-        self.db_controller.delete_dossier(dossier)
+        self.db_controller.disable_dossier(dossier)
 
     @property
     def sips(self) -> List[SIP]:
