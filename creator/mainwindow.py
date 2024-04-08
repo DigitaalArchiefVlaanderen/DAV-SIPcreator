@@ -130,6 +130,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
             sip.value_changed.connect(self.state.update_sip)
 
+            # Uploading is not a valid state, could have happened because of forced shutdown during upload
+            if sip.status == SIPStatus.UPLOADING:
+                sip.set_status(SIPStatus.SIP_CREATED)
+
             sip_widget = SIPWidget(sip=sip)
             result = FileController.existing_grid(
                 self.application.state.configuration, sip
@@ -245,5 +249,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         # If the main window dies, kill the whole application
+        if any(
+            s.status == SIPStatus.UPLOADING
+            for s in self.application.db_controller.read_sips()
+        ):
+            WarningDialog(
+                title="Upload bezig",
+                text="Waarschuwing, een upload is momenteel bezig, als je de applicatie sluit zal deze falen.",
+            ).exec()
+
+            event.ignore()
+            return
+
         event.accept()
         self.application.quit()
