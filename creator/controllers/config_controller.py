@@ -120,7 +120,10 @@ class ConfigController:
             return self._get_default_configuration()
 
         with open(self.configuration_path, "r", encoding="utf-8") as f:
-            configuration = json.load(f)
+            try:
+                configuration = json.load(f)
+            except Exception:
+                return self._get_default_configuration()
 
             if not self._verify_configuration(configuration):
                 # NOTE: something in the config is bad

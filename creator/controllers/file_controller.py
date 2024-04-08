@@ -80,6 +80,9 @@ class FileController:
                 device_location = location["path"]
                 path_in_sip = location["Path in SIP"]
 
+                if not os.path.exists(device_location):
+                    raise FileNotFoundError(device_location)
+
                 # Ignore bad types
                 if location["Type"] != "geen":
                     zfile.write(device_location, path_in_sip)

@@ -237,10 +237,17 @@ class GridView(QtWidgets.QMainWindow):
             ).exec()
             return
 
-        FileController.create_sip(
-            configuration=self.application.state.configuration,
-            sip=self.sip_widget.sip,
-        )
+        try:
+            FileController.create_sip(
+                configuration=self.application.state.configuration,
+                sip=self.sip_widget.sip,
+            )
+        except FileNotFoundError:
+            WarningDialog(
+                title="Bestand verplaatst",
+                text="Een of meerdere bestanden die in de SIP moeten komen zijn verplaatst, kan niet verder gaan.",
+            ).exec()
+            return
 
         self.sip_widget.sip.set_status(SIPStatus.SIP_CREATED)
         self.sip_widget.sip_name_label.setEnabled(False)
