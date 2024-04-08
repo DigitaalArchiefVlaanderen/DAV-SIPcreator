@@ -123,24 +123,15 @@ class TableView(QtWidgets.QTableView):
 
         value = self.model().data(self.currentIndex(), QtCore.Qt.EditRole)
 
-        index_range = self.selectionModel().selection().first()
-
         # Single cell
-        if (
-            index_range.bottom() == index_range.top()
-            and index_range.left() == index_range.right()
-        ):
+        if len(self.selectedIndexes()) == 1:
             return
 
-        for row in range(index_range.top(), index_range.bottom() + 1):
-            for col in range(index_range.left(), index_range.right() + 1):
-                self.model().setData(
-                    self.model().index(row, col),
-                    value,
-                    QtCore.Qt.ItemDataRole.EditRole,
-                )
+        for index in self.selectedIndexes():
+            self.model().setData(
+                index,
+                value,
+                QtCore.Qt.ItemDataRole.EditRole,
+            )
 
-        self.model().dataChanged.emit(
-            self.model().index(index_range.top(), index_range.left()),
-            self.model().index(index_range.bottom(), index_range.right()),
-        )
+            self.model().dataChanged.emit(index, index)
