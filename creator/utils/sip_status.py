@@ -28,3 +28,21 @@ class SIPStatus(enum.Enum):
                 return "Gearchiveerd"
             case "REJECTED":
                 return "Geweigerd"
+
+    def get_priority(self):
+        # Priotity for showing, lower is more prio
+        match self.name:
+            case "IN_PROGRESS":
+                return 0
+            case "SIP_CREATED":
+                return 1
+            case "UPLOADING":
+                return 2
+            case "UPLOADED":
+                return 3
+            case "PROCESSING":
+                return 4
+            case "ACCEPTED":
+                return 5
+            case "REJECTED":
+                return 6

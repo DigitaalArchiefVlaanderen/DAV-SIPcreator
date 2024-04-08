@@ -31,6 +31,7 @@ class SIPWidget(QtWidgets.QFrame):
 
         self.sip = sip
         self.sip_id = sip._id
+        self.sip_name = sip.name
 
         self.connection_details = {}
 

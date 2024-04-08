@@ -7,8 +7,8 @@ import json
 from .application import Application
 
 from .widgets.searchable_list_widget import (
-    SearchableListWidget,
     SearchableSelectionListView,
+    SIPListWidget,
 )
 from .widgets.dossier_widget import DossierWidget
 from .widgets.sip_widget import SIPWidget
@@ -19,7 +19,6 @@ from .widgets.warning_dialog import WarningDialog
 from .controllers.file_controller import FileController
 
 from .utils.state import State
-from .utils.configuration import Configuration
 from .utils.state_utils.dossier import Dossier
 from .utils.state_utils.sip import SIP
 from .utils.sip_status import SIPStatus
@@ -61,7 +60,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.create_sip_button = QtWidgets.QPushButton(text="Start SIP")
         self.create_sip_button.clicked.connect(self.create_sip_clicked)
         self.create_sip_button.setEnabled(False)
-        self.sip_list_view = SearchableListWidget()
+        self.sip_list_view = SIPListWidget()
 
         # Toolbar
         self.toolbar = Toolbar()
@@ -103,8 +102,10 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.application.state.remove_dossier(dossier)
 
         missing_sips = []
+        sips = self.application.state.sips
+        sorted_sips = sorted(sips, key=lambda s: s.status.get_priority(), reverse=True)
 
-        for sip in self.application.state.sips:
+        for sip in sorted_sips:
             # Check for missing sips
             if sip.status in (
                 SIPStatus.SIP_CREATED,
@@ -178,7 +179,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 sip_widget.upload_button.setEnabled(True)
 
             self.sip_list_view.add_item(
-                searchable_name_field="sip_id",
+                searchable_name_field="sip_name",
                 widget=sip_widget,
             )
 

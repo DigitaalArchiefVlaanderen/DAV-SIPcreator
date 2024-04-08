@@ -1,3 +1,5 @@
+from typing import List
+
 from PySide6 import QtWidgets, QtCore
 
 from ..application import Application
@@ -8,6 +10,7 @@ from .dialog import Dialog
 
 from ..utils.configuration import Environment
 from ..utils.state import State
+from ..utils.sip_status import SIPStatus
 
 
 class SearchableListWidget(QtWidgets.QWidget):
@@ -118,7 +121,8 @@ class SearchableListWidget(QtWidgets.QWidget):
                 "field": searchable_name_field,
             }
         )
-        self.list_layout.addWidget(widget)
+        self.list_layout.insertWidget(0, widget)
+
         widget.destroyed.connect(lambda: self.remove_widget_by_value(value))
         self.reload_widgets()
         self.count_label.setText(str(self.list_layout.count()))
@@ -206,3 +210,38 @@ class SearchableSelectionListView(SearchableListWidget):
                 continue
 
             dossier.set_selected(selected)
+
+
+class SIPListWidget(SearchableListWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.sips_status_filter = QtWidgets.QComboBox()
+        self.sips_status_filter.addItems(
+            ["alles tonen"] + [s.get_status_label() for s in SIPStatus]
+        )
+        self.sips_status_filter.currentTextChanged.connect(self.reload_widgets)
+
+        self.grid_layout.addWidget(self.sips_status_filter, 0, 0, 1, 2)
+
+    def search_widgets(self):
+        widgets_to_show: List[SIPWidget] = []
+        partial_name = self.searchbox.text()
+
+        if partial_name == "":
+            widgets_to_show = list(map(lambda w: w["reference"], self.widgets))
+        else:
+            for widget in self.widgets:
+                if partial_name in getattr(widget["reference"], widget["field"]):
+                    widgets_to_show.append(widget["reference"])
+
+        status_filter_text = self.sips_status_filter.currentText()
+
+        if status_filter_text == "alles tonen":
+            return widgets_to_show
+
+        return [
+            w
+            for w in widgets_to_show
+            if w.sip.status.get_status_label() == status_filter_text
+        ]
