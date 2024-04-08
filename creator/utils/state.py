@@ -58,7 +58,7 @@ class State(QtCore.QObject):
         self.db_controller.update_sip(sip)
 
         if fail_reason is not None and fail_reason != "":
-            self.sip_edepot_failed.emit(sip.name, fail_reason)
+            self.sip_edepot_failed.emit(sip, fail_reason)
 
     def update_series(self, series: Series):
         self.db_controller.update_series(series)

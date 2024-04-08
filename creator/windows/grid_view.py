@@ -13,7 +13,6 @@ from ..widgets.toolbar import Toolbar
 from ..widgets.warning_dialog import WarningDialog
 from ..widgets.dialog import Dialog
 from ..widgets.tableview_widget import TableView
-from ..utils.state_utils.sip import FilenameNotUniqueException
 
 
 class GridView(QtWidgets.QMainWindow):
@@ -173,14 +172,7 @@ class GridView(QtWidgets.QMainWindow):
         self.sip_widget.import_template_df = temp_df
 
     def load_table(self):
-        try:
-            sip_folder_structure = self.sip_widget.sip.get_sip_folder_structure()
-        except FilenameNotUniqueException:
-            WarningDialog(
-                title="Overlapende naam",
-                text="Er is een overlappende stuk-naam in deze dossiers.\nPas de naam aan en maak een nieuwe SIP aan.",
-            ).exec()
-            return
+        sip_folder_structure = self.sip_widget.sip.get_sip_folder_structure()
 
         self.table_view.setModel(
             PandasModel(
@@ -196,14 +188,7 @@ class GridView(QtWidgets.QMainWindow):
         self._set_grid_filter_connections()
 
     def fill_table(self):
-        try:
-            sip_folder_structure = self.sip_widget.sip.get_sip_folder_structure()
-        except FilenameNotUniqueException:
-            WarningDialog(
-                title="Overlapende naam",
-                text="Er is een overlappende stuk-naam in deze dossiers.\nPas de naam aan en maak een nieuwe SIP aan.",
-            ).exec()
-            return
+        sip_folder_structure = self.sip_widget.sip.get_sip_folder_structure()
 
         self._fill_from_files(sip_folder_structure)
 

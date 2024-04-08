@@ -32,12 +32,25 @@ class MainWindow(QtWidgets.QMainWindow):
         self.application: Application = QtWidgets.QApplication.instance()
         self.state: State = self.application.state
 
-        self.state.sip_edepot_failed.connect(
-            lambda sip_name, reason: WarningDialog(
-                title="SIP upload gefaald",
-                text=f"SIP '{sip_name}' is geweigerd door het Edepot met volgende reden:\n\n{reason}",
-            ).exec()
-        )
+        self.state.sip_edepot_failed.connect(self.fail_reason_show)
+
+    def fail_reason_show(self, sip: SIP, reason: str):
+        WarningDialog(
+            title="SIP upload gefaald",
+            text=f"SIP '{sip.name}' is geweigerd door het Edepot met volgende reden:\n\n{reason}",
+        ).exec()
+
+        storage_location = self.state.configuration.misc.save_location
+        with open(
+            os.path.join(
+                storage_location, FileController.SIP_STORAGE, sip.error_file_name
+            ),
+            "w",
+            encoding="utf-8",
+        ) as f:
+            f.write(
+                f"SIP '{sip.name}' is geweigerd door het Edepot met volgende reden:\n\n{reason}"
+            )
 
     def setup_ui(self):
         self.resize(800, 600)

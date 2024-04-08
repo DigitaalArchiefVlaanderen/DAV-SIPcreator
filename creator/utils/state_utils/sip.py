@@ -66,6 +66,10 @@ class SIP(QtCore.QObject):
     def sidecar_file_name(self):
         return f"{self.series._id}-{self.name}.xml"
 
+    @property
+    def error_file_name(self):
+        return f"{self.series._id}-{self.name}.txt"
+
     def get_sip_folder_structure(self) -> dict:
         def _get_dossier_folder_structure(base_path: str, dossier_path: str) -> dict:
             structure = {}

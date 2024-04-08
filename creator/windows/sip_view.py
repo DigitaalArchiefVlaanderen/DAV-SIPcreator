@@ -9,6 +9,7 @@ from ..application import Application
 from ..controllers.api_controller import APIController, APIException
 from ..utils.sip_status import SIPStatus
 from ..utils.series import Series
+from ..utils.state_utils.sip import FilenameNotUniqueException
 from ..widgets.mapping_widget import TagMappingWidget
 from ..widgets.toolbar import Toolbar
 from ..widgets.warning_dialog import WarningDialog
@@ -221,10 +222,17 @@ class SIPView(QtWidgets.QMainWindow):
         self.__grid_view.setup_ui()
 
         # We loaded data
-        if not first_open:
-            self.__grid_view.load_table()
-        else:
-            self.__grid_view.fill_table()
+        try:
+            if not first_open:
+                self.__grid_view.load_table()
+            else:
+                self.__grid_view.fill_table()
+        except FilenameNotUniqueException:
+            WarningDialog(
+                title="Overlapende naam",
+                text="Er is een overlappende stuk-naam in deze dossiers.\nPas de naam aan en maak een nieuwe SIP aan.",
+            ).exec()
+            return
 
         self.__grid_view.show()
         self.close()
