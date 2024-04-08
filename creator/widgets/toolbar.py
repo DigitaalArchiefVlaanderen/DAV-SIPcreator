@@ -12,6 +12,9 @@ class Toolbar(QtWidgets.QToolBar):
         configuration_action.setCheckable(False)
         self.addAction(configuration_action)
 
+        configuration_button = self.widgetForAction(configuration_action)
+        configuration_button.setStyleSheet("border: 1px solid black")
+
         self.configuration_view = ConfigurationWidget()
         self.configuration_view.setup_ui()
 
