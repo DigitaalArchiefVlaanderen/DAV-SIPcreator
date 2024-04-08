@@ -1,5 +1,6 @@
 from PySide6 import QtWidgets, QtGui, QtCore
 import pandas as pd
+import numpy as np
 
 from datetime import datetime
 from enum import Enum
@@ -55,7 +56,7 @@ class PandasModel(QtCore.QAbstractTableModel):
             if tooltip:
                 return tooltip
 
-    def setData(self, index, value, role):
+    def setData(self, index, value, role=QtCore.Qt.ItemDataRole.EditRole):
         if not index.isValid():
             return
 
@@ -73,9 +74,14 @@ class PandasModel(QtCore.QAbstractTableModel):
                 self._data.columns.get_loc("Openingsdatum"),
                 self._data.columns.get_loc("Sluitingsdatum"),
             ):
-                self._date_data_check(
-                    value, row, column, is_stuk=self._data.iloc[row]["Type"] == "stuk"
-                )
+                is_stuk = self._data.iloc[row]["Type"] == "stuk"
+
+                valid_date = self._date_data_check(value, row, column, is_stuk=is_stuk)
+
+                if valid_date and is_stuk:
+                    self._update_dossier_date_range(
+                        dossier_ref=self._data.iloc[row]["DossierRef"], column=column
+                    )
 
             if self.is_data_valid():
                 self._create_sip_button.setEnabled(True)
@@ -127,9 +133,15 @@ class PandasModel(QtCore.QAbstractTableModel):
                 index = self.index(r, c)
                 value = self._data.iloc[index.row(), index.column()]
 
-                self.setData(
-                    index=index, value=value, role=QtCore.Qt.ItemDataRole.EditRole
-                )
+                self.setData(index=index, value=value)
+
+    def _proper_date_format(self, date_str: str) -> datetime:
+        # Returns the date if valid, otherwise returns None
+        # Format needs to be "%Y-%m-%d"
+        try:
+            return datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError:
+            pass
 
     def _date_invalid_check(self, date: datetime) -> str:
         if date > datetime.now() and date.year != 9999:
@@ -140,6 +152,54 @@ class PandasModel(QtCore.QAbstractTableModel):
 
         if self.date_end is not None and date > self.date_end:
             return "Datum mag niet na de eind-datum van de serie zijn"
+
+    def _get_date_values_for_dossier_ref(self, dossier_ref: str, column: str) -> list:
+        files = self._data.loc[
+            (self._data["Type"] == "stuk") & (self._data["DossierRef"] == dossier_ref)
+        ]
+
+        # TODO: find a way to do this vectorized
+        return [
+            d
+            for d in files[column]
+            if (date := self._proper_date_format(d)) is not None
+            and self._date_invalid_check(date) is None
+        ]
+
+    def _update_dossier_date_range(self, dossier_ref: str, column: str) -> None:
+        dossier = self._data.loc[
+            (self._data["Type"] == "dossier")
+            & (self._data["DossierRef"] == dossier_ref)
+        ]
+
+        opening_dates = self._get_date_values_for_dossier_ref(
+            dossier_ref=dossier_ref, column="Openingsdatum"
+        )
+        closing_dates = self._get_date_values_for_dossier_ref(
+            dossier_ref=dossier_ref, column="Sluitingsdatum"
+        )
+
+        row = dossier.index.to_list()[0]
+        opening_col = self._data.columns.get_loc("Openingsdatum")
+        closing_col = self._data.columns.get_loc("Sluitingsdatum")
+
+        # Only change the values if we have something useful to change it in to
+        if column == opening_col and opening_dates:
+            new_opening = min(opening_dates)
+
+            # Only change if the openingsdate is actually lower
+            if dossier["Openingsdatum"].to_list()[0] < new_opening:
+                return
+
+            self.setData(self.index(row, opening_col), value=new_opening)
+        elif column == closing_col and closing_dates:
+            new_closing = max(closing_dates)
+
+            # Only change if the closingdate is actually higher
+            if dossier["Sluitingsdatum"].to_list()[0] > new_closing:
+                return
+
+            self.setData(self.index(row, closing_col), value=new_closing)
 
     # Marking and unmarking of cells
     def _mark_bad_cell(
@@ -168,81 +228,155 @@ class PandasModel(QtCore.QAbstractTableModel):
         self._mark_bad_cell(row=row, col=col, tooltip=tooltip)
 
     # Checks
-    def _name_data_check(self, value: str, row: int, col: int) -> None:
+    def _name_data_check(self, value: str, row: int, col: int) -> bool:
+        # Return True if cell was ok, otherwise return False
         if value == "" and self._data.iloc[row]["Type"] == "dossier":
             self._mark_name_cell(row=row)
-        else:
-            self._unmark_bad_cell(row=row, col=col)
+            return False
 
-    def _date_data_check(self, value: str, row: int, col: int, is_stuk: bool):
+        self._unmark_bad_cell(row=row, col=col)
+        return True
+
+    def _date_data_check(
+        self, value: str, row: int, col: int, is_stuk: bool, re_evaluation=False
+    ) -> bool:
+        # Return True if cell was ok, otherwise return False
+
+        data_row = self._data.iloc[[row]]
+
+        opening_date = data_row["Openingsdatum"].to_list()[0]
+        closing_date = data_row["Sluitingsdatum"].to_list()[0]
+
+        opening_col = self._data.columns.get_loc("Openingsdatum")
+        closing_col = self._data.columns.get_loc("Sluitingsdatum")
+
         # If it's an empty value at a "stuk", that's fine
         if is_stuk and value == "":
             self._unmark_bad_cell(row=row, col=col)
-            return
+            return True
 
-        # Try to get the date from the string
-        try:
-            date = datetime.strptime(value, "%Y-%m-%d")
+        date = self._proper_date_format(value)
 
-            if (tooltip := self._date_invalid_check(date)) is not None:
-                self._mark_bad_cell(row=row, col=col, tooltip=tooltip)
-                return
-
-        except ValueError:
+        # Date needs to be in the correct format
+        if date is None:
             self._mark_bad_cell(
                 row=row, col=col, tooltip="Datum moet in het formaat YYYY-MM-DD zijn"
             )
-            return
+            return False
+
+        # Date needs to be valid (in past and in series range)
+        if (tooltip := self._date_invalid_check(date)) is not None:
+            self._mark_bad_cell(row=row, col=col, tooltip=tooltip)
+            return False
+
+        # Openingdate cannot be after closingdate
+        if opening_date and closing_date and opening_date > closing_date:
+            self._mark_date_cell(
+                row=row,
+                col=opening_col,
+                tooltip="De openingsdatum kan niet na de sluitingsdatum zijn",
+            )
+            self._mark_date_cell(
+                row=row,
+                col=closing_col,
+                tooltip="De sluitingsdatum kan niet voor de openingsdatum zijn",
+            )
+
+            return False
+
+        if not is_stuk:
+            # The openings and closing dates need to match the files
+            dossier = data_row
+            dossier_ref = dossier["DossierRef"].to_list()[0]
+
+            opening_dates = self._get_date_values_for_dossier_ref(
+                dossier_ref=dossier_ref, column="Openingsdatum"
+            )
+            closing_dates = self._get_date_values_for_dossier_ref(
+                dossier_ref=dossier_ref, column="Sluitingsdatum"
+            )
+
+            dossier_opening = dossier["Openingsdatum"].to_list()[0]
+            dossier_closing = dossier["Sluitingsdatum"].to_list()[0]
+
+            if (
+                col == opening_col
+                and opening_dates
+                and dossier_opening > min(opening_dates)
+            ):
+                self._mark_date_cell(
+                    row=row,
+                    col=col,
+                    tooltip="De openingsdatum van het dossier kan niet later zijn dan de openingsdatum van een stuk",
+                )
+                return False
+
+            elif (
+                col == closing_col
+                and closing_dates
+                and dossier_closing < max(closing_dates)
+            ):
+                self._mark_date_cell(
+                    row=row,
+                    col=col,
+                    tooltip="De sluitingsdatum van het dossier kan niet vroeger zijn dan de sluitingsdatum van een stuk",
+                )
+                return False
 
         # Everything checks out
         self._unmark_bad_cell(row=row, col=col)
 
-    # Large scale checks
-    def _get_invalid_name_rows(self) -> pd.DataFrame:
-        return self._data.loc[
-            (self._data["Type"] == "dossier") & (self._data["Naam"] == "")
-        ]
+        # Re-evaluate if we are unmarking a cell, to make sure the linked cell is proparly adressed
+        if not re_evaluation:
+            if col == opening_col:
+                self._date_data_check(
+                    value=value,
+                    row=row,
+                    col=closing_col,
+                    is_stuk=is_stuk,
+                    re_evaluation=True,
+                )
+            elif col == closing_col:
+                self._date_data_check(
+                    value=value,
+                    row=row,
+                    col=opening_col,
+                    is_stuk=is_stuk,
+                    re_evaluation=True,
+                )
 
-    def _get_invalid_date_rows(self, column: str) -> pd.DataFrame:
-        def date_invalid_map(value: str) -> bool:
-            if isinstance(value, float) and math.isnan(value):
-                return False
+        # Re-evaluate the dossier_dates
+        if not re_evaluation and is_stuk:
+            dossier_ref = data_row["DossierRef"].to_list()[0]
 
-            try:
-                date = datetime.strptime(value, "%Y-%m-%d")
+            dossier = self._data.loc[
+                (self._data["Type"] == "dossier")
+                & (self._data["DossierRef"] == dossier_ref)
+            ]
 
-                if self._date_invalid_check(date):
-                    return True
-            except ValueError:
-                return value != ""
+            dossier_row = dossier.index.to_list()[0]
+            dossier_opening = dossier["Openingsdatum"].to_list()[0]
+            dossier_closing = dossier["Sluitingsdatum"].to_list()[0]
 
-            return False
+            self._date_data_check(
+                value=dossier_opening,
+                row=dossier_row,
+                col=opening_col,
+                is_stuk=False,
+                re_evaluation=True,
+            )
+            self._date_data_check(
+                value=dossier_closing,
+                row=dossier_row,
+                col=closing_col,
+                is_stuk=False,
+                re_evaluation=True,
+            )
 
-        self._data["date_invalid_temp"] = self._data[column].map(date_invalid_map)
+        # Make sure we update the values again where needed
+        if re_evaluation and is_stuk:
+            dossier_ref = data_row["DossierRef"].to_list()[0]
 
-        invalid_data = self._data.loc[
-            ((self._data["Type"] == "dossier") & (self._data[column] == ""))
-            | (self._data["date_invalid_temp"])
-        ].drop(["date_invalid_temp"], axis=1)
-        self._data.drop(["date_invalid_temp"], axis=1, inplace=True)
+            self._update_dossier_date_range(dossier_ref=dossier_ref, column=col)
 
-        return invalid_data
-
-    def _get_invalid_opening_date_rows(self) -> pd.DataFrame:
-        return self._get_invalid_date_rows("Openingsdatum")
-
-    def _get_invalid_closing_date_rows(self) -> pd.DataFrame:
-        return self._get_invalid_date_rows("Sluitingsdatum")
-
-    def mark_invalid_rows(self):
-        for index in self.get_invalid_name_rows().index:
-            # Column 4 is "Naam"
-            self.colors[(index, 4)] = Color.RED
-
-        for index in self.get_invalid_opening_date_rows().index:
-            # Column 8 is "Openingsdatum"
-            self.colors[(index, 8)] = Color.RED
-
-        for index in self.get_invalid_closing_date_rows().index:
-            # Column 9 is "Sluitingsdatum"
-            self.colors[(index, 9)] = Color.RED
+        return True
