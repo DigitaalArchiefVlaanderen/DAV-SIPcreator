@@ -1,6 +1,7 @@
 from PySide6 import QtWidgets, QtGui, QtCore
 import pandas as pd
 import numpy as np
+import os
 
 from datetime import datetime
 from enum import Enum
@@ -9,17 +10,28 @@ import math
 
 class Color(Enum):
     RED = QtGui.QBrush(QtGui.QColor(255, 0, 0))
+    YELLOW = QtGui.QBrush(QtGui.QColor(255, 255, 0))
 
 
 class PandasModel(QtCore.QAbstractTableModel):
-    def __init__(self, data, create_sip_button, date_range):
+    def __init__(
+        self,
+        data: pd.DataFrame,
+        create_sip_button,
+        date_range: tuple,
+        sip_folder_structure: dict,
+    ):
         super().__init__()
         self._data = data.fillna("").astype(str).convert_dtypes()
         self._create_sip_button = create_sip_button
         self.date_start, self.date_end = date_range
+        self.sip_folder_structure = sip_folder_structure
 
         self.colors = dict()
         self.tooltips = dict()
+
+        # Warning rows
+        self._check_empty_rows()
 
         # NOTE: we basically take all the existing data
         # And act as if we just entered it
@@ -58,11 +70,15 @@ class PandasModel(QtCore.QAbstractTableModel):
 
     def setData(self, index, value, role=QtCore.Qt.ItemDataRole.EditRole):
         if not index.isValid():
-            return
+            return False
+
+        row, column = index.row(), index.column()
+
+        # Do not allow editing of warning rows
+        if self.colors.get((self._data.index[row], column)) == Color.YELLOW:
+            return False
 
         if role == QtCore.Qt.ItemDataRole.EditRole:
-            row, column = index.row(), index.column()
-
             self._data.iloc[row, column] = value
 
             # NOTE: "Naam"
@@ -105,9 +121,14 @@ class PandasModel(QtCore.QAbstractTableModel):
         if index.column() < 3:
             return QtCore.Qt.ItemFlag.ItemIsSelectable
 
+        if (
+            self.colors.get((self._data.index[index.row()], index.column()))
+            == Color.YELLOW
+        ):
+            return QtCore.Qt.ItemFlag.ItemIsSelectable
+
         return (
             QtCore.Qt.ItemFlag.ItemIsSelectable
-            # | QtCore.Qt.ItemFlag.ItemsetEnabled
             | QtCore.Qt.ItemFlag.ItemIsEnabled
             | QtCore.Qt.ItemFlag.ItemIsEditable
         )
@@ -124,9 +145,49 @@ class PandasModel(QtCore.QAbstractTableModel):
 
     def is_data_valid(self):
         # NOTE: we are using the colors dict to see if anything is marked invalid
-        return not self.colors
+        return not any(c == Color.RED for c in self.colors.values())
 
     # Utils
+    def _check_empty_rows(self) -> None:
+        for row in range(self.rowCount()):
+            path_in_sip = self._data.loc[row, "Path in SIP"]
+            real_path = [
+                p["path"]
+                for p in self.sip_folder_structure.values()
+                if p["Path in SIP"] == path_in_sip
+            ][0]
+
+            is_dossier = self._data.loc[row, "Type"] == "dossier"
+
+            if is_dossier and len(os.listdir(real_path)) == 0:
+                self._mark_warning_row(
+                    row,
+                    tooltip="Lege dossiers worden niet meegenomen wanneer we een SIP maken",
+                )
+                continue
+
+            if (
+                not is_dossier
+                and os.path.isfile(real_path)
+                and os.path.getsize(real_path) == 0
+            ):
+                self._mark_warning_row(
+                    row,
+                    tooltip="Lege bestanden worden niet meegenomen wanneer we een SIP maken",
+                )
+                continue
+
+            if (
+                not is_dossier
+                and os.path.isdir(real_path)
+                and len(os.listdir(real_path)) == 0
+            ):
+                self._mark_warning_row(
+                    row,
+                    tooltip="Lege folders worden niet meegenomen wanneer we een SIP maken",
+                )
+                continue
+
     def _trigger_fill_data(self) -> None:
         for r in range(self.rowCount()):
             for c in range(self.columnCount()):
@@ -209,6 +270,12 @@ class PandasModel(QtCore.QAbstractTableModel):
 
         if tooltip is not None:
             self.tooltips[(row, col)] = tooltip
+
+    def _mark_warning_row(
+        self, row: int, color: Color = Color.YELLOW, tooltip: str = None
+    ) -> None:
+        for c in range(self.columnCount()):
+            self._mark_bad_cell(row=row, col=c, color=color, tooltip=tooltip)
 
     def _unmark_bad_cell(self, row: int, col: int) -> None:
         if (row, col) in self.colors:

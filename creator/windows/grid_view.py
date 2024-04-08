@@ -127,6 +127,8 @@ class GridView(QtWidgets.QMainWindow):
         self.sip_widget.import_template_df = temp_df
 
     def load_table(self):
+        sip_folder_structure = self.sip_widget.sip.get_sip_folder_structure()
+
         self.table_view.setModel(
             PandasModel(
                 self.sip_widget.import_template_df,
@@ -135,6 +137,7 @@ class GridView(QtWidgets.QMainWindow):
                     self.sip_widget.sip.series.valid_from,
                     self.sip_widget.sip.series.valid_to,
                 ),
+                sip_folder_structure=sip_folder_structure,
             )
         )
 
@@ -154,15 +157,17 @@ class GridView(QtWidgets.QMainWindow):
                     self.sip_widget.sip.series.valid_from,
                     self.sip_widget.sip.series.valid_to,
                 ),
+                sip_folder_structure=sip_folder_structure,
             )
         )
 
     def create_sip_click(self):
-        self.save_button_click()
+        self.save_button_click(filter_save=True)
         table = self.table_view.model()
         df = table.get_data()
 
-        if len(df) > 9999:
+        # Filter out bad rows
+        if len(df.loc[df["Type"] != "geen"]) > 9999:
             WarningDialog(
                 title="Te veel data",
                 text="De metadata mag maximaal 9999 rijen data bevatten",
@@ -171,7 +176,6 @@ class GridView(QtWidgets.QMainWindow):
 
         FileController.create_sip(
             configuration=self.application.state.configuration,
-            df=df,
             sip_widget=self.sip_widget,
         )
 
@@ -188,17 +192,25 @@ class GridView(QtWidgets.QMainWindow):
 
         self.close()
 
-    def save_button_click(self):
+    def save_button_click(self, filter_save=False):
         try:
+            df = self.table_view.model().get_data()
+
+            if filter_save:
+                df = df.loc[df["Type"] != "geen"]
+                df.sort_values(df.columns[0], ascending=True)
+                df.reset_index(drop=True, inplace=True)
+
             FileController.save_grid(
                 configuration=self.application.state.configuration,
-                df=self.table_view.model().get_data(),
+                df=df,
                 sip_widget=self.sip_widget,
             )
 
-            Dialog(
-                title="Opgeslagen", text="De metadata is succesvol opgeslagen."
-            ).exec()
+            if not filter_save:
+                Dialog(
+                    title="Opgeslagen", text="De metadata is succesvol opgeslagen."
+                ).exec()
         except PermissionError:
             WarningDialog(
                 title="Ongeldige rechten",

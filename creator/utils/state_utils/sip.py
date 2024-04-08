@@ -43,7 +43,7 @@ class SIP:
             for location in os.listdir(dossier_path):
                 location_path = os.path.join(dossier_path, location)
 
-                if os.path.isfile(location_path):
+                if os.path.isfile(location_path) or len(os.listdir(location_path)) == 0:
                     structure[location] = os.path.relpath(
                         location_path,
                         base_path,
@@ -74,7 +74,14 @@ class SIP:
                     file_name: {
                         "Path in SIP": f"{dossier.dossier_label}/{location}",
                         "path": os.path.join(dossier.path, location),
-                        "Type": "stuk",
+                        "Type": (
+                            # Set specific bad-type to filter on later
+                            "geen"
+                            if not os.path.isfile(os.path.join(dossier.path, location))
+                            or os.path.getsize(os.path.join(dossier.path, location))
+                            == 0
+                            else "stuk"
+                        ),
                         "DossierRef": dossier.dossier_label,
                         # Openingsdatum will be the creation dates of the file
                         # There is no cross-platform way of doing this sadly

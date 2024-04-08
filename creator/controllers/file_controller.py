@@ -53,7 +53,7 @@ class FileController:
         shutil.copyfile(sip_widget.import_template_location, path)
 
     @staticmethod
-    def create_sip(configuration: Configuration, df: pd.DataFrame, sip_widget):
+    def create_sip(configuration: Configuration, sip_widget):
         storage_location = configuration.misc.save_location
         location = os.path.join(storage_location, FileController.SIP_STORAGE)
         import_template_location = os.path.join(
@@ -78,7 +78,9 @@ class FileController:
                 device_location = location["path"]
                 path_in_sip = location["Path in SIP"]
 
-                zfile.write(device_location, path_in_sip)
+                # Ignore bad types
+                if location["Type"] != "geen":
+                    zfile.write(device_location, path_in_sip)
 
     @staticmethod
     def existing_grid_path(configuration: dict, sip: SIP) -> str:
