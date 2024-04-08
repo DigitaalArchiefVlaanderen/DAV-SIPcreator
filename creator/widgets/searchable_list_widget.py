@@ -11,16 +11,16 @@ class SearchableListWidget(QtWidgets.QWidget):
 
         self.application: Application = QtWidgets.QApplication.instance()
 
-        grid_layout = QtWidgets.QGridLayout()
-        grid_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
-        self.setLayout(grid_layout)
+        self.grid_layout = QtWidgets.QGridLayout()
+        self.grid_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        self.setLayout(self.grid_layout)
 
         self.searchbox = QtWidgets.QLineEdit()
         self.searchbox.textEdited.connect(self.reload_widgets)
-        grid_layout.addWidget(self.searchbox, 0, 0)
+        self.grid_layout.addWidget(self.searchbox, 0, 0)
 
         self.count_label = QtWidgets.QLabel(text="0")
-        grid_layout.addWidget(self.count_label, 0, 1)
+        self.grid_layout.addWidget(self.count_label, 0, 1)
 
         scroll_area = QtWidgets.QScrollArea()
         central_widget = QtWidgets.QWidget()
@@ -30,7 +30,7 @@ class SearchableListWidget(QtWidgets.QWidget):
         scroll_area.setWidget(central_widget)
         scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
         scroll_area.setWidgetResizable(True)
-        grid_layout.addWidget(scroll_area, 1, 0, 1, 2)
+        self.grid_layout.addWidget(scroll_area, 1, 0, 1, 2)
 
         self.widgets = []
 
@@ -113,6 +113,16 @@ class SearchableListWidget(QtWidgets.QWidget):
 
 
 class SearchableSelectionListView(SearchableListWidget):
+    def __init__(self):
+        super().__init__()
+
+        remove_selected_button = QtWidgets.QPushButton(
+            text="Verwijder geselecteerde dossiers"
+        )
+        remove_selected_button.clicked.connect(self.remove_selected_clicked)
+
+        self.grid_layout.addWidget(remove_selected_button, 2, 0, 1, 2)
+
     def get_selected(self) -> list:
         selected_dossiers = []
 
@@ -123,3 +133,8 @@ class SearchableSelectionListView(SearchableListWidget):
                 selected_dossiers.append(dossier)
 
         return selected_dossiers
+
+    def remove_selected_clicked(self):
+        for dossier_widget in self.get_selected():
+            self.application.state.remove_dossier(dossier_widget.dossier)
+            dossier_widget.deleteLater()

@@ -22,16 +22,7 @@ class DossierWidget(QtWidgets.QFrame):
         layout.addWidget(self.selection_button_widget)
         self.selection_changed = self.selection_button_widget.stateChanged
 
-        remove_button_widget = QtWidgets.QPushButton(text="X")
-        remove_button_widget.clicked.connect(self.delete_click)
-        remove_button_widget.setMaximumWidth(20)
-        layout.addWidget(remove_button_widget)
-
         self.setLayout(layout)
-
-    def delete_click(self):
-        QtWidgets.QApplication.instance().state.remove_dossier(self.dossier)
-        self.deleteLater()
 
     def is_selected(self) -> bool:
         return self.selection_button_widget.isChecked()

@@ -194,9 +194,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.application.state.add_sip(sip)
 
                 # Remove the dossiers from the list
-                for dossier_widget in selected_dossiers:
-                    self.application.state.remove_dossier(dossier_widget.dossier)
-                    dossier_widget.deleteLater()
+                self.dossiers_list_view.remove_selected_clicked()
 
                 # Open the SIP
                 sip_widget.open_button_clicked()
