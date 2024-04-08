@@ -80,13 +80,13 @@ class SIPView(QtWidgets.QMainWindow):
 
         self.set_series_combobox_items(status="Published")
 
-        published_radiobutton = QtWidgets.QRadioButton(text="Published")
+        published_radiobutton = QtWidgets.QRadioButton(text="Gepubliceerde series")
         published_radiobutton.setChecked(True)
         published_radiobutton.clicked.connect(
             lambda: self.set_series_combobox_items(status="Published")
         )
 
-        submitted_radiobutton = QtWidgets.QRadioButton(text="Submitted")
+        submitted_radiobutton = QtWidgets.QRadioButton(text="Ingediende series")
         submitted_radiobutton.clicked.connect(
             lambda: self.set_series_combobox_items(status="Submitted")
         )

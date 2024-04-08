@@ -74,7 +74,7 @@ class TagMappingWidget(QtWidgets.QFrame):
         self.metadata_mapping = TagListWidget(self, title="Metadata")
         self.horizontal_layout.addWidget(self.metadata_mapping)
 
-        self.import_mapping = TagListWidget(self, title="importsjabloon")
+        self.import_mapping = TagListWidget(self, title="Importsjabloon")
         self.horizontal_layout.addWidget(self.import_mapping)
 
         self.mapping_buttons = TagMappingWidget.MappingButtonWidget(
