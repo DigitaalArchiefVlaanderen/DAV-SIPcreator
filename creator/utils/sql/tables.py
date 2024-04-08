@@ -90,7 +90,8 @@ CREATE TABLE IF NOT EXISTS {Tables.SIP.value} (
     status text NOT NULL,
     series_id text NOT NULL,
     metadata_file_path text NOT NULL,
-    mapping_dict text NOT NULL
+    tag_mapping_dict text NOT NULL,
+    folder_mapping_list text NOT NULL
 )
 """
 read_all_sip = f"""
@@ -100,8 +101,8 @@ get_sip_count = f"""
 SELECT count(*) FROM {Tables.SIP.value}
 """
 insert_sip = f"""
-INSERT INTO {Tables.SIP.value}(id, environment_name, name, status, series_id, metadata_file_path, mapping_dict)
-VALUES(?,?,?,?,?,?,?)
+INSERT INTO {Tables.SIP.value}(id, environment_name, name, status, series_id, metadata_file_path, tag_mapping_dict, folder_mapping_list)
+VALUES(?,?,?,?,?,?,?,?)
 """
 update_sip = f"""
 UPDATE {Tables.SIP.value}
@@ -110,6 +111,7 @@ SET environment_name=?,
     status=?,
     series_id=?,
     metadata_file_path=?,
-    mapping_dict=?
+    tag_mapping_dict=?,
+    folder_mapping_list=?
 WHERE id=?
 """

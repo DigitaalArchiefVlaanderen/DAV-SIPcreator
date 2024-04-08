@@ -34,7 +34,7 @@ class PandasModel(QtCore.QAbstractTableModel):
         self.colors = dict()
         self.tooltips = dict()
 
-        self.filter_name_column = False
+        self.should_filter_name_column = False
 
         # Warning rows
         self._check_empty_rows()
@@ -63,7 +63,10 @@ class PandasModel(QtCore.QAbstractTableModel):
             or role == QtCore.Qt.ItemDataRole.EditRole
         ):
             # If the filter is active, and we are on the name column, filter the name
-            if self.filter_name_column and self._data.columns.get_loc("Naam") == col:
+            if (
+                self.should_filter_name_column
+                and self._data.columns.get_loc("Naam") == col
+            ):
                 value, *_ = value.rsplit(".", 1)
 
             return value
@@ -472,7 +475,7 @@ class PandasModel(QtCore.QAbstractTableModel):
     # Filters
     def filter_name_column(self, active: bool) -> None:
         # We just set the value here, the filtering happens when showing data
-        self.filter_name_column = active
+        self.should_filter_name_column = active
 
         name_column = self._data.columns.get_loc("Naam")
 

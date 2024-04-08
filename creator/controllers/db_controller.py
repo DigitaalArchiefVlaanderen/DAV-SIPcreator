@@ -159,7 +159,8 @@ class DBController:
                 status,
                 series_id,
                 metadata_file_path,
-                mapping_dict,
+                tag_mapping_dict,
+                folder_mapping_list,
             ) in cursor.fetchall():
                 c = conn.execute(tables.get_dossiers_by_sip_id, (_id,))
 
@@ -177,7 +178,8 @@ class DBController:
                         status=SIPStatus[status],
                         series=self.find_series(series_id=series_id),
                         metadata_file_path=metadata_file_path,
-                        mapping=json.loads(mapping_dict),
+                        tag_mapping=json.loads(tag_mapping_dict),
+                        folder_mapping=json.loads(folder_mapping_list),
                     )
                 )
 
@@ -194,7 +196,8 @@ class DBController:
                     sip.status.name,
                     sip.series._id,
                     sip.metadata_file_path,
-                    json.dumps(sip.mapping),
+                    json.dumps(sip.tag_mapping),
+                    json.dumps(sip.folder_mapping),
                 ),
             )
 
@@ -213,7 +216,8 @@ class DBController:
                     sip.status.name,
                     sip.series._id,
                     sip.metadata_file_path,
-                    json.dumps(sip.mapping),
+                    json.dumps(sip.tag_mapping),
+                    json.dumps(sip.folder_mapping),
                     sip._id,
                 ),
             )

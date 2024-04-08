@@ -71,7 +71,7 @@ class TagMappingWidget(QtWidgets.QFrame):
         self.horizontal_layout = QtWidgets.QHBoxLayout()
         self.setLayout(self.horizontal_layout)
 
-        self.metadata_mapping = TagListWidget(self, title="metadata")
+        self.metadata_mapping = TagListWidget(self, title="Metadata")
         self.horizontal_layout.addWidget(self.metadata_mapping)
 
         self.import_mapping = TagListWidget(self, title="importsjabloon")
@@ -118,7 +118,6 @@ class TagMappingWidget(QtWidgets.QFrame):
         selected_importsjabloon_tag = self.import_mapping.get_selected_tag()
 
         if selected_metadata_tag is None or selected_importsjabloon_tag is None:
-            print("No 2 selected")
             return
 
         self.output_mapping.add_tag(
@@ -132,7 +131,6 @@ class TagMappingWidget(QtWidgets.QFrame):
         selected_tag = self.output_mapping.get_selected_tag()
 
         if selected_tag is None:
-            print("No unmap selected")
             return
 
         metadata_tag, importsjabloon_tag = selected_tag.text().split(" -> ")
@@ -147,3 +145,70 @@ class TagMappingWidget(QtWidgets.QFrame):
             b.text().split(" -> ")[0]: b.text().split(" -> ")[1]
             for b in self.output_mapping.button_group.buttons()
         }
+
+
+class FolderMappingWidget(QtWidgets.QFrame):
+    class MappingButtonWidget(QtWidgets.QWidget):
+        def __init__(self, map_tags_callback, unmap_tags_callback):
+            super().__init__()
+
+            self.vertical_layout = QtWidgets.QVBoxLayout()
+            self.setLayout(self.vertical_layout)
+
+            self.map_tags_button = QtWidgets.QPushButton(text=">>>")
+            self.map_tags_button.clicked.connect(map_tags_callback)
+            self.vertical_layout.addWidget(self.map_tags_button)
+
+            self.unmap_tags_button = QtWidgets.QPushButton(text="<<<")
+            self.unmap_tags_button.clicked.connect(unmap_tags_callback)
+            self.vertical_layout.addWidget(self.unmap_tags_button)
+
+    def __init__(self):
+        super().__init__()
+
+        grid_layout = QtWidgets.QGridLayout()
+        self.setLayout(grid_layout)
+
+        self.metadata_mapping = TagListWidget(self, title="Metadata")
+        # TODO: figure out how to give this as an option without it being weird
+        # self.add_to_metadata(["<Dossiernaam>"])
+
+        mapping_buttons = TagMappingWidget.MappingButtonWidget(
+            map_tags_callback=self.map_tags_clicked,
+            unmap_tags_callback=self.unmap_tags_clicked,
+        )
+
+        self.output_mapping = TagListWidget(self, title="Mapping")
+
+        self.save_button = QtWidgets.QPushButton(text="Opslaan")
+
+        grid_layout.addWidget(self.metadata_mapping, 1, 0)
+        grid_layout.addWidget(mapping_buttons, 1, 1)
+        grid_layout.addWidget(self.output_mapping, 1, 2)
+        grid_layout.addWidget(self.save_button, 2, 0, 1, 3)
+
+    def add_to_metadata(self, tags: list):
+        self.metadata_mapping.add_tags(tags)
+
+    def map_tags_clicked(self):
+        selected_metadata_tag = self.metadata_mapping.get_selected_tag()
+
+        if selected_metadata_tag is None:
+            return
+
+        self.output_mapping.add_tag(selected_metadata_tag.text())
+
+        self.metadata_mapping.remove_selected_tag()
+
+    def unmap_tags_clicked(self):
+        selected_tag = self.output_mapping.get_selected_tag()
+
+        if selected_tag is None:
+            return
+
+        self.metadata_mapping.add_tag(selected_tag.text())
+
+        self.output_mapping.remove_selected_tag()
+
+    def get_mapping(self) -> list:
+        return [b.text() for b in self.output_mapping.button_group.buttons()]

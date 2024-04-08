@@ -26,7 +26,8 @@ class SIP(QtCore.QObject):
         status: SIPStatus = None,
         series: Series = None,
         metadata_file_path: str = None,
-        mapping: dict = None,
+        tag_mapping: dict = None,
+        folder_mapping: dict = None,
     ):
         super().__init__()
 
@@ -40,11 +41,10 @@ class SIP(QtCore.QObject):
         self.series = Series() if series is None else series
 
         self.metadata_file_path = (
-            "Nog geen pad geselecteerd"
-            if metadata_file_path is None
-            else metadata_file_path
+            "" if metadata_file_path is None else metadata_file_path
         )
-        self.mapping = {} if mapping is None else mapping
+        self.tag_mapping = {} if tag_mapping is None else tag_mapping
+        self.folder_mapping = {} if folder_mapping is None else folder_mapping
 
     # Signals
     status_changed: QtCore.Signal = QtCore.Signal(*(SIPStatus,), arguments=["status"])
@@ -79,6 +79,18 @@ class SIP(QtCore.QObject):
 
             return structure
 
+        def _map_location_to_sip(location: str) -> str:
+            # Location is the default "Path in SIP" location
+            # This means it can have subfolders
+            if self.folder_mapping is None:
+                return location
+
+            # Take the filename
+            file_name = os.path.basename(location)
+
+            # Get the mapping, otherwise return default
+            return self.folder_mapping.get(file_name, location)
+
         sip_structure = {}
 
         for dossier in self.dossiers:
@@ -95,7 +107,7 @@ class SIP(QtCore.QObject):
                 },
                 **{
                     file_name: {
-                        "Path in SIP": f"{dossier.dossier_label}/{location}",
+                        "Path in SIP": f"{dossier.dossier_label}/{_map_location_to_sip(location)}",
                         "path": os.path.join(dossier.path, location),
                         "Type": (
                             # Set specific bad-type to filter on later
@@ -149,4 +161,12 @@ class SIP(QtCore.QObject):
 
     def set_series(self, series: Series) -> None:
         self.series = series
+        self.value_changed.emit(self)
+
+    def set_tag_mapping(self, tag_mapping: dict) -> None:
+        self.tag_mapping = tag_mapping
+        self.value_changed.emit(self)
+
+    def set_metadata_file_path(self, metadata_file_path: str) -> None:
+        self.metadata_file_path = metadata_file_path
         self.value_changed.emit(self)

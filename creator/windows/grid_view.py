@@ -124,10 +124,10 @@ class GridView(QtWidgets.QMainWindow):
     def _fill_mapping(self, sip_folder_structure: dict):
         # NOTE: this whole method is a jumble, have fun figuring it all out in it's current state
         name_mapping_from = [
-            k for k, v in self.sip_widget.sip.mapping.items() if v == "Naam"
+            k for k, v in self.sip_widget.sip.tag_mapping.items() if v == "Naam"
         ][0]
-        mapping_from_cols = self.sip_widget.sip.mapping.keys()
-        mapping_to_cols = self.sip_widget.sip.mapping.values()
+        mapping_from_cols = self.sip_widget.sip.tag_mapping.keys()
+        mapping_to_cols = self.sip_widget.sip.tag_mapping.values()
 
         temp_df = self.sip_widget.metadata_df.copy(deep=True)
 
@@ -147,7 +147,7 @@ class GridView(QtWidgets.QMainWindow):
         )
 
         # Change all the from-cols to the to-cols
-        temp_df.rename(columns=self.sip_widget.sip.mapping, inplace=True)
+        temp_df.rename(columns=self.sip_widget.sip.tag_mapping, inplace=True)
 
         temp_df = pd.merge(
             self.sip_widget.import_template_df,
@@ -192,7 +192,7 @@ class GridView(QtWidgets.QMainWindow):
 
         self._fill_from_files(sip_folder_structure)
 
-        if self.sip_widget.sip.mapping:
+        if self.sip_widget.sip.tag_mapping:
             self._fill_mapping(sip_folder_structure)
 
         self.table_view.setModel(

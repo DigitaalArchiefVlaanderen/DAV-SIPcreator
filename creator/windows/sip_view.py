@@ -1,5 +1,7 @@
 from PySide6 import QtWidgets, QtGui, QtCore
+
 import pandas as pd
+import numpy as np
 
 from typing import List
 
@@ -10,7 +12,9 @@ from ..utils.series import Series
 from ..widgets.mapping_widget import TagMappingWidget
 from ..widgets.toolbar import Toolbar
 from ..widgets.warning_dialog import WarningDialog
-from ..windows.grid_view import GridView
+
+from .grid_view import GridView
+from .folder_structure_view import FolderStructure
 
 
 class SIPView(QtWidgets.QMainWindow):
@@ -19,8 +23,11 @@ class SIPView(QtWidgets.QMainWindow):
 
         self.application: Application = QtWidgets.QApplication.instance()
         self.sip_widget = sip_widget
+        self.sip = self.sip_widget.sip
 
         self.listed_series: List[Series] = []
+
+        self.folder_structure_view = None
 
     def setup_ui(self):
         self.setWindowTitle("SIP")
@@ -89,12 +96,17 @@ class SIPView(QtWidgets.QMainWindow):
 
         metadata_file_button = QtWidgets.QPushButton(text="Selecteer metadata file")
         metadata_file_button.clicked.connect(self.metadata_file_clicked)
-        self.metadata_path_label = QtWidgets.QLabel(
-            text=self.sip_widget.sip.metadata_file_path
-        )
+        self.metadata_path_label = QtWidgets.QLabel(text="Nog geen pad geselecteerd")
+
         scrollarea = QtWidgets.QScrollArea()
         scrollarea.setWidget(self.metadata_path_label)
         scrollarea.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+
+        self.folder_structure_button = QtWidgets.QPushButton(
+            text="Stel mappenstructuur samen"
+        )
+        self.folder_structure_button.setEnabled(False)
+        self.folder_structure_button.clicked.connect(self.folder_structure_click)
 
         self.tag_mapping_widget = TagMappingWidget()
         self.tag_mapping_widget.setMinimumSize(100, 400)
@@ -117,8 +129,10 @@ class SIPView(QtWidgets.QMainWindow):
         grid_layout.addWidget(metadata_file_button, 3, 0, 1, 3)
         grid_layout.addWidget(scrollarea, 3, 3)
 
-        grid_layout.addWidget(self.tag_mapping_widget, 4, 0, 5, 4)
-        grid_layout.addWidget(self.open_grid_button, 9, 0, 1, 4)
+        grid_layout.addWidget(self.folder_structure_button, 4, 0, 1, 4)
+
+        grid_layout.addWidget(self.tag_mapping_widget, 5, 0, 5, 4)
+        grid_layout.addWidget(self.open_grid_button, 10, 0, 1, 4)
 
     def set_series_combobox_items(self, status: str):
         for i in reversed(range(self.series_combobox.count())):
@@ -135,14 +149,25 @@ class SIPView(QtWidgets.QMainWindow):
         )
 
         if metadata_path != "":
-            self.sip_widget.sip.metadata_file_path = metadata_path
+            self.sip_widget.sip.set_metadata_file_path(metadata_path)
 
             self.metadata_path_label.setText(self.sip_widget.sip.metadata_file_path)
 
             self.sip_widget.metadata_df = pd.read_excel(
-                self.sip_widget.sip.metadata_file_path
+                self.sip_widget.sip.metadata_file_path, dtype=str
             )
-            self.tag_mapping_widget.add_to_metadata(self.sip_widget.metadata_df.columns)
+
+            # Only allow columns where no field is empty at all
+            columns_without_empty_fields = [
+                c
+                for c, has_empty in dict(
+                    self.sip_widget.metadata_df.eq("").any()
+                ).items()
+                if not has_empty
+            ]
+
+            self.tag_mapping_widget.add_to_metadata(columns_without_empty_fields)
+            self.folder_structure_button.setEnabled(True)
 
     def import_template_clicked(self):
         series_label = self.series_combobox.currentText()
@@ -159,7 +184,7 @@ class SIPView(QtWidgets.QMainWindow):
         )
 
         self.sip_widget.import_template_df = pd.read_excel(
-            self.import_template_location, engine="openpyxl"
+            self.import_template_location, engine="openpyxl", dtype=str
         )
         self.tag_mapping_widget.add_to_import_template(
             self.sip_widget.import_template_df.columns
@@ -170,9 +195,9 @@ class SIPView(QtWidgets.QMainWindow):
 
     def open_grid_clicked(self, first_open=True):
         if first_open:
-            mapping = self.tag_mapping_widget.get_mapping()
+            tag_mapping = self.tag_mapping_widget.get_mapping()
 
-            if len(mapping) > 1 and "Naam" not in mapping.values():
+            if len(tag_mapping) > 1 and "Naam" not in tag_mapping.values():
                 WarningDialog(
                     title="Mapping fout",
                     text="Een mapping naar 'Naam' in het importsjabloon moet opgegeven worden",
@@ -180,7 +205,7 @@ class SIPView(QtWidgets.QMainWindow):
                 return
 
             # Save the data as part of the SIPWidget
-            self.sip_widget.sip.mapping = mapping
+            self.sip_widget.sip.set_tag_mapping(tag_mapping)
 
             # NOTE: this should not be needed if proper linking is provided
             self.sip_widget.import_template_location = self.import_template_location
@@ -197,3 +222,47 @@ class SIPView(QtWidgets.QMainWindow):
 
         self.__grid_view.show()
         self.close()
+
+    def folder_structure_click(self) -> None:
+        def _save_mapping(name_map_column: str, folder_structure: list) -> None:
+            df = self.sip_widget.metadata_df
+            folder_mapping = {
+                name: mapped_name
+                for name, mapped_name in zip(
+                    df[name_map_column],
+                    df[[*folder_structure, name_map_column]].agg("/".join, axis=1),
+                )
+            }
+
+            self.sip_widget.sip.folder_mapping = folder_mapping
+
+        tag_mapping = self.tag_mapping_widget.get_mapping()
+
+        # Make sure we already know which column maps to name
+        if "Naam" not in tag_mapping.values():
+            WarningDialog(
+                title="Mapping fout",
+                text="Een mapping naar 'Naam' in het importsjabloon moet opgegeven worden",
+            ).exec()
+            return
+
+        if self.folder_structure_view is None:
+            self.folder_structure_view = FolderStructure(self.sip_widget.sip.name)
+            self.folder_structure_view.setup_ui()
+
+            name_map_column = [k for k, v in tag_mapping.items() if v == "Naam"][0]
+            columns_without_empty_fields = [
+                c
+                for c, has_empty in dict(
+                    self.sip_widget.metadata_df.eq("").any()
+                ).items()
+                if not has_empty and c != name_map_column
+            ]
+            self.folder_structure_view.add_to_metadata(columns_without_empty_fields)
+            self.folder_structure_view.closed.connect(
+                lambda f: _save_mapping(
+                    name_map_column=name_map_column, folder_structure=f
+                )
+            )
+
+        self.folder_structure_view.show()

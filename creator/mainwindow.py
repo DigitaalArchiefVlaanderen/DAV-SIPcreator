@@ -1,5 +1,6 @@
 from PySide6 import QtWidgets, QtGui
 
+import pandas as pd
 import os
 import json
 
@@ -128,13 +129,23 @@ class MainWindow(QtWidgets.QMainWindow):
 
                     continue
 
+            sip_widget = SIPWidget(sip=sip)
+
+            try:
+                if sip.metadata_file_path != "":
+                    sip_widget.metadata_df = pd.read_excel(
+                        sip.metadata_file_path, dtype=str
+                    )
+            except Exception:
+                missing_sips.append(sip.name)
+                continue
+
             sip.value_changed.connect(self.state.update_sip)
 
             # Uploading is not a valid state, could have happened because of forced shutdown during upload
             if sip.status == SIPStatus.UPLOADING:
                 sip.set_status(SIPStatus.SIP_CREATED)
 
-            sip_widget = SIPWidget(sip=sip)
             result = FileController.existing_grid(
                 self.application.state.configuration, sip
             )
@@ -163,7 +174,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if len(missing_sips) > 0:
             WarningDialog(
                 title="Missende bestanden",
-                text=f"Een of meerdere sips of sidecars zijn niet aanwezig.\n\nMissende sips: {json.dumps(missing_sips, indent=4)}\n\nDeze bestanden zijn nodig om gegevens in te laden, deze sips worden overgeslagen.",
+                text=f"Een of meerdere sips, sidecars of metadata zijn niet aanwezig.\n\nMissende sips: {json.dumps(missing_sips, indent=4)}\n\nDeze bestanden zijn nodig om gegevens in te laden, deze sips worden overgeslagen.",
             ).exec()
 
     def add_dossier_clicked(self, multi=False):
