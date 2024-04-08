@@ -48,6 +48,12 @@ class DBController:
             conn.execute(tables.delete_dossier, (dossier.path,))
             conn.commit()
 
+    def get_sip_count(self) -> int:
+        with self.conn as conn:
+            cursor = conn.execute(tables.get_sip_count)
+
+            return cursor.fetchone()[0]
+
     def read_sips(self, configuration: Configuration) -> List[SIP]:
         sips = []
 

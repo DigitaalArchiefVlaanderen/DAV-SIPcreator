@@ -56,6 +56,9 @@ CREATE TABLE IF NOT EXISTS {Tables.SIP.value} (
 read_all_sip = f"""
 SELECT * FROM {Tables.SIP.value}
 """
+get_sip_count = f"""
+SELECT count(*) FROM {Tables.SIP.value}
+"""
 insert_sip = f"""
 INSERT INTO {Tables.SIP.value}(id, environment_name, name, status, series_id, series_name, metadata_file_path, mapping_dict)
 VALUES(?,?,?,?,?,?,?,?)

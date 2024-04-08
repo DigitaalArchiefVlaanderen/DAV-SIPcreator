@@ -12,14 +12,20 @@ from ..sip_status import SIPStatus
 from ..configuration import Environment
 
 
+def get_next_sip_name():
+    db_controller = QtWidgets.QApplication.instance().db_controller
+
+    return f"SIP {db_controller.get_sip_count() + 1}"
+
+
 @dataclass
 class SIP:
     environment_name: str
     dossiers: List[Dossier]
 
-    _id: str = field(default_factory=lambda *_: str(uuid.uuid4()))
+    _id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
-    name: str = "SIP"
+    name: str = field(default_factory=get_next_sip_name)
     status: SIPStatus = SIPStatus.IN_PROGRESS
     series: Series = field(default_factory=Series)
 
@@ -29,6 +35,9 @@ class SIP:
     @property
     def file_name(self):
         return f"{self.series._id}-{self.name}.zip"
+
+    def get_initial_name(self) -> str:
+        pass
 
     def get_sip_folder_structure(self) -> dict:
         def _get_dossier_folder_structure(base_path: str, dossier_path: str) -> dict:
