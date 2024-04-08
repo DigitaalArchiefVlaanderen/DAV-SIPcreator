@@ -34,3 +34,6 @@ class DossierWidget(QtWidgets.QFrame):
 
     def is_selected(self) -> bool:
         return self.selection_button_widget.isChecked()
+
+    def set_selected(self, value: bool):
+        self.selection_button_widget.setChecked(value)

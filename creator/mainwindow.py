@@ -113,10 +113,12 @@ class MainWindow(QtWidgets.QMainWindow):
                     continue
 
                 dossier = Dossier(path=path)
+                dossier_widget = DossierWidget(dossier=dossier)
+                dossier_widget.set_selected(True)
 
                 success = self.dossiers_list_view.add_item(
                     searchable_name_field="dossier_label",
-                    widget=DossierWidget(dossier=dossier),
+                    widget=dossier_widget,
                 )
 
                 if success:
