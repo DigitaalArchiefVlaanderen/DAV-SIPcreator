@@ -114,6 +114,9 @@ class SIPWidget(QtWidgets.QFrame):
             )
             is not None
         ):
+            self.import_template_df = FileController.existing_grid(
+                self.application.state.configuration, self.sip
+            )
             self.__sip_view.open_grid_clicked(first_open=False)
         else:
             self.__sip_view.setup_ui()
@@ -231,15 +234,3 @@ class SIPWidget(QtWidgets.QFrame):
             }
 
         return sip_structure
-
-
-# TODO: bollekes vs vakskes
-# TODO: configuratie, duidelijker knopke
-# TODO: dossier verwijderen uit lijst
-# TODO: lijst dossiers (zoekbalk) lijst sips (zoekbalk)
-# TODO: indicatie van aantal dossiers/sips
-# TODO: check max lines
-# TODO: voeg dossiers toe knop
-# TODO: openingsdatum < closing
-# TODO: cellen doortrekken
-# TODO: datum niet op stukniveau invullen, wel op dossierniveau

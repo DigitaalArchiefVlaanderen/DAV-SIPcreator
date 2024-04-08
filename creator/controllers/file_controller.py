@@ -94,4 +94,4 @@ class FileController:
     @staticmethod
     def existing_grid(configuration: dict, sip: SIP) -> pd.DataFrame:
         if (path := FileController.existing_grid_path(configuration, sip)) is not None:
-            return pd.read_excel(path)
+            return pd.read_excel(path, dtype=str)
