@@ -1,4 +1,4 @@
-from PySide6 import QtWidgets
+from PySide6 import QtWidgets, QtCore
 
 import os
 
@@ -20,6 +20,7 @@ class DossierWidget(QtWidgets.QFrame):
             text=self.dossier.dossier_label
         )
         layout.addWidget(self.selection_button_widget)
+        self.selection_changed = self.selection_button_widget.stateChanged
 
         remove_button_widget = QtWidgets.QPushButton(text="X")
         remove_button_widget.clicked.connect(self.delete_click)

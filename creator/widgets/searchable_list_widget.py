@@ -113,7 +113,7 @@ class SearchableListWidget(QtWidgets.QWidget):
 
 
 class SearchableSelectionListView(SearchableListWidget):
-    def get_selected(self):
+    def get_selected(self) -> list:
         selected_dossiers = []
 
         for i in range(self.list_layout.count()):

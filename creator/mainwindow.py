@@ -54,15 +54,16 @@ class MainWindow(QtWidgets.QMainWindow):
         grid_layout.addWidget(self.dossiers_list_view, 1, 0, 1, 2)
 
         # SIPS
-        create_sip_button = QtWidgets.QPushButton(text="Start SIP")
-        create_sip_button.clicked.connect(self.create_sip_clicked)
+        self.create_sip_button = QtWidgets.QPushButton(text="Start SIP")
+        self.create_sip_button.clicked.connect(self.create_sip_clicked)
+        self.create_sip_button.setEnabled(False)
         self.sip_list_view = SearchableListWidget()
 
         # Toolbar
         self.toolbar = Toolbar()
         self.addToolBar(self.toolbar)
 
-        grid_layout.addWidget(create_sip_button, 0, 2, 1, 2)
+        grid_layout.addWidget(self.create_sip_button, 0, 2, 1, 2)
         grid_layout.addWidget(self.sip_list_view, 1, 2, 1, 2)
 
     def load_items(self):
@@ -76,9 +77,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 removed_dossiers.append(dossier)
                 continue
 
+            dossier_widget = DossierWidget(dossier=dossier)
+            dossier_widget.selection_changed.connect(self.dossier_selection_changed)
+
             self.dossiers_list_view.add_item(
                 searchable_name_field="dossier_label",
-                widget=DossierWidget(dossier=dossier),
+                widget=dossier_widget,
             )
 
         if len(removed_dossiers) > 0:
@@ -152,6 +156,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 dossier_widget = DossierWidget(dossier=dossier)
                 dossier_widget.set_selected(True)
+                dossier_widget.selection_changed.connect(self.dossier_selection_changed)
 
                 success = self.dossiers_list_view.add_item(
                     searchable_name_field="dossier_label",
@@ -160,6 +165,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 if success:
                     self.application.state.add_dossier(dossier)
+                    self.dossier_selection_changed()
 
             if len(bad_dossiers) > 0:
                 WarningDialog(
@@ -189,6 +195,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 # Open the SIP
                 sip_widget.open_button_clicked()
+
+    def dossier_selection_changed(self):
+        self.create_sip_button.setEnabled(
+            len(self.dossiers_list_view.get_selected()) > 0
+        )
 
     def closeEvent(self, event):
         # If the main window dies, kill the whole application
