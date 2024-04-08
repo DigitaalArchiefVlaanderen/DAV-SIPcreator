@@ -13,7 +13,7 @@ class Color(Enum):
 class PandasModel(QtCore.QAbstractTableModel):
     def __init__(self, data, create_sip_button, date_range):
         super().__init__()
-        self._data = data
+        self._data = data.fillna("").astype(str).convert_dtypes()
         self._create_sip_button = create_sip_button
         self.date_start, self.date_end = date_range
 
@@ -184,6 +184,9 @@ class PandasModel(QtCore.QAbstractTableModel):
 
     def get_invalid_closing_date_rows(self) -> pd.DataFrame:
         def date_invalid_map(value: str) -> bool:
+            if isinstance(value, float) and math.isnan(value):
+                return False
+
             try:
                 date = datetime.strptime(value, "%Y-%m-%d")
 

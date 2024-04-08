@@ -89,4 +89,4 @@ class FileController:
         path = os.path.join(location, file_name)
 
         if os.path.exists(path):
-            return pd.read_excel(path).fillna("").astype(str)
+            return pd.read_excel(path)
