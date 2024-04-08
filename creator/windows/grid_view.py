@@ -61,43 +61,6 @@ class GridView(QtWidgets.QMainWindow):
         df["Type"] = [s["Type"] for s in sip_folder_structure.values()]
         df["DossierRef"] = [s["DossierRef"] for s in sip_folder_structure.values()]
 
-        df["Openingsdatum"] = [
-            (
-                datetime.fromtimestamp(s["Openingsdatum"]).strftime("%Y-%m-%d")
-                if s["Openingsdatum"] is not None
-                else None
-            )
-            for s in sip_folder_structure.values()
-        ]
-        df["Sluitingsdatum"] = [
-            (
-                datetime.fromtimestamp(s["Sluitingsdatum"]).strftime("%Y-%m-%d")
-                if s["Sluitingsdatum"] is not None
-                else None
-            )
-            for s in sip_folder_structure.values()
-        ]
-
-        # We need to separately determine the opening and closing for dossiers
-        dossier_refs = df.DossierRef.unique()
-
-        for ref in dossier_refs:
-            df.loc[(df.DossierRef == ref) & (df.Type == "dossier"), "Openingsdatum"] = (
-                np.min(
-                    df.loc[
-                        (df.DossierRef == ref) & (df.Type == "stuk"), "Openingsdatum"
-                    ]
-                )
-            )
-            df.loc[
-                (df.DossierRef == ref) & (df.Type == "dossier"), "Sluitingsdatum"
-            ] = np.max(
-                df.loc[(df.DossierRef == ref) & (df.Type == "stuk"), "Sluitingsdatum"]
-            )
-
-        df.fillna("", inplace=True)
-        df.astype(str)
-
     def _fill_mapping(self, sip_folder_structure: dict):
         # NOTE: this whole method is a jumble, have fun figuring it all out in it's current state
         name_mapping_from = [
