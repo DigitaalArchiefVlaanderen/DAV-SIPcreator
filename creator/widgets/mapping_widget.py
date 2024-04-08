@@ -97,6 +97,7 @@ class TagMappingWidget(QtWidgets.QFrame):
     def add_to_mapping(self, tags: list):
         self.output_mapping.add_tags(tags)
 
+    # TODO: currently unused, but leaving it for now
     def fill_from_sip_widget(self, sip_widget):
         mapping = sip_widget.mapping
         self.add_to_mapping([f"{k} -> {v}" for k, v in mapping.items()])

@@ -81,7 +81,7 @@ class FileController:
                 zfile.write(device_location, path_in_sip)
 
     @staticmethod
-    def existing_grid(configuration: dict, sip: SIP) -> pd.DataFrame:
+    def existing_grid_path(configuration: dict, sip: SIP) -> str:
         storage_location = configuration.misc.save_location
         location = os.path.join(storage_location, FileController.GRID_STORAGE)
 
@@ -89,4 +89,9 @@ class FileController:
         path = os.path.join(location, file_name)
 
         if os.path.exists(path):
+            return path
+
+    @staticmethod
+    def existing_grid(configuration: dict, sip: SIP) -> pd.DataFrame:
+        if (path := FileController.existing_grid_path(configuration, sip)) is not None:
             return pd.read_excel(path)

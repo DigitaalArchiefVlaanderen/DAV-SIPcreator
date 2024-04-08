@@ -50,16 +50,13 @@ class GridView(QtWidgets.QMainWindow):
         grid_layout.addWidget(self.create_sip_button, 2, 1)
 
     def _fill_from_files(self, sip_folder_structure: dict):
-        if self.sip_widget.export_template_df is None:
-            self.sip_widget.export_template_df = pd.DataFrame(
-                columns=self.sip_widget.import_template_df.columns
-            )
-
-        df = self.sip_widget.export_template_df
+        df = pd.DataFrame(columns=self.sip_widget.import_template_df.columns)
 
         df["Path in SIP"] = [s["Path in SIP"] for s in sip_folder_structure.values()]
         df["Type"] = [s["Type"] for s in sip_folder_structure.values()]
         df["DossierRef"] = [s["DossierRef"] for s in sip_folder_structure.values()]
+
+        self.sip_widget.import_template_df = df
 
     def _fill_mapping(self, sip_folder_structure: dict):
         # NOTE: this whole method is a jumble, have fun figuring it all out in it's current state
@@ -70,7 +67,6 @@ class GridView(QtWidgets.QMainWindow):
         mapping_to_cols = self.sip_widget.sip.mapping.values()
 
         temp_df = self.sip_widget.metadata_df.copy(deep=True)
-        temp_df.astype(str)
 
         # Select only the columns we care about
         temp_df = temp_df[temp_df.columns.intersection(mapping_from_cols)]
@@ -91,7 +87,7 @@ class GridView(QtWidgets.QMainWindow):
         temp_df.rename(columns=self.sip_widget.sip.mapping, inplace=True)
 
         temp_df = pd.merge(
-            self.sip_widget.export_template_df,
+            self.sip_widget.import_template_df,
             temp_df,
             on="Path in SIP",
             suffixes=("_1", "_2"),
@@ -104,16 +100,13 @@ class GridView(QtWidgets.QMainWindow):
 
         required_columns = [
             c if c not in mapping_to_cols else f"{c}_1"
-            for c in self.sip_widget.export_template_df.columns
+            for c in self.sip_widget.import_template_df.columns
         ]
         temp_df = temp_df[temp_df.columns.intersection(required_columns)]
 
         temp_df.rename(columns={f"{v}_1": v for v in mapping_to_cols}, inplace=True)
 
-        temp_df.fillna("", inplace=True)
-        temp_df.astype(str)
-
-        self.sip_widget.export_template_df = temp_df
+        self.sip_widget.import_template_df = temp_df
 
     def _set_invalid_rows(self):
         table = self.table_view.model()
@@ -131,8 +124,6 @@ class GridView(QtWidgets.QMainWindow):
             table.colors[(index, 9)] = Color.RED
 
     def load_table(self):
-        # self.sip_widget.export_template_df = self.sip_widget.import_template_df
-
         self.table_view.setModel(
             PandasModel(
                 self.sip_widget.import_template_df,
@@ -156,7 +147,7 @@ class GridView(QtWidgets.QMainWindow):
 
         self.table_view.setModel(
             PandasModel(
-                self.sip_widget.export_template_df,
+                self.sip_widget.import_template_df,
                 self.create_sip_button,
                 (
                     self.sip_widget.sip.series.valid_from,
@@ -210,3 +201,7 @@ class GridView(QtWidgets.QMainWindow):
                 title="Ongeldige rechten",
                 text="Ongeldige rechten om het bestand op te slaan, zorg er zeker voor dat je de excel niet open hebt staan en probeer opnieuw.",
             )
+
+    def closeEvent(self, event):
+        self.save_button_click()
+        event.accept()

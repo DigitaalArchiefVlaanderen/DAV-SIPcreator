@@ -29,9 +29,6 @@ class SIPWidget(QtWidgets.QFrame):
         self.import_template_df = None
         self.mapping = {}
 
-        # metadata file to be put in the SIP
-        self.export_template_df = None
-
         # sip location if created
         self.sip_location = ""
 
@@ -110,7 +107,12 @@ class SIPWidget(QtWidgets.QFrame):
 
         self.__sip_view = SIPView(sip_widget=self)
 
-        if self.import_template_df is not None:
+        if (
+            FileController.existing_grid_path(
+                self.application.state.configuration, self.sip
+            )
+            is not None
+        ):
             self.__sip_view.open_grid_clicked(first_open=False)
         else:
             self.__sip_view.setup_ui()

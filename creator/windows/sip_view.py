@@ -17,9 +17,6 @@ class SIPView(QtWidgets.QMainWindow):
         self.application = QtWidgets.QApplication.instance()
         self.sip_widget = sip_widget
 
-        # Only if no series is selected do we allow for it to be edited
-        self.active = self.sip_widget.sip.series.name == ""
-
         self.listed_series = []
 
     def setup_ui(self):
@@ -62,11 +59,8 @@ class SIPView(QtWidgets.QMainWindow):
         # Text will be set dynamically later
         self.series_amount_label = QtWidgets.QLabel()
 
-        if self.active:
-            self.listed_series = APIController.get_series(configuration)
-            self.set_series_combobox_items(status="Published")
-        else:
-            self.series_combobox.setCurrentText(repr(self.sip_widget.sip.series))
+        self.listed_series = APIController.get_series(configuration)
+        self.set_series_combobox_items(status="Published")
 
         published_radiobutton = QtWidgets.QRadioButton(text="Published")
         published_radiobutton.setChecked(True)
@@ -97,19 +91,6 @@ class SIPView(QtWidgets.QMainWindow):
         self.open_grid_button = QtWidgets.QPushButton(text="Open metadata grid")
         self.open_grid_button.clicked.connect(lambda *_: self.open_grid_clicked())
         self.open_grid_button.setEnabled(False)
-
-        # Disable when needed
-        if not self.active:
-            self.series_combobox.setEnabled(False)
-            import_template_button.setEnabled(False)
-            metadata_file_button.setEnabled(False)
-            published_radiobutton.setEnabled(False)
-            submitted_radiobutton.setEnabled(False)
-
-            # Load data where needed
-            self.tag_mapping_widget.fill_from_sip_widget(self.sip_widget)
-
-            self.open_grid_button.setEnabled(True)
 
         # Layout
         grid_layout.addWidget(self.title, 0, 0, 1, 3)
