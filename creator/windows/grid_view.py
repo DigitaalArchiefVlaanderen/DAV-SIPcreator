@@ -56,6 +56,23 @@ class GridView(QtWidgets.QMainWindow):
         df["Type"] = [s["Type"] for s in sip_folder_structure.values()]
         df["DossierRef"] = [s["DossierRef"] for s in sip_folder_structure.values()]
 
+        datum_cast = lambda key, ref: [
+            datetime.fromtimestamp(s[key]).strftime("%Y-%m-%d")
+            for s in sip_folder_structure.values()
+            if s[key] is not None and s["DossierRef"] == ref
+        ]
+        dossier_refs = df.DossierRef.unique()
+
+        for ref in dossier_refs:
+            # Earliest opening in this dossier is the opening for this dossier
+            df.loc[(df.DossierRef == ref) & (df.Type == "dossier"), "Openingsdatum"] = (
+                min(datum_cast("Openingsdatum", ref))
+            )
+            # Latest closing in this dossier is the closing for this dossier
+            df.loc[
+                (df.DossierRef == ref) & (df.Type == "dossier"), "Sluitingsdatum"
+            ] = max(datum_cast("Sluitingsdatum", ref))
+
         self.sip_widget.import_template_df = df
 
     def _fill_mapping(self, sip_folder_structure: dict):
@@ -203,6 +220,11 @@ class GridView(QtWidgets.QMainWindow):
             )
 
     def closeEvent(self, event):
-        if FileController.existing_grid_path(self.application.state.configuration, self.sip_widget.sip) is None:
+        if (
+            FileController.existing_grid_path(
+                self.application.state.configuration, self.sip_widget.sip
+            )
+            is None
+        ):
             self.save_button_click()
         event.accept()

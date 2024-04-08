@@ -76,6 +76,7 @@ class SIP:
                         "path": os.path.join(dossier.path, location),
                         "Type": "stuk",
                         "DossierRef": dossier.dossier_label,
+                        # Openingsdatum will be the creation dates of the file
                         # There is no cross-platform way of doing this sadly
                         # nt is Windows
                         "Openingsdatum": (
@@ -85,6 +86,7 @@ class SIP:
                                 os.path.join(dossier.path, location)
                             ).st_birthtime
                         ),
+                        # Sluitingsdatum will be the last edited time of the file
                         # This works as a cross-platform way of getting modification time
                         "Sluitingsdatum": os.path.getmtime(
                             os.path.join(dossier.path, location)
