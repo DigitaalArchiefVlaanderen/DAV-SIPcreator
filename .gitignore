@@ -1,0 +1,21 @@
+# Python byte code
+*.pyc
+__pycache__/
+
+# Virtual environment
+venv/
+
+# Example dossiers
+examples/
+
+# Json files
+*.json
+
+# Build files
+dist/
+
+# Project files
+SIP_Creator/
+main.spec
+sqlite.db
+test.py
