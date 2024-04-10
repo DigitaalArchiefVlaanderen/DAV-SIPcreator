@@ -22,7 +22,9 @@ class DossierWidget(QtWidgets.QFrame):
             text=self.dossier.dossier_label
         )
         layout.addWidget(self.selection_button_widget)
-        self.selection_button_widget.stateChanged.connect(self.selection_changed.emit)
+        self.selection_button_widget.stateChanged.connect(
+            lambda *_: self.selection_changed.emit()
+        )
 
         self.setLayout(layout)
 
