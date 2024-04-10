@@ -1,11 +1,9 @@
-from PySide6 import QtWidgets, QtGui, QtCore
+from PySide6 import QtGui, QtCore
 import pandas as pd
-import numpy as np
 import os
 
 from datetime import datetime
 from enum import Enum
-import math
 
 
 class Color(Enum):
@@ -38,6 +36,7 @@ class PandasModel(QtCore.QAbstractTableModel):
         self.should_filter_name_column = False
 
         # Warning rows
+        # 1.5s (1.000)
         self._check_empty_rows()
 
         # NOTE: we basically take all the existing data
@@ -217,12 +216,8 @@ class PandasModel(QtCore.QAbstractTableModel):
             )
 
     def _trigger_fill_data(self) -> None:
-        for r in range(self.rowCount()):
-            for c in range(self.columnCount()):
-                index = self.index(r, c)
-                value = self._data.iloc[index.row(), index.column()]
-
-                self.setData(index=index, value=value)
+        self._vectorized_name_data_check()
+        self._vectorized_date_data_check()
 
     def _proper_date_format(self, date_str: str) -> datetime:
         # Returns the date if valid, otherwise returns None
@@ -237,10 +232,10 @@ class PandasModel(QtCore.QAbstractTableModel):
             return "Datum mag niet in de toekomst zijn"
 
         if self.date_start is not None and date < self.date_start:
-            return "Datum mag niet voor de start-datum van de serie zijn"
+            return "Datum moet binnen de serie-datumrange vallen"
 
         if self.date_end is not None and date > self.date_end:
-            return "Datum mag niet na de eind-datum van de serie zijn"
+            return "Datum moet binnen de serie-datumrange vallen"
 
     def _get_date_values_for_dossier_ref(self, dossier_ref: str, column: str) -> list:
         files = self._data.loc[
@@ -379,12 +374,12 @@ class PandasModel(QtCore.QAbstractTableModel):
             self._mark_date_cell(
                 row=row,
                 col=opening_col,
-                tooltip="De openingsdatum kan niet na de sluitingsdatum zijn",
+                tooltip="Openingsdatum kan niet na de sluitingsdatum zijn",
             )
             self._mark_date_cell(
                 row=row,
                 col=closing_col,
-                tooltip="De sluitingsdatum kan niet voor de openingsdatum zijn",
+                tooltip="Sluitingsdatum kan niet voor de openingsdatum zijn",
             )
 
             return False
@@ -481,6 +476,136 @@ class PandasModel(QtCore.QAbstractTableModel):
             )
 
         return True
+
+    # Vectorized checks
+    def _vectorized_name_data_check(self) -> None:
+        mask = self._data.loc[self._data.Type == "dossier"].Naam.apply(
+            lambda n: n == ""
+        )
+        bad_rows = self._data.loc[self._data.Type == "dossier"].Naam[mask]
+
+        for row, _ in bad_rows.items():
+            self._mark_name_cell(row=row)
+
+    def _vectorized_date_data_check(self) -> None:
+        opening_col, closing_col = self._data.columns.get_loc(
+            "Openingsdatum"
+        ), self._data.columns.get_loc("Sluitingsdatum")
+
+        df = self._data[["Openingsdatum", "Sluitingsdatum", "Type"]]
+
+        # Empty date
+        empty_dossier_date_mask = df.loc[df.Type == "dossier"].apply(lambda n: n == "")
+
+        # Date mapping
+        non_empty_date_mask = df.apply(lambda n: n != "")
+        non_empty_opening = df.Openingsdatum[non_empty_date_mask.Openingsdatum]
+        non_empty_closing = df.Sluitingsdatum[non_empty_date_mask.Sluitingsdatum]
+
+        opening_date_mapping = pd.to_datetime(
+            non_empty_opening,
+            format="%Y-%m-%d",
+            errors="coerce",
+        )
+        closing_date_mapping = pd.to_datetime(
+            non_empty_closing,
+            format="%Y-%m-%d",
+            errors="coerce",
+        )
+
+        # Bad format date
+        bad_opening_format_mask = opening_date_mapping.isnull()
+        bad_closing_format_mask = closing_date_mapping.isnull()
+
+        # Date in future
+        today = datetime.today()
+
+        opening_future_mask = opening_date_mapping > today
+        closing_future_mask = closing_date_mapping > today
+
+        # Between series range
+        opening_range_mask = opening_date_mapping.between(
+            self.date_start, self.date_end, inclusive="left"
+        )
+        closing_range_mask = closing_date_mapping.between(
+            self.date_start, self.date_end, inclusive="left"
+        )
+
+        # Closing before opening
+        closing_before_opening_mask = closing_date_mapping < opening_date_mapping
+
+        # Apply all mappings
+        for row, _ in (
+            df.loc[df.Type == "dossier"]
+            .Openingsdatum[empty_dossier_date_mask.Openingsdatum]
+            .items()
+        ):
+            self._mark_bad_cell(
+                row=row,
+                col=opening_col,
+                tooltip="Openingsdatum mag niet leeg zijn voor dossiers",
+            )
+        for row, _ in (
+            df.loc[df.Type == "dossier"]
+            .Sluitingsdatum[empty_dossier_date_mask.Sluitingsdatum]
+            .items()
+        ):
+            self._mark_bad_cell(
+                row=row,
+                col=closing_col,
+                tooltip="Sluitingsdatum mag niet leeg zijn voor dossiers",
+            )
+
+        for row, _ in non_empty_opening[bad_opening_format_mask].items():
+            self._mark_bad_cell(
+                row=row,
+                col=opening_col,
+                tooltip="Openingsdatum moet in het formaat YYYY-MM-DD zijn",
+            )
+        for row, _ in non_empty_closing[bad_closing_format_mask].items():
+            self._mark_bad_cell(
+                row=row,
+                col=closing_col,
+                tooltip="Sluitingsdatum moet in het formaat YYYY-MM-DD zijn",
+            )
+
+        for row, _ in non_empty_opening[opening_future_mask].items():
+            self._mark_bad_cell(
+                row=row,
+                col=opening_col,
+                tooltip="Datum mag niet in de toekomst zijn",
+            )
+        for row, _ in non_empty_closing[closing_future_mask].items():
+            self._mark_bad_cell(
+                row=row,
+                col=closing_col,
+                tooltip="Datum mag niet in de toekomst zijn",
+            )
+
+        for row, _ in non_empty_opening[opening_range_mask].items():
+            self._mark_bad_cell(
+                row=row,
+                col=opening_col,
+                tooltip="Datum moet binnen de serie-datumrange vallen",
+            )
+        for row, _ in non_empty_closing[closing_range_mask].items():
+            self._mark_bad_cell(
+                row=row,
+                col=closing_col,
+                tooltip="Datum moet binnen de serie-datumrange vallen",
+            )
+
+        for row, _ in non_empty_opening[closing_before_opening_mask].items():
+            self._mark_date_cell(
+                row=row,
+                col=opening_col,
+                tooltip="Openingsdatum kan niet na de sluitingsdatum zijn",
+            )
+            self._mark_date_cell(
+                row=row,
+                col=closing_col,
+                tooltip="Sluitingsdatum kan niet voor de openingsdatum zijn",
+            )
 
     # Filters
     def filter_name_column(self, active: bool) -> None:

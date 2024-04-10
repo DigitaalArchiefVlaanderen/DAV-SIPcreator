@@ -102,22 +102,37 @@ class GridView(QtWidgets.QMainWindow):
         df["Type"] = [s["Type"] for s in sip_folder_structure.values()]
         df["DossierRef"] = [s["DossierRef"] for s in sip_folder_structure.values()]
 
-        datum_cast = lambda key, ref: [
-            datetime.fromtimestamp(s[key]).strftime("%Y-%m-%d")
-            for s in sip_folder_structure.values()
-            if s[key] is not None and s["DossierRef"] == ref
+        df["Openingsdatum"] = [
+            s["Openingsdatum"] for s in sip_folder_structure.values()
         ]
-        dossier_refs = df.DossierRef.unique()
+        df["Sluitingsdatum"] = [
+            s["Sluitingsdatum"] for s in sip_folder_structure.values()
+        ]
 
-        for ref in dossier_refs:
-            # Earliest opening in this dossier is the opening for this dossier
-            df.loc[(df.DossierRef == ref) & (df.Type == "dossier"), "Openingsdatum"] = (
-                min(datum_cast("Openingsdatum", ref))
-            )
-            # Latest closing in this dossier is the closing for this dossier
-            df.loc[
-                (df.DossierRef == ref) & (df.Type == "dossier"), "Sluitingsdatum"
-            ] = max(datum_cast("Sluitingsdatum", ref))
+        open_dates_df = df.loc[df.Type == "dossier"][["DossierRef"]].join(
+            df.loc[df.Type == "stuk"]
+            .groupby(by="DossierRef")
+            .Openingsdatum.min()
+            .apply(lambda t: datetime.fromtimestamp(t).strftime("%Y-%m-%d")),
+            on="DossierRef",
+            rsuffix="_r",
+        )
+
+        close_dates_df = df.loc[df.Type == "dossier"][["DossierRef"]].join(
+            df.loc[df.Type == "stuk"]
+            .groupby(by="DossierRef")
+            .Sluitingsdatum.max()
+            .apply(lambda t: datetime.fromtimestamp(t).strftime("%Y-%m-%d")),
+            on="DossierRef",
+            rsuffix="_r",
+        )
+
+        # Reset the columns
+        df.Openingsdatum = None
+        df.Sluitingsdatum = None
+
+        df.loc[df.Type == "dossier", "Openingsdatum"] = open_dates_df.Openingsdatum
+        df.loc[df.Type == "dossier", "Sluitingsdatum"] = close_dates_df.Sluitingsdatum
 
         self.sip_widget.import_template_df = df
 
