@@ -6,6 +6,8 @@ from ..utils.state_utils.dossier import Dossier
 
 
 class DossierWidget(QtWidgets.QFrame):
+    selection_changed: QtCore.Signal = QtCore.Signal()
+
     def __init__(self, dossier: Dossier):
         super().__init__()
 
@@ -20,7 +22,7 @@ class DossierWidget(QtWidgets.QFrame):
             text=self.dossier.dossier_label
         )
         layout.addWidget(self.selection_button_widget)
-        self.selection_changed = self.selection_button_widget.stateChanged
+        self.selection_button_widget.stateChanged.connect(self.selection_changed.emit)
 
         self.setLayout(layout)
 

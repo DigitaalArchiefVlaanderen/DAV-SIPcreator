@@ -1,4 +1,4 @@
-from PySide6 import QtWidgets, QtGui
+from PySide6 import QtWidgets
 
 import pandas as pd
 import os
@@ -93,6 +93,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def load_items(self):
         removed_dossiers = []
+        dossier_widgets = []
 
         for dossier in self.application.state.dossiers:
             if dossier.disabled:
@@ -103,12 +104,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 continue
 
             dossier_widget = DossierWidget(dossier=dossier)
-            dossier_widget.selection_changed.connect(self.dossier_selection_changed)
 
-            self.dossiers_list_view.add_item(
-                searchable_name_field="dossier_label",
-                widget=dossier_widget,
-            )
+            dossier_widgets.append(dossier_widget)
+
+        self.dossiers_list_view.add_items(
+            widgets=dossier_widgets,
+            selection_changed_callback=self.dossier_selection_changed,
+            first_launch=True,
+        )
 
         if len(removed_dossiers) > 0:
             dialog = YesNoDialog(
@@ -221,9 +224,26 @@ class MainWindow(QtWidgets.QMainWindow):
             if multi:
                 paths = os.listdir(dossier_path)
 
-            bad_dossiers = []
+            overlapping_labels = self.dossiers_list_view.get_overlapping_values(paths)
 
-            for partial_path in paths:
+            unique_paths = [p for p in paths if p not in overlapping_labels]
+
+            bad_dossiers = [
+                os.path.normpath(os.path.join(dossier_path, partial_path))
+                for partial_path in overlapping_labels
+            ]
+            dossiers = []
+            dossier_widgets = []
+
+            estimated_seconds = len(unique_paths) // 800
+
+            if estimated_seconds > 2:
+                WarningDialog(
+                    title="Dossiers toevoegen",
+                    text=f"Het toevoegen van veel dossiers kan een tijdje duren.\n\nGeschatte tijd: {estimated_seconds} seconden",
+                ).exec()
+
+            for partial_path in unique_paths:
                 path = os.path.normpath(os.path.join(dossier_path, partial_path))
 
                 # NOTE: we do not care about files in there, we only take the folders as dossiers
@@ -231,27 +251,16 @@ class MainWindow(QtWidgets.QMainWindow):
                     continue
 
                 dossier = Dossier(path=path)
-
-                # Do not allow overlapping names
-                if (
-                    self.dossiers_list_view.get_widget_by_value(dossier.dossier_label)
-                    is not None
-                ):
-                    bad_dossiers.append(path)
-                    continue
+                dossiers.append(dossier)
 
                 dossier_widget = DossierWidget(dossier=dossier)
-                dossier_widget.selection_changed.connect(self.dossier_selection_changed)
 
-                success = self.dossiers_list_view.add_item(
-                    searchable_name_field="dossier_label",
-                    widget=dossier_widget,
-                )
+                dossier_widgets.append(dossier_widget)
 
-                dossier_widget.set_selected(True)
-
-                if success:
-                    self.application.state.add_dossier(dossier)
+            self.dossiers_list_view.add_items(
+                widgets=dossier_widgets,
+                selection_changed_callback=self.dossier_selection_changed,
+            )
 
             if len(bad_dossiers) > 0:
                 WarningDialog(

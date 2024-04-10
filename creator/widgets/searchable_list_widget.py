@@ -1,9 +1,10 @@
-from typing import List
+from typing import List, Callable
 
 from PySide6 import QtWidgets, QtCore
 
 from ..application import Application
 
+from ..utils.state_utils.dossier import Dossier
 from .dossier_widget import DossierWidget
 from .sip_widget import SIPWidget
 from .dialog import Dialog
@@ -25,48 +26,60 @@ class SearchableListWidget(QtWidgets.QWidget):
         self.setLayout(self.grid_layout)
 
         self.searchbox = QtWidgets.QLineEdit()
-        self.searchbox.textEdited.connect(self.reload_widgets)
+        self.searchbox.editingFinished.connect(self.reload_widgets)
         self.grid_layout.addWidget(self.searchbox, 1, 0)
 
         self.count_label = QtWidgets.QLabel(text="0")
         self.grid_layout.addWidget(self.count_label, 1, 1)
 
         scroll_area = QtWidgets.QScrollArea()
-        central_widget = QtWidgets.QWidget()
+        self.central_widget = QtWidgets.QWidget()
         self.list_layout = QtWidgets.QVBoxLayout()
         self.list_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
-        central_widget.setLayout(self.list_layout)
-        scroll_area.setWidget(central_widget)
+        self.central_widget.setLayout(self.list_layout)
+        scroll_area.setWidget(self.central_widget)
         scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
         scroll_area.setWidgetResizable(True)
         self.grid_layout.addWidget(scroll_area, 2, 0, 1, 2)
 
         self.widgets = []
 
-    # NOTE: not optimal to always do it all over, but shouldn't be too much of an issue
+    # NOTE: This is extremely slow for showing 10_000 items (roughly takes one and a half minutes)
     def reload_widgets(self):
         # Instead of deleting and adding items, we simply set their visibility
         widgets_to_show = self.search_widgets()
 
+        # NOTE: to improve draw times, we hide the element now, and show it again later
+        self.hide()
+
         for i in range(self.list_layout.count()):
             widget = self.list_layout.itemAt(i).widget()
-            widget.setVisible(False)
 
             if widget in widgets_to_show:
                 if not isinstance(widget, SIPWidget):
-                    widget.setVisible(True)
+                    widget.show()
                     continue
 
                 if (
                     widget.sip.environment.name
                     == self.state.configuration.active_environment
                 ):
-                    widget.setVisible(True)
+                    widget.show()
+                    continue
+
+            widget.hide()
+
+        self.show()
 
     def get_widget_by_value(self, value: str):
         for w in self.widgets:
             if getattr(w["reference"], w["field"]) == value:
                 return w
+
+    def get_overlapping_values(self, values: List[str]) -> List[str]:
+        current_values = set(getattr(w["reference"], w["field"]) for w in self.widgets)
+
+        return set(values) & current_values
 
     # NOTE: we implemented our own search function here
     def search_widgets(self):
@@ -134,6 +147,8 @@ class SearchableSelectionListView(SearchableListWidget):
     def __init__(self):
         super().__init__()
 
+        self._field = "dossier_label"
+
         self.count_label.setText("0 / 0")
 
         self.remove_selected_button = QtWidgets.QPushButton(
@@ -148,20 +163,42 @@ class SearchableSelectionListView(SearchableListWidget):
         self.grid_layout.addWidget(self.select_all_button, 0, 0, 1, 2)
         self.grid_layout.addWidget(self.remove_selected_button, 3, 0, 1, 2)
 
-    def add_item(self, searchable_name_field: str, widget: DossierWidget) -> bool:
-        response = super().add_item(
-            searchable_name_field=searchable_name_field, widget=widget
-        )
+    def add_items(
+        self,
+        widgets: List[DossierWidget],
+        selection_changed_callback: Callable,
+        first_launch=False,
+    ) -> bool:
+        if any(not isinstance(w, DossierWidget) for w in widgets) or len(widgets) == 0:
+            return False
 
-        widget.selection_changed.connect(self.selection_changed)
-        self.selection_changed()
+        # NOTE: to improve the draw time, we hide the list now, and show it again later
+        self.hide()
 
-        return response
+        for i, widget in enumerate(widgets, start=1):
+            self.widgets.append(
+                {
+                    "reference": widget,
+                    "field": self._field,
+                }
+            )
+            self.list_layout.addWidget(widget)
 
-    def remove_widget_by_value(self, value: str):
-        super().remove_widget_by_value(value=value)
+            # Update the selection without connecting the signal first
+            widget.set_selected(not first_launch)
 
-        self.selection_changed()
+            widget.selection_changed.connect(self.selection_changed)
+            widget.selection_changed.connect(selection_changed_callback)
+
+        if not first_launch:
+            self.reload_widgets()
+
+        self.show()
+
+        # Manually trigger the signal once
+        widget.selection_changed.emit()
+
+        return True
 
     def selection_changed(self):
         amount_selected = len(self.get_selected())
@@ -173,7 +210,7 @@ class SearchableSelectionListView(SearchableListWidget):
         else:
             self.remove_selected_button.setEnabled(True)
 
-        if amount_selected == len(self.widgets):
+        if len(self.widgets) > 0 and amount_selected == len(self.widgets):
             self.select_all_button.setCheckState(QtCore.Qt.CheckState.Checked)
         else:
             self.select_all_button.setCheckState(QtCore.Qt.CheckState.Unchecked)
@@ -193,9 +230,16 @@ class SearchableSelectionListView(SearchableListWidget):
         return selected_dossiers
 
     def remove_selected_clicked(self):
-        for dossier_widget in self.get_selected():
-            self.application.state.remove_dossier(dossier_widget.dossier)
+        dossier_widgets = self.get_selected()
+        self.application.state.remove_dossiers((d.dossier for d in dossier_widgets))
+
+        for dossier_widget in dossier_widgets:
+            value = getattr(dossier_widget, self._field)
+            super().remove_widget_by_value(value=value)
+
             dossier_widget.deleteLater()
+
+        dossier_widget.selection_changed.emit()
 
     def select_all_clicked(self):
         if self.select_all_button.checkState() == QtCore.Qt.CheckState.Checked:
@@ -209,7 +253,13 @@ class SearchableSelectionListView(SearchableListWidget):
             if not isinstance(dossier, DossierWidget):
                 continue
 
+            # Suppress signals
+            dossier.blockSignals(True)
             dossier.set_selected(selected)
+            dossier.blockSignals(False)
+
+        # Emit the signal once
+        dossier.selection_changed.emit()
 
 
 class SIPListWidget(SearchableListWidget):

@@ -1,7 +1,7 @@
 import sqlite3 as sql
 from PySide6.QtWidgets import QApplication
 
-from typing import List
+from typing import List, Iterable
 import json
 
 from ..utils.sql import tables
@@ -65,12 +65,32 @@ class DBController:
             conn.execute(tables.insert_dossier, (dossier.path,))
             conn.commit()
 
+    def insert_dossiers(self, dossiers: List[Dossier]):
+        with self.conn as conn:
+            for dossier in dossiers:
+                if self.find_dossier(dossier.path) is not None:
+                    conn.execute(tables.enable_dossier, (dossier.path,))
+                    continue
+
+                conn.execute(tables.insert_dossier, (dossier.path,))
+
+            conn.commit()
+
     def disable_dossier(self, dossier: Dossier):
         with self.conn as conn:
             conn.execute(tables.disable_dossier, (dossier.path,))
             conn.commit()
 
         dossier.disabled = True
+
+    def disable_dossiers(self, dossiers: Iterable[Dossier]):
+        with self.conn as conn:
+            for dossier in dossiers:
+                conn.execute(tables.disable_dossier, (dossier.path,))
+            conn.commit()
+
+        for dossier in dossiers:
+            dossier.disabled = True
 
     def enable_dossier(self, dossier: Dossier):
         with self.conn as conn:

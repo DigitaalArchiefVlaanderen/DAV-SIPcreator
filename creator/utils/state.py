@@ -1,4 +1,4 @@
-from typing import Callable, List
+from typing import Callable, List, Iterable
 
 from PySide6 import QtCore
 
@@ -39,8 +39,15 @@ class State(QtCore.QObject):
         self.db_controller.insert_dossier(dossier)
         self.dossiers.append(dossier)
 
+    def add_dossiers(self, dossiers: List[Dossier]):
+        self.db_controller.insert_dossiers(dossiers)
+        self.dossiers.extend(dossiers)
+
     def remove_dossier(self, dossier: Dossier):
         self.db_controller.disable_dossier(dossier)
+
+    def remove_dossiers(self, dossiers: Iterable[Dossier]):
+        self.db_controller.disable_dossiers(dossiers)
 
     @property
     def sips(self) -> List[SIP]:
