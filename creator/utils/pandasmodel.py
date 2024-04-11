@@ -524,11 +524,21 @@ class PandasModel(QtCore.QAbstractTableModel):
         closing_future_mask = closing_date_mapping > today
 
         # Between series range
-        opening_range_mask = opening_date_mapping.between(
-            self.date_start, self.date_end, inclusive="left"
+        opening_before_start_range_mask = (
+            opening_date_mapping < self.date_start
+            if self.date_start is not None
+            else None
         )
-        closing_range_mask = closing_date_mapping.between(
-            self.date_start, self.date_end, inclusive="left"
+        closing_before_start_range_mask = (
+            closing_date_mapping < self.date_start
+            if self.date_start is not None
+            else None
+        )
+        opening_after_end_range_mask = (
+            opening_date_mapping > self.date_end if self.date_end is not None else None
+        )
+        closing_after_end_range_mask = (
+            closing_date_mapping > self.date_end if self.date_end is not None else None
         )
 
         # Closing before opening
@@ -582,18 +592,34 @@ class PandasModel(QtCore.QAbstractTableModel):
                 tooltip="Datum mag niet in de toekomst zijn",
             )
 
-        for row, _ in non_empty_opening[opening_range_mask].items():
-            self._mark_bad_cell(
-                row=row,
-                col=opening_col,
-                tooltip="Datum moet binnen de serie-datumrange vallen",
-            )
-        for row, _ in non_empty_closing[closing_range_mask].items():
-            self._mark_bad_cell(
-                row=row,
-                col=closing_col,
-                tooltip="Datum moet binnen de serie-datumrange vallen",
-            )
+        if opening_before_start_range_mask is not None:
+            for row, _ in non_empty_opening[opening_before_start_range_mask].items():
+                self._mark_bad_cell(
+                    row=row,
+                    col=opening_col,
+                    tooltip="Datum moet binnen de serie-datumrange vallen",
+                )
+        if opening_after_end_range_mask is not None:
+            for row, _ in non_empty_opening[opening_after_end_range_mask].items():
+                self._mark_bad_cell(
+                    row=row,
+                    col=opening_col,
+                    tooltip="Datum moet binnen de serie-datumrange vallen",
+                )
+        if closing_before_start_range_mask is not None:
+            for row, _ in non_empty_closing[closing_before_start_range_mask].items():
+                self._mark_bad_cell(
+                    row=row,
+                    col=closing_col,
+                    tooltip="Datum moet binnen de serie-datumrange vallen",
+                )
+        if closing_after_end_range_mask is not None:
+            for row, _ in non_empty_closing[closing_after_end_range_mask].items():
+                self._mark_bad_cell(
+                    row=row,
+                    col=closing_col,
+                    tooltip="Datum moet binnen de serie-datumrange vallen",
+                )
 
         for row, _ in non_empty_opening[closing_before_opening_mask].items():
             self._mark_date_cell(
