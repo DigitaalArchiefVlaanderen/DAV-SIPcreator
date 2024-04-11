@@ -32,6 +32,7 @@ class SIPView(QtWidgets.QMainWindow):
 
     def setup_ui(self):
         self.setWindowTitle("SIP")
+        self.resize(800, 600)
 
         central_widget = QtWidgets.QWidget()
         self.setCentralWidget(central_widget)
@@ -69,6 +70,7 @@ class SIPView(QtWidgets.QMainWindow):
         self.series_combobox.completer().setFilterMode(
             QtCore.Qt.MatchFlag.MatchContains
         )
+        self.series_combobox.setMaximumWidth(900)
 
         # Text will be set dynamically later
         self.series_amount_label = QtWidgets.QLabel()
