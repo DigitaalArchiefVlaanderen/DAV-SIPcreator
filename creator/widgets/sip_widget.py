@@ -79,16 +79,31 @@ class SIPWidget(QtWidgets.QFrame):
         dossier_widget_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
         dossiers_widget.setLayout(dossier_widget_layout)
 
+        dossiers_scrollarea = QtWidgets.QScrollArea()
+        dossiers_scrollarea.setWidgetResizable(True)
+        dossiers_scrollarea.setMinimumHeight(200)
+        dossiers_scrollarea.setMinimumWidth(100)
+        dossiers_scrollarea.setStyleSheet("border: 0;")
+        dossiers_widget.setFrameShape(QtWidgets.QFrame.Box)
+
+        scroll_widget = QtWidgets.QWidget()
+        dossiers_scrollarea.setWidget(scroll_widget)
+
         font = QtGui.QFont()
         font.setBold(True)
         font.setUnderline(True)
         dossier_title = QtWidgets.QLabel(text="Dossiers")
         dossier_title.setFont(font)
         dossier_widget_layout.addWidget(dossier_title)
+        dossier_widget_layout.addWidget(dossiers_scrollarea)
+
+        scroll_layout = QtWidgets.QVBoxLayout()
+        scroll_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        scroll_widget.setLayout(scroll_layout)
 
         for dossier in self.sip.dossiers:
             label = QtWidgets.QLabel(text=dossier.dossier_label)
-            dossier_widget_layout.addWidget(label)
+            scroll_layout.addWidget(label)
 
         # Controls
         controls = QtWidgets.QWidget()
