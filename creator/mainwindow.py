@@ -1,8 +1,8 @@
-from PySide6 import QtWidgets
-
-import pandas as pd
 import os
 import json
+
+from PySide6 import QtWidgets
+import pandas as pd
 
 from .application import Application
 
@@ -17,7 +17,6 @@ from .widgets.dialog import YesNoDialog
 from .widgets.warning_dialog import WarningDialog
 
 from .controllers.file_controller import FileController
-from .controllers.api_controller import APIController
 
 from .utils.state import State
 from .utils.state_utils.dossier import Dossier

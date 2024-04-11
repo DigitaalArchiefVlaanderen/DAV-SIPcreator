@@ -94,6 +94,17 @@ class GridView(QtWidgets.QMainWindow):
             if data_row not in bad_rows:
                 self.table_view.setRowHidden(row, hide_row)
 
+    def _rows_sorted(self) -> None:
+        # If we sort, we need to reassess what to hide, so redo it
+        if self.show_bad_rows_checkbox.isChecked():
+            model = self.table_view.model()
+            model.bad_rows_changed.disconnect()
+
+            for row in range(model.rowCount()):
+                self.table_view.setRowHidden(row, False)
+
+            self._bad_rows_clicked(QtCore.Qt.CheckState.Checked.value)
+
     # Loading grid
     def _fill_from_files(self, sip_folder_structure: dict):
         df = pd.DataFrame(columns=self.sip_widget.import_template_df.columns)
@@ -200,6 +211,7 @@ class GridView(QtWidgets.QMainWindow):
                 sip_folder_structure=sip_folder_structure,
             )
         )
+        self.table_view.model().sort_triggered.connect(self._rows_sorted)
         self._set_grid_filter_connections()
 
     def fill_table(self):
@@ -221,6 +233,7 @@ class GridView(QtWidgets.QMainWindow):
                 sip_folder_structure=sip_folder_structure,
             )
         )
+        self.table_view.model().sort_triggered.connect(self._rows_sorted)
         self._set_grid_filter_connections()
 
     # Actions

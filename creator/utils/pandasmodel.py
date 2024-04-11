@@ -16,6 +16,7 @@ class PandasModel(QtCore.QAbstractTableModel):
     bad_rows_changed: QtCore.Signal = QtCore.Signal(
         *(int, bool), arguments=["row", "is_bad"]
     )
+    sort_triggered: QtCore.Signal = QtCore.Signal()
 
     def __init__(
         self,
@@ -162,6 +163,7 @@ class PandasModel(QtCore.QAbstractTableModel):
             self._data.columns[col], ascending=order == QtCore.Qt.AscendingOrder
         )
         self.layoutChanged.emit()
+        self.sort_triggered.emit()
 
     def get_data(self):
         return self._data
