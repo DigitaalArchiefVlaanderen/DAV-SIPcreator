@@ -262,6 +262,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 selection_changed_callback=self.dossier_selection_changed,
             )
 
+            self.state.add_dossiers(dossiers=dossiers)
+
             if len(bad_dossiers) > 0:
                 WarningDialog(
                     title="Dossiers niet toegevoegd",
