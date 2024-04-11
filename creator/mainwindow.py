@@ -310,7 +310,7 @@ class MainWindow(QtWidgets.QMainWindow):
         ):
             WarningDialog(
                 title="Upload bezig",
-                text="Waarschuwing, een upload is momenteel bezig, als je de applicatie sluit zal deze falen.",
+                text="Waarschuwing, een upload is momenteel bezig, de applicatie kan niet gesloten worden.",
             ).exec()
 
             event.ignore()
