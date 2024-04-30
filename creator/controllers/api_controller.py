@@ -335,16 +335,15 @@ class APIController:
     @staticmethod
     def get_sip_status_from_dossiers(sip: SIP) -> SIPStatus:
         environment = sip.environment
-        # Does not seem required for this endpoint
-        # access_token = APIController._get_access_token(
-        #     environment, reraise=True, warn=False
-        # )
+        access_token = APIController._get_access_token(
+            environment, reraise=True, warn=False
+        )
 
         base_url = environment.api_url
         endpoint = "edepot/api/v1/records"
 
         headers = {
-            # "Authorization": f"Bearer {access_token}",
+            "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",
         }
 
