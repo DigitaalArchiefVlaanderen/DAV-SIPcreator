@@ -331,3 +331,63 @@ class APIController:
                 fail_reason = "\n\n".join(fail_reasons)
 
         return status, fail_reason
+
+    @staticmethod
+    def get_sip_status_from_dossiers(sip: SIP) -> SIPStatus:
+        environment = sip.environment
+        # Does not seem required for this endpoint
+        # access_token = APIController._get_access_token(
+        #     environment, reraise=True, warn=False
+        # )
+
+        base_url = environment.api_url
+        endpoint = "edepot/api/v1/records"
+
+        headers = {
+            # "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
+
+        params = {
+            "q": f"+(Dynamic.SipReferenceCode:*{sip.edepot_sip_id}) AND +(RecordType:Dossier)",
+            "NrOfResults": 100,
+            "StartIndex": 0,
+        }
+
+        # Set this as the default
+        status = SIPStatus.PROCESSING
+
+        while True:
+            response = APIController._perform_request(
+                request_type=requests.get,
+                url=f"{base_url}/{endpoint}",
+                headers=headers,
+                params=params,
+                reraise=True,
+                warn=False,
+            ).json()
+
+            # As long as a sip is still being processed, nothing gets returned it seems
+            if response["TotalNrOfResults"] > 0:
+                status = SIPStatus.ACCEPTED
+
+            for dossier_dict in response["Results"]:
+                dossier_status = dossier_dict["Administrative"]["RecordStatus"]
+
+                match dossier_status:
+                    case "Draft.Valid":
+                        # Seems to indicate everything was okay
+                        continue
+                    case "Published":
+                        # Seems to indicate something went wrong with a stuk
+                        status = SIPStatus.REJECTED
+                        break
+
+            if (response["StartIndex"] + 1) * params["NrOfResults"] > response[
+                "TotalNrOfResults"
+            ]:
+                break
+
+            params["StartIndex"] = params["StartIndex"] + params["NrOfResults"]
+
+        return status
