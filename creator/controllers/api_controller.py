@@ -6,6 +6,7 @@ import requests
 from ..utils.series import Series
 from ..utils.state_utils.sip import SIP
 from ..utils.sip_status import SIPStatus
+from ..utils.status.api_item_status import APIItemStatus
 from ..utils.configuration import Environment
 
 from ..widgets.warning_dialog import WarningDialog
@@ -275,6 +276,7 @@ class APIController:
 
             params["page"] = params["page"] + 1
 
+    # TODO: remove
     @staticmethod
     def get_sip_status(sip: SIP) -> SIPStatus:
         environment = sip.environment
@@ -341,6 +343,7 @@ class APIController:
 
         base_url = environment.api_url
         endpoint = "edepot/api/v1/records"
+        file_endpoint = "edepot/api/v1/dossiers/{dossierId}/documents"
 
         headers = {
             "Authorization": f"Bearer {access_token}",
@@ -353,9 +356,6 @@ class APIController:
             "StartIndex": 0,
         }
 
-        # Set this as the default
-        status = SIPStatus.PROCESSING
-
         while True:
             response = APIController._perform_request(
                 request_type=requests.get,
@@ -367,20 +367,45 @@ class APIController:
             ).json()
 
             # As long as a sip is still being processed, nothing gets returned it seems
-            if response["TotalNrOfResults"] > 0:
-                status = SIPStatus.ACCEPTED
+            if response["TotalNrOfResults"] == 0:
+                return SIPStatus.PROCESSING
 
             for dossier_dict in response["Results"]:
                 dossier_status = dossier_dict["Administrative"]["RecordStatus"]
 
-                match dossier_status:
-                    case "Draft.Valid":
-                        # Seems to indicate everything was okay
-                        continue
-                    case "Published":
-                        # Seems to indicate something went wrong with a stuk
-                        status = SIPStatus.REJECTED
-                        break
+                api_status = APIItemStatus(raw_status=dossier_status)
+
+                # If the status is not valid, nor published, nor concept, assume it's invalid
+                if api_status.is_processing:
+                    return SIPStatus.PROCESSING
+                elif api_status.is_invalid:
+                    return SIPStatus.REJECTED
+                
+                # If the dossier is valid, it's still possible stukken in there are invalid
+                dossier_id = dossier_dict["Dynamic"]["DossierReferenceCode"].split("/")[-1]
+
+                file_response = APIController._perform_request(
+                    request_type=requests.get,
+                    url=f"{base_url}/{file_endpoint.format(dossierId=dossier_id)}",
+                    headers=headers,
+                    reraise=True,
+                    warn=False,
+                ).json()
+
+                for file_result in file_response:
+                    file_status = file_result["Status"]["Status"]
+
+                    # TODO: make use of this once it actually returns useful results
+                    # reasons = file_result["Context"]["Reasons"]
+
+                    file_api_status = APIItemStatus(raw_status=file_status)
+
+                    # If the status is not valid, nor published, nor concept assume it's invalid
+                    if file_api_status.is_processing:
+                        return SIPStatus.PROCESSING
+                    elif file_api_status.is_invalid:
+                        return SIPStatus.REJECTED
+                    
 
             if (response["StartIndex"] + 1) * params["NrOfResults"] > response[
                 "TotalNrOfResults"
@@ -389,4 +414,5 @@ class APIController:
 
             params["StartIndex"] = params["StartIndex"] + params["NrOfResults"]
 
-        return status
+        # If there is stuff here, but none of it is invalid (or processing), we assume everything is okay
+        return SIPStatus.ACCEPTED

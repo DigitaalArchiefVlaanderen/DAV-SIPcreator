@@ -29,7 +29,7 @@ class SIPStatusThread(threading.Thread):
             except APIException:
                 pass
 
-            time.sleep(10)
+            time.sleep(60)
 
     def _check_sip_status(self):
         # TODO: better sql get for only uploaded sips
@@ -54,8 +54,9 @@ class SIPStatusThread(threading.Thread):
             if new_status == sip.status:
                 continue
 
-            sip.status = new_status
+            sip.set_status(new_status)
             # self.state.update_sip(sip, fail_reason=fail_reason)
+
             self.state.update_sip(sip)
 
 

@@ -25,7 +25,7 @@ class SIPStatus(enum.Enum):
             case "PROCESSING":
                 return "Edepot verwerking"
             case "ACCEPTED":
-                return "Gearchiveerd"
+                return "Geaccepteerd"
             case "REJECTED":
                 return "Geweigerd"
 
