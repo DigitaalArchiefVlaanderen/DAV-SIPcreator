@@ -69,7 +69,7 @@ class ConfigController:
                 if not is_path_exists_or_creatable(
                     values["SIP Creator opslag locatie"]
                 ):
-                    return False
+                    configuration[environment]["SIP Creator opslag locatie"] = os.path.join(os.getcwd(), "SIP_Creator")
 
                 if not isinstance(values["Omgevingen"], dict):
                     return False

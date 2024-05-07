@@ -19,7 +19,6 @@ class Toolbar(QtWidgets.QToolBar):
 
         self.configuration_view = ConfigurationWidget()
         self.configuration_view.closed.connect(self.configuration_changed.emit)
-        self.configuration_view.setup_ui()
 
     def configuration_clicked(self):
         # Redo the setup to reload in case changes were made

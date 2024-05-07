@@ -23,6 +23,7 @@ class SIPView(QtWidgets.QMainWindow):
         super().__init__()
 
         self.application: Application = QtWidgets.QApplication.instance()
+        self.config_controller = self.application.config_controller
         self.sip_widget = sip_widget
         self.sip = self.sip_widget.sip
 
@@ -60,7 +61,7 @@ class SIPView(QtWidgets.QMainWindow):
         status.setStyleSheet(self.sip_widget.sip.status.value)
         self.title.setEnabled(self.sip_widget.sip.status == SIPStatus.IN_PROGRESS)
 
-        configuration = self.toolbar.configuration_view.get_configuration()
+        configuration = self.config_controller.get_configuration()
         self.series_combobox = QtWidgets.QComboBox()
         self.series_combobox.setEditable(True)
         self.series_combobox.setInsertPolicy(QtWidgets.QComboBox.NoInsert)
@@ -186,7 +187,7 @@ class SIPView(QtWidgets.QMainWindow):
 
         try:
             self.import_template_location = APIController.get_import_template(
-                self.toolbar.configuration_view.get_configuration(),
+                self.config_controller.get_configuration(),
                 series_id=series._id,
             )
         except APIException:
