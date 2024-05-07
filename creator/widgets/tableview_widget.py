@@ -2,8 +2,6 @@ from PySide6 import QtWidgets, QtCore, QtGui
 
 
 class TableView(QtWidgets.QTableView):
-    GRID_COPY_FLAG = "GRID_COPY"
-
     def __init__(self):
         super().__init__()
 
@@ -21,7 +19,7 @@ class TableView(QtWidgets.QTableView):
         for index in indexes:
             rows[index.row()] = rows.get(index.row(), []) + [index.column()]
 
-        copy_text = TableView.GRID_COPY_FLAG
+        copy_text = ""
 
         for row, columns in rows.items():
             copy_text += "\t".join(
@@ -37,8 +35,8 @@ class TableView(QtWidgets.QTableView):
         if copy_text == "":
             return
 
-        if copy_text.startswith(TableView.GRID_COPY_FLAG):
-            self.paste_grid_content(copy_text[len(TableView.GRID_COPY_FLAG) :], indexes)
+        if "\n" in copy_text:
+            self.paste_grid_content(copy_text, indexes)
         else:
             self.paste_grid_value(copy_text, indexes)
 
