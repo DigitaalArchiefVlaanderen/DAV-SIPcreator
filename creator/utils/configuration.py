@@ -112,7 +112,7 @@ class Configuration:
                 return env
 
     @property
-    def active_environment(self) -> Environment:
+    def active_environment(self) -> str:
         for env, active in self.misc.environments_activity.items():
             if active:
                 return env
