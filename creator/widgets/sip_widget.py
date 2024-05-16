@@ -12,10 +12,8 @@ from ..application import Application
 from ..controllers.file_controller import FileController
 
 from ..utils.state import State
-from ..utils.configuration import Configuration
 from ..utils.state_utils.sip import SIP
 from ..utils.sip_status import SIPStatus
-from ..utils.series import Series
 
 from ..widgets.warning_dialog import WarningDialog
 
@@ -128,9 +126,18 @@ class SIPWidget(QtWidgets.QFrame):
         )
         self.open_explorer_button.setEnabled(False)
 
+        self.open_edepot_button = QtWidgets.QPushButton(text="Edepot locatie")
+        self.open_edepot_button.clicked.connect(
+            lambda: os.startfile(
+                f"{self.state.configuration.get_environment(self.state.configuration.active_environment).api_url}/input/processing-list/{self.sip.edepot_sip_id}"
+            )
+        )
+        self.open_edepot_button.setEnabled(False)
+
         controls_layout.addWidget(self.open_button)
         controls_layout.addWidget(self.upload_button)
         controls_layout.addWidget(self.open_explorer_button)
+        controls_layout.addWidget(self.open_edepot_button)
         controls_layout.addStretch()
 
         # Layout
@@ -225,19 +232,29 @@ class SIPWidget(QtWidgets.QFrame):
             self.open_button.setEnabled(True)
             self.upload_button.setEnabled(False)
             self.open_explorer_button.setEnabled(False)
+            self.open_edepot_button.setEnabled(False)
         elif status == SIPStatus.SIP_CREATED:
             self.open_button.setEnabled(False)
             self.upload_button.setEnabled(True)
             self.open_explorer_button.setEnabled(True)
+            self.open_edepot_button.setEnabled(False)
         elif status in (
             SIPStatus.UPLOADING,
             SIPStatus.UPLOADED,
+        ):
+            self.open_button.setEnabled(False)
+            self.upload_button.setEnabled(False)
+            self.open_explorer_button.setEnabled(True)
+            self.open_edepot_button.setEnabled(False)
+        elif status in (
+            SIPStatus.PROCESSING,
             SIPStatus.ACCEPTED,
             SIPStatus.REJECTED,
         ):
             self.open_button.setEnabled(False)
             self.upload_button.setEnabled(False)
             self.open_explorer_button.setEnabled(True)
+            self.open_edepot_button.setEnabled(True)
 
     def _update_name(self, name: str) -> None:
         # The updating of the status is handled separately

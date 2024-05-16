@@ -172,15 +172,6 @@ class MainWindow(QtWidgets.QMainWindow):
             if sip.status == SIPStatus.UPLOADING:
                 sip.set_status(SIPStatus.SIP_CREATED)
 
-            if sip.status in (
-                SIPStatus.UPLOADED,
-                SIPStatus.PROCESSING,
-                SIPStatus.ACCEPTED,
-                SIPStatus.REJECTED,
-                SIPStatus.SIP_CREATED,
-            ):
-                sip_widget.open_explorer_button.setEnabled(True)
-
             result = FileController.existing_grid(
                 self.application.state.configuration, sip
             )
@@ -200,6 +191,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
             if sip.status == SIPStatus.SIP_CREATED:
                 sip_widget.upload_button.setEnabled(True)
+                
+            if sip.status in (
+                SIPStatus.UPLOADED,
+                SIPStatus.PROCESSING,
+                SIPStatus.ACCEPTED,
+                SIPStatus.REJECTED,
+                SIPStatus.SIP_CREATED,
+            ):
+                sip_widget.open_explorer_button.setEnabled(True)
+
+            if sip.status in (SIPStatus.PROCESSING, SIPStatus.ACCEPTED, SIPStatus.REJECTED):
+                sip_widget.open_edepot_button.setEnabled(True)
 
             self.sip_list_view.add_item(
                 searchable_name_field="sip_name",
