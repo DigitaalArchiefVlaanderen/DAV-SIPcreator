@@ -47,9 +47,14 @@ class GridView(QtWidgets.QMainWindow):
         self.show_bad_rows_checkbox = QtWidgets.QCheckBox(
             text="Toon enkel rijen met fouten"
         )
-        self.show_bad_rows_checkbox.setChecked(False)
         self.show_bad_rows_checkbox.stateChanged.connect(self._bad_rows_clicked)
         grid_layout.addWidget(self.show_bad_rows_checkbox, 1, 1)
+
+        self.show_dossiers_only_checkbox = QtWidgets.QCheckBox(
+            text="Toon enkel dossiers"
+        )
+        self.show_dossiers_only_checkbox.stateChanged.connect(self._dossers_only_clicked)
+        grid_layout.addWidget(self.show_dossiers_only_checkbox, 1, 2)
 
         self.table_view = TableView()
         grid_layout.addWidget(self.table_view, 2, 0, 1, 4)
@@ -76,9 +81,10 @@ class GridView(QtWidgets.QMainWindow):
     def _bad_rows_clicked(self, state: QtCore.Qt.CheckState) -> None:
         model: PandasModel = self.table_view.model()
         data: pd.DataFrame = model.get_data()
-        active = state == QtCore.Qt.CheckState.Checked.value
 
-        if active:
+        checked: bool = state == QtCore.Qt.CheckState.Checked.value
+
+        if checked:
             model.bad_rows_changed.connect(
                 lambda row, is_bad: self.table_view.setRowHidden(row, not is_bad)
             )
@@ -86,13 +92,39 @@ class GridView(QtWidgets.QMainWindow):
             model.bad_rows_changed.disconnect()
 
         bad_rows = model.get_bad_rows()
-        hide_row = active
+
+        if checked:
+            # Manually do this so we can guarantee order of operations
+            self.show_dossiers_only_checkbox.setChecked(False)
 
         for row in range(model.rowCount()):
             data_row = data.index[row]
 
+            # Either hide or unhide every bad row (depending on state of checkbox)
             if data_row not in bad_rows:
-                self.table_view.setRowHidden(row, hide_row)
+                self.table_view.setRowHidden(row, checked)
+
+    def _dossers_only_clicked(self, state: QtCore.Qt.CheckState) -> None:
+        model: PandasModel = self.table_view.model()
+        data: pd.DataFrame = model.get_data()
+
+        checked: bool = state == QtCore.Qt.CheckState.Checked.value
+
+        dossier_rows = data[data["Type"] == "dossier"].index
+
+        if checked:
+            # Manually do this so we can guarantee order of operations
+            self.show_bad_rows_checkbox.setChecked(False)
+
+        for row in range(model.rowCount()):
+            data_row = data.index[row]
+
+            # Hide files only
+            is_file = data_row not in dossier_rows
+
+            if is_file:
+                # Either hide or unhide every file (depending on state of checkbox)
+                self.table_view.setRowHidden(row, checked)
 
     def _rows_sorted(self) -> None:
         # If we sort, we need to reassess what to hide, so redo it
