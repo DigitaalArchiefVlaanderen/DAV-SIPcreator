@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from typing import List
 
@@ -40,11 +41,64 @@ class Environment:
             )
         )
 
+    @staticmethod
+    def get_default(name: str) -> "Environment":
+        return Environment(
+            name=name,
+
+            api_url="",
+            api_username="",
+            api_password="",
+            api_client_id="",
+            api_client_secret="",
+
+            ftps_url="",
+            ftps_username="",
+            ftps_password="",
+            ftps_port="21"
+        )
+
+    def get_api_info(self) -> dict:
+        return dict(
+            url=self.api_url,
+            username=self.api_username,
+            password=self.api_password,
+            client_id=self.api_client_id,
+            client_secret=self.api_client_secret,
+        )
+    
+    def get_ftps_info(self) -> dict:
+        return dict(
+            url=self.ftps_url,
+            username=self.ftps_username,
+            password=self.ftps_password,
+            port=self.ftps_port,
+        )
 
 @dataclass
 class Misc:
     environments_activity: dict
+    role_activity: dict
+    type_activity: dict
     save_location: str
+
+    @staticmethod
+    def get_default() -> "Misc":
+        return Misc(
+            environments_activity=dict(
+                ti=False,
+                prod=True,
+            ),
+            role_activity=dict(
+                klant=True,
+                depotmedewerker=False,
+            ),
+            type_activity=dict(
+                digitaal=True,
+                migratie=False,
+            ),
+            save_location=os.path.join(os.getcwd(), "SIP_Creator"),
+        )
 
 
 @dataclass
@@ -53,7 +107,23 @@ class Configuration:
     misc: Misc
 
     @staticmethod
-    def from_json(json: dict):
+    def get_default() -> "Configuration":
+        misc = Misc.get_default()
+        ti = Environment.get_default("ti")
+        prod = Environment.get_default("prod")
+
+        ti.api_url = "https://digitaalarchief-ti.vlaanderen.be"
+        ti.ftps_url = "ingest.digitaalarchief-ti.vlaanderen.be"
+
+        prod.ftps_url = "ingest.digitaalarchief.vlaanderen.be"
+
+        return Configuration(
+            environments=[ti, prod],
+            misc=misc,
+        )
+
+    @staticmethod
+    def from_json(json: dict) -> "Configuration":
         environments = []
         misc = None
 
@@ -61,6 +131,8 @@ class Configuration:
             if k == "misc":
                 misc = Misc(
                     environments_activity=v["Omgevingen"],
+                    role_activity=v["Rollen"],
+                    type_activity=v["Type SIPs"],
                     save_location=v["SIP Creator opslag locatie"],
                 )
             else:
@@ -80,6 +152,7 @@ class Configuration:
                 )
 
         return Configuration(environments=environments, misc=misc)
+
 
     def to_json(self) -> dict:
         json = {}
@@ -103,6 +176,7 @@ class Configuration:
 
         json["misc"] = {
             "Omgevingen": self.misc.environments_activity,
+            "Rollen": self.misc.role_activity,
             "SIP Creator opslag locatie": self.misc.save_location,
         }
 
@@ -112,7 +186,25 @@ class Configuration:
                 return env
 
     @property
-    def active_environment(self) -> str:
+    def active_environment(self) -> Environment:
+        for env, active in self.misc.environments_activity.items():
+            if active:
+                return self.get_environment(env)
+
+    @property
+    def active_environment_name(self) -> str:
         for env, active in self.misc.environments_activity.items():
             if active:
                 return env
+
+    @property
+    def active_role(self) -> str:
+        for role, active in self.misc.role_activity.items():
+            if active:
+                return role
+
+    @property
+    def active_type(self) -> str:
+        for _type, active in self.misc.type_activity.items():
+            if active:
+                return _type

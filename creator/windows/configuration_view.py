@@ -40,13 +40,13 @@ class ConfigurationWidget(QtWidgets.QMainWindow):
         tab_widget = QtWidgets.QTabWidget()
         vertical_layout.addWidget(tab_widget)
 
-        for environment, values in configuration.items():
-            if environment == "misc":
-                self.tabs[environment] = MiscConfigurationTab(values)
-            else:
-                self.tabs[environment] = ConnectionConfigurationTab(values)
+        self.tabs["misc"] = MiscConfigurationTab(configuration.misc)
+        tab_widget.addTab(self.tabs["misc"], "misc")
 
-            tab_widget.addTab(self.tabs[environment], environment)
+        for environment in configuration.environments:
+            self.tabs[environment.name] = ConnectionConfigurationTab(environment)
+
+            tab_widget.addTab(self.tabs[environment.name], environment.name)
 
         save_button = QtWidgets.QPushButton(text="Opslaan")
         save_button.clicked.connect(self.save_button_clicked)
@@ -63,7 +63,15 @@ class ConfigurationWidget(QtWidgets.QMainWindow):
             environment: tab.get_tab_info() for environment, tab in self.tabs.items()
         }
 
+        type_changed = False
+
+        if self.tabs["misc"].get_tab_info()["Type SIPs"] != self.application.state.configuration.active_type:
+            type_changed = True
+
         self._write_configuration(configuration)
+
+        if type_changed:
+            self.application.type_changed.emit()
 
         self.close()
         self.closed.emit()

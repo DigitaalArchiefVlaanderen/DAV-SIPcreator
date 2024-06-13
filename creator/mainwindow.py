@@ -1,8 +1,9 @@
 import os
 import json
 
-from PySide6 import QtWidgets
+from PySide6 import QtWidgets, QtCore, QtGui
 import pandas as pd
+import sqlite3 as sql
 
 from .application import Application
 
@@ -23,10 +24,39 @@ from .utils.state_utils.dossier import Dossier
 from .utils.state_utils.sip import SIP
 from .utils.sip_status import SIPStatus
 
-
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
+
+        self.application: Application = QtWidgets.QApplication.instance()
+        self.state: State = self.application.state
+
+        self.central_widget = None
+
+        # Toolbar
+        self.toolbar = Toolbar()
+        self.addToolBar(self.toolbar)
+
+    def closeEvent(self, event):
+        # If the main window dies, kill the whole application
+        if any(
+            s.status == SIPStatus.UPLOADING
+            for s in self.application.db_controller.read_sips()
+        ):
+            WarningDialog(
+                title="Upload bezig",
+                text="Waarschuwing, een upload is momenteel bezig, de applicatie kan niet gesloten worden.",
+            ).exec()
+
+            event.ignore()
+            return
+
+        event.accept()
+        self.application.quit()
+
+class DigitalWidget(QtWidgets.QWidget):
+    def __init__(self, parent):
+        super().__init__(parent)
 
         self.application: Application = QtWidgets.QApplication.instance()
         self.state: State = self.application.state
@@ -52,14 +82,8 @@ class MainWindow(QtWidgets.QMainWindow):
             )
 
     def setup_ui(self):
-        self.resize(800, 600)
-        self.setWindowTitle("SIP Creator")
-
-        central_widget = QtWidgets.QWidget()
-        self.setCentralWidget(central_widget)
-
         grid_layout = QtWidgets.QGridLayout()
-        central_widget.setLayout(grid_layout)
+        self.setLayout(grid_layout)
 
         # Dossiers
         add_dossier_button = QtWidgets.QPushButton(text="Voeg een dossier toe")
@@ -81,11 +105,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.create_sip_button.clicked.connect(self.create_sip_clicked)
         self.create_sip_button.setEnabled(False)
         self.sip_list_view = SIPListWidget()
-
-        # Toolbar
-        self.toolbar = Toolbar()
-        self.toolbar.configuration_changed.connect(self.sip_list_view.reload_widgets)
-        self.addToolBar(self.toolbar)
+        
+        self.parent().toolbar.configuration_changed.connect(self.sip_list_view.reload_widgets)
 
         grid_layout.addWidget(self.create_sip_button, 0, 2, 1, 2)
         grid_layout.addWidget(self.sip_list_view, 1, 2, 1, 2)
@@ -279,7 +300,7 @@ class MainWindow(QtWidgets.QMainWindow):
             dossiers = [d.dossier for d in selected_dossiers]
 
             sip = SIP(
-                environment_name=self.application.state.configuration.active_environment,
+                environment_name=self.application.state.configuration.active_environment_name,
                 dossiers=dossiers,
             )
             sip.value_changed.connect(self.state.update_sip)
@@ -304,19 +325,299 @@ class MainWindow(QtWidgets.QMainWindow):
             len(self.dossiers_list_view.get_selected()) > 0
         )
 
-    def closeEvent(self, event):
-        # If the main window dies, kill the whole application
-        if any(
-            s.status == SIPStatus.UPLOADING
-            for s in self.application.db_controller.read_sips()
-        ):
-            WarningDialog(
-                title="Upload bezig",
-                text="Waarschuwing, een upload is momenteel bezig, de applicatie kan niet gesloten worden.",
-            ).exec()
+class MigrationWidget(QtWidgets.QWidget):
+    def setup_ui(self):
+        grid_layout = QtWidgets.QGridLayout()
+        self.setLayout(grid_layout)
 
-            event.ignore()
+        self.tab_widget = QtWidgets.QTabWidget()
+        grid_layout.addWidget(self.tab_widget, 0, 0)
+
+        self.tabs: dict[str, QtWidgets.QTableView] = dict()
+
+        self.main_tab = "Overdrachtslijst"
+        self.main_table = QtWidgets.QTableView()
+
+    def load_items(self):
+        self.create_db()
+        self.load_overdrachtslijst()
+        self.load_main_tab()
+
+    def create_db(self):
+        import sqlite3 as sql
+        import os
+
+        os.remove("main.db")
+        conn = sql.connect("main.db")
+
+        with conn:
+            conn.execute("""
+            CREATE TABLE tables (
+                id INTEGER PRIMARY KEY,
+                table_name TEXT,
+
+                UNIQUE(table_name)
+            );""")
+
+            conn.execute(f"""
+            INSERT INTO tables (table_name)
+            VALUES ('{self.main_tab}');
+            """)
+
+            conn.execute(f"""
+            CREATE TABLE {self.main_tab} (
+                id INTEGER PRIMARY KEY,
+                
+                serie TEXT,
+
+                doosnr TEXT,
+                nr_van_het_archiefbestanddeel TEXT,
+                beschrijving TEXT,
+                begin_datum TEXT,
+                eind_datum TEXT,
+                bestemming TEXT,
+                bewaar_termijn TEXT,
+                verwijzing_informatiebeheersplan TEXT,
+                datum_uitvoeren_bestemming TEXT
+            );""")
+
+            conn.commit()
+
+    def load_overdrachtslijst(self):
+        import pandas as pd
+        from openpyxl import load_workbook
+        import sqlite3 as sql
+
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            caption="Selecteer Overdrachtslijst", filter="Overdrachtslijst (*.xlsx *.xlsm *.xltx *.xltm)"
+        )
+
+        wb = load_workbook(
+            path,
+            read_only=True,
+            data_only=True,
+            keep_links=False,
+            rich_text=False,
+        )
+
+        if not self.main_tab in wb.sheetnames:
+            raise ValueError(f"{self.main_tab} tab missing")
+
+        ws = wb[self.main_tab]
+        data = ws.values
+
+        header_transform = lambda h: str(h).strip().lower().replace(" ", "_").replace("-", "_").replace("\n", "").replace(".", "")
+
+        while "doosnr" != header_transform((headers := next(data))[0]):
+            pass
+        
+        # Filter out empty headers
+        headers = [
+            header_transform(h)
+            for h in headers
+            if h is not None
+        ]
+
+        # Filter out empty rows
+        df = pd.DataFrame(
+            (
+                r for r in 
+                (r[:len(headers)] for r in list(data))
+                if not all(not bool(v) for v in r)
+            ),
+            columns=headers,
+        ).fillna("").astype(str).convert_dtypes()
+
+        con = sql.connect("main.db")
+        df.to_sql(
+            name=self.main_tab,
+            con=con,
+            index=False,
+            method="multi",
+            if_exists="append",
+            chunksize=1000,
+        )
+
+    def load_main_tab(self):
+        from creator.utils.sqlitemodel import SQLliteModel
+
+        container = QtWidgets.QWidget()
+        layout = QtWidgets.QGridLayout()
+        container.setLayout(layout)
+
+        txt = QtWidgets.QLineEdit()
+
+        btn = QtWidgets.QPushButton(text="Voeg toe")
+        btn.clicked.connect(lambda: self.add_to_new(txt.text()))
+
+        model = SQLliteModel(self.main_tab, is_main=True)
+        self.main_table.setModel(model)
+
+        layout.addWidget(txt, 0, 0, 1, 2)
+        layout.addWidget(btn, 0, 2)
+        layout.addWidget(self.main_table, 1, 0, 1, 5)
+
+        self.tab_widget.addTab(container, self.main_tab)
+        self.tabs[self.main_tab] = container
+
+    def add_to_new(self, name: str):
+        name = name.strip().replace(" ", "_").replace("-", "_")
+
+        # No funny business
+        if name == "" or name == self.main_tab:
             return
 
-        event.accept()
-        self.application.quit()
+        conn = sql.connect("main.db")
+
+        selected_rows = [str(r.row() + 1) for r in self.main_table.selectionModel().selectedRows()]
+
+        if len(selected_rows) == 0:
+            return
+
+        selected_rows_str = ", ".join(selected_rows)
+
+        with conn:
+            # Create table
+            conn.execute(f"""
+            CREATE TABLE IF NOT EXISTS {name} (
+                id INTEGER PRIMARY KEY,
+
+                main_id INTEGER NOT NULL,
+
+                path_in_sip TEXT,
+                type TEXT,
+                dossierref TEXT,
+                analoog TEXT,
+                naam TEXT,
+                beschrijving TEXT,
+                dossiercode_bron TEXT,
+                stukreferentie_bron TEXT,
+                openingsdatum TEXT,
+                sluitingsdatum TEXT,
+                id_bis_registernummer TEXT,
+                id_rijksregisternummer TEXT,
+                id_naam TEXT,
+                kbo_nummer TEXT,
+                ovo_code TEXT,
+                organisatienaam TEXT,
+                trefwoorden_vrij TEXT,
+                opmerkingen TEXT,
+                auteur TEXT,
+                taal TEXT,
+                openbaarheidsregime TEXT,
+                openbaarheidsmotivering TEXT,
+                hergebruikregime TEXT,
+                hergebruikmotivering TEXT,
+                creatiedatum TEXT,
+                origineel_doosnummer TEXT,
+                legacy_locatie_id TEXT,
+                legacy_range TEXT,
+                verpakkingstype TEXT
+            );""")
+
+            # Update the tables table
+            conn.execute(f"""
+                INSERT OR IGNORE INTO tables (table_name)
+                VALUES ('{name}');
+            """)
+
+            # Remove where needed
+            cursor = conn.execute(f"""
+                SELECT id, serie
+                FROM {self.main_tab}
+                WHERE id IN ({selected_rows_str})
+                  AND serie != '{name}';
+            """)
+
+            for main_id, table in cursor.fetchall():
+                conn.execute(f"""
+                    DELETE FROM {table}
+                    WHERE main_id={main_id};
+                """)
+
+                rows = conn.execute(f"SELECT count() FROM {table};").fetchone()[0]
+
+                if rows == 0:
+                    conn.execute(f"""
+                        DROP TABLE {table};
+                    """)
+                    
+                    conn.execute(f"""
+                        DELETE FROM tables
+                        WHERE table_name='{name}';
+                    """)
+
+                    self.tab_widget.removeTab(list(self.tabs).index(table))
+                    del self.tabs[table]
+                    
+                    continue
+
+                # Recalculate shape for table
+                model: SQLliteModel = self.tabs[table].model()
+                model.row_count = rows
+
+                # Update the graphical side
+                model.layoutChanged.emit()
+
+            # Insert where needed
+            conn.execute(f"""
+                INSERT INTO {name} (main_id, origineel_doosnummer, beschrijving, openingsdatum, sluitingsdatum)
+                SELECT id, doosnr, beschrijving, begin_datum, eind_datum
+                FROM {self.main_tab}
+                WHERE id IN ({selected_rows_str})
+                  AND (serie != '{name}' OR serie IS NULL);
+            """)
+            
+            # Update the main table to show correct linking
+            conn.execute(f"""
+                UPDATE {self.main_tab}
+                SET serie='{name}'
+                WHERE id IN ({selected_rows_str});
+            """)
+
+            # Update the graphical side
+            model: SQLliteModel = self.main_table.model()
+            model.layoutChanged.emit()
+
+            conn.commit()
+
+        # If the tab already exists, stop here
+        if name in self.tabs:
+            # Recalculate shape for table
+            model: SQLliteModel = self.tabs[name].model()
+            model.calculate_shape()
+            
+            # Update the graphical side
+            model.layoutChanged.emit()
+
+            return
+
+        table_view = QtWidgets.QTableView()
+
+        from creator.utils.sqlitemodel import SQLliteModel
+
+        model = SQLliteModel(name)
+        table_view.setModel(model)
+
+        self.tab_widget.addTab(table_view, name)
+        self.tabs[name] = table_view
+
+def set_main(application: Application, main: MainWindow) -> None:
+    config = application.state.configuration
+
+    # TODO: use role
+    active_role, active_type = config.active_role, config.active_type
+
+    print(active_type)
+
+    if active_type == "digitaal":
+        main.central_widget = DigitalWidget(main)
+        main.setWindowTitle("SIP Creator digitaal")
+    else:
+        main.central_widget = MigrationWidget(main)
+        main.setWindowTitle("SIP Creator migratie")
+
+    main.setCentralWidget(None)
+    main.setCentralWidget(main.central_widget)
+    main.central_widget.setup_ui()
+    main.central_widget.load_items()

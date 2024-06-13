@@ -1,10 +1,11 @@
 from PySide6 import QtWidgets, QtGui, QtCore
 import os
-import json
+
+from ..utils.configuration import Configuration, Environment, Misc
 
 
 class ConnectionConfigurationTab(QtWidgets.QWidget):
-    def __init__(self, tab_info: dict):
+    def __init__(self, environment: Environment):
         super().__init__()
 
         self.tab_links = {}
@@ -21,7 +22,7 @@ class ConnectionConfigurationTab(QtWidgets.QWidget):
         self.grid_layout.addWidget(title, 0, 0)
         self.tab_links["API"] = {}
 
-        for index, (key, value) in enumerate(tab_info["API"].items(), start=1):
+        for index, (key, value) in enumerate(environment.get_api_info().items(), start=1):
             label = QtWidgets.QLabel(text=key)
             text_field = QtWidgets.QTextEdit(text=value)
             self.tab_links["API"][key] = text_field
@@ -34,7 +35,7 @@ class ConnectionConfigurationTab(QtWidgets.QWidget):
         self.grid_layout.addWidget(title, 0, 3)
         self.tab_links["FTPS"] = {}
 
-        for index, (key, value) in enumerate(tab_info["FTPS"].items(), start=1):
+        for index, (key, value) in enumerate(environment.get_ftps_info().items(), start=1):
             label = QtWidgets.QLabel(text=key)
             text_field = QtWidgets.QTextEdit(text=value)
             self.tab_links["FTPS"][key] = text_field
@@ -52,14 +53,10 @@ class ConnectionConfigurationTab(QtWidgets.QWidget):
 
 
 class MiscConfigurationTab(QtWidgets.QWidget):
-    def __init__(self, tab_info: dict):
+    def __init__(self, misc: Misc):
         super().__init__()
 
         self.tab_links = {}
-
-        # NOTE: extract environment info
-        environments = tab_info["Omgevingen"]
-        del tab_info["Omgevingen"]
 
         self.grid_layout = QtWidgets.QGridLayout()
         self.grid_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
@@ -74,7 +71,7 @@ class MiscConfigurationTab(QtWidgets.QWidget):
         self.grid_layout.addWidget(title, 0, 0)
 
         key = "SIP Creator opslag locatie"
-        value = os.path.normpath(tab_info[key])
+        value = os.path.normpath(misc.save_location)
         label = QtWidgets.QLabel(text=key)
         self.location_label = QtWidgets.QLabel(text=value)
         change_location_button = QtWidgets.QPushButton(text="Selecteer opslag locatie")
@@ -86,22 +83,33 @@ class MiscConfigurationTab(QtWidgets.QWidget):
         self.grid_layout.addWidget(change_location_button, 2, 0, 1, 2)
 
         self.environment_selection_group = QtWidgets.QButtonGroup()
+        self.role_selection_group = QtWidgets.QButtonGroup()
+        self.type_selection_group = QtWidgets.QButtonGroup()
 
-        title = QtWidgets.QLabel(text="Actieve omgeving")
-        title.setFont(font)
-        self.grid_layout.addWidget(title, 0, 2)
+        button_group_info = [
+            ("Actieve omgeving", misc.environments_activity, self.environment_selection_group),
+            ("Actieve rol", misc.role_activity, self.role_selection_group),
+            ("Actieve SIP type", misc.type_activity, self.type_selection_group),
+        ]
 
-        button_grid_layout = QtWidgets.QGridLayout()
-        button_grid = QtWidgets.QWidget()
-        button_grid.setLayout(button_grid_layout)
-        self.grid_layout.addWidget(button_grid, 1, 2, 2, 1)
+        for index, (title, activity, button_group) in enumerate(button_group_info):
+            row = index * 3
 
-        for index, (environment, env_active) in enumerate(environments.items()):
-            radio_button = QtWidgets.QRadioButton(text=environment)
-            radio_button.setChecked(env_active)
+            title_widget = QtWidgets.QLabel(text=title)
+            title_widget.setFont(font)
+            self.grid_layout.addWidget(title_widget, row, 2)
 
-            self.environment_selection_group.addButton(radio_button)
-            button_grid_layout.addWidget(radio_button, index, 0)
+            button_grid_layout = QtWidgets.QGridLayout()
+            button_grid = QtWidgets.QWidget()
+            button_grid.setLayout(button_grid_layout)
+            self.grid_layout.addWidget(button_grid, row + 1, 2, 2, 1)
+
+            for i, (button_label, is_active) in enumerate(activity.items()):
+                radio_button = QtWidgets.QRadioButton(text=button_label)
+                radio_button.setChecked(is_active)
+
+                button_group.addButton(radio_button)
+                button_grid_layout.addWidget(radio_button, i, 0)
 
     def get_tab_info(self):
         return {
@@ -109,7 +117,15 @@ class MiscConfigurationTab(QtWidgets.QWidget):
                 "Omgevingen": {
                     button.text(): button.isChecked()
                     for button in self.environment_selection_group.buttons()
-                }
+                },
+                "Rollen": {
+                    button.text(): button.isChecked()
+                    for button in self.role_selection_group.buttons()
+                },
+                "Type SIPs": {
+                    button.text(): button.isChecked()
+                    for button in self.type_selection_group.buttons()
+                },
             },
             **{key: text_field.text() for key, text_field in self.tab_links.items()},
         }

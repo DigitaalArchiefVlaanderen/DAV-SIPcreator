@@ -1,13 +1,14 @@
 import threading
 import time
+from typing import Type, Callable
 
-from PySide6 import QtWidgets
+from PySide6 import QtWidgets, QtCore
 
-from creator.utils.state import State
 from creator.controllers.config_controller import ConfigController
 from creator.controllers.db_controller import DBController
 from creator.controllers.api_controller import APIController, APIException
 from creator.utils.sip_status import SIPStatus
+from creator.utils.state import State
 
 
 class SIPStatusThread(threading.Thread):
@@ -60,8 +61,10 @@ class SIPStatusThread(threading.Thread):
             self.state.update_sip(sip)
 
 
-class Application(QtWidgets.QApplication):
-    def __init__(self):
+class Application(QtWidgets.QApplication, QtCore.QObject):
+    type_changed: QtCore.Signal = QtCore.Signal()
+
+    def __init__(self, mainwindow: Type[QtWidgets.QMainWindow], set_main_callback: Callable):
         super().__init__()
 
         self.db_controller = DBController("sqlite.db")
@@ -73,3 +76,13 @@ class Application(QtWidgets.QApplication):
         )
 
         self.sip_status_thread = SIPStatusThread(self.state)
+
+        self.ui = mainwindow()
+        self.ui.resize(800, 600)
+
+        set_main_callback(self, self.ui)
+
+        self.type_changed.connect(lambda: set_main_callback(self, self.ui))
+
+    def start(self) -> None:
+        self.ui.show()
