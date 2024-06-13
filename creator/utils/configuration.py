@@ -78,6 +78,7 @@ class Environment:
 @dataclass
 class Misc:
     environments_activity: dict
+    type_activity: dict
     save_location: str
 
     @staticmethod
@@ -121,6 +122,7 @@ class Configuration:
             if k == "misc":
                 misc = Misc(
                     environments_activity=v["Omgevingen"],
+                    type_activity=v["Type SIPs"],
                     save_location=v["SIP Creator opslag locatie"],
                 )
             else:
@@ -183,3 +185,9 @@ class Configuration:
         for env, active in self.misc.environments_activity.items():
             if active:
                 return env
+
+    @property
+    def active_type(self) -> str:
+        for _type, active in self.misc.type_activity.items():
+            if active:
+                return _type

@@ -83,6 +83,8 @@ class MiscConfigurationTab(QtWidgets.QWidget):
         self.grid_layout.addWidget(change_location_button, 2, 0, 1, 2)
 
         self.environment_selection_group = QtWidgets.QButtonGroup()
+        self.role_selection_group = QtWidgets.QButtonGroup()
+        self.type_selection_group = QtWidgets.QButtonGroup()
 
         button_group_info = [
             ("Actieve omgeving", misc.environments_activity, self.environment_selection_group),
@@ -113,7 +115,11 @@ class MiscConfigurationTab(QtWidgets.QWidget):
                 "Omgevingen": {
                     button.text(): button.isChecked()
                     for button in self.environment_selection_group.buttons()
-                }
+                },
+                "Type SIPs": {
+                    button.text(): button.isChecked()
+                    for button in self.type_selection_group.buttons()
+                },
             },
             **{key: text_field.text() for key, text_field in self.tab_links.items()},
         }
