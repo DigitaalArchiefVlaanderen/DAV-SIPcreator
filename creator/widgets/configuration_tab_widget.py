@@ -1,7 +1,7 @@
 from PySide6 import QtWidgets, QtGui, QtCore
 import os
 
-from ..utils.configuration import Configuration, Environment, Misc
+from ..utils.configuration import Environment, Misc
 
 
 class ConnectionConfigurationTab(QtWidgets.QWidget):
