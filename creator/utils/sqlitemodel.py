@@ -32,7 +32,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
 
         with self.conn as conn:
             return conn.execute(
-                f"SELECT {self.columns[col + self.columns_to_skip]} FROM {self._table_name} LIMIT 1 OFFSET {row};"
+                f"SELECT {self.columns[col + self.columns_to_skip]} FROM \"{self._table_name}\" LIMIT 1 OFFSET {row};"
             ).fetchone()[0]
 
     def set_value(self, index, new_value):
@@ -41,7 +41,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         with self.conn as conn:
             conn.execute(
                 f"""
-                    UPDATE {self._table_name}
+                    UPDATE "{self._table_name}"
                     SET {self.columns[col + self.columns_to_skip]}='{new_value}'
                     WHERE id=(
                         SELECT id
@@ -53,11 +53,11 @@ class SQLliteModel(QtCore.QAbstractTableModel):
 
     def calculate_shape(self):
         with self.conn as conn:
-            cursor = conn.execute(f"SELECT count() FROM {self._table_name};")
+            cursor = conn.execute(f"SELECT count() FROM \"{self._table_name}\";")
 
             self.row_count = cursor.fetchone()[0]
 
-            cursor = conn.execute(f"pragma table_info({self._table_name});")
+            cursor = conn.execute(f"pragma table_info(\"{self._table_name}\");")
 
             self.columns = {
                 i: column_name

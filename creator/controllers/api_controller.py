@@ -111,7 +111,7 @@ class APIController:
                 return group["Id"]
 
     @staticmethod
-    def get_series(configuration: Configuration, search: str = None) -> list:
+    def get_series(configuration: Configuration, search: str = None) -> list[Series]:
         environment = configuration.active_environment
 
         access_token = APIController._get_access_token(

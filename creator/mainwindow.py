@@ -326,6 +326,12 @@ class DigitalWidget(QtWidgets.QWidget):
         )
 
 class MigrationWidget(QtWidgets.QWidget):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        self.application: Application = QtWidgets.QApplication.instance()
+        self.state: State = self.application.state
+
     def setup_ui(self):
         grid_layout = QtWidgets.QGridLayout()
         self.setLayout(grid_layout)
@@ -440,28 +446,44 @@ class MigrationWidget(QtWidgets.QWidget):
 
     def load_main_tab(self):
         from creator.utils.sqlitemodel import SQLliteModel
+        from creator.controllers.api_controller import APIController
 
         container = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         container.setLayout(layout)
 
-        txt = QtWidgets.QLineEdit()
+        listed_series = APIController.get_series(self.state.configuration)
+        
+        series_combobox = QtWidgets.QComboBox()
+        series_combobox.setEditable(True)
+        series_combobox.setInsertPolicy(QtWidgets.QComboBox.NoInsert)
+        series_combobox.completer().setCompletionMode(
+            QtWidgets.QCompleter.PopupCompletion
+        )
+        series_combobox.completer().setFilterMode(
+            QtCore.Qt.MatchFlag.MatchContains
+        )
+        series_combobox.setMaximumWidth(900)
+        series_combobox.addItems(
+            [s.get_name() for s in listed_series if s.status == "Published"]
+        )
 
         btn = QtWidgets.QPushButton(text="Voeg toe")
-        btn.clicked.connect(lambda: self.add_to_new(txt.text()))
+        btn.clicked.connect(lambda: self.add_to_new(series_combobox.currentText()))
 
         model = SQLliteModel(self.main_tab, is_main=True)
         self.main_table.setModel(model)
 
-        layout.addWidget(txt, 0, 0, 1, 2)
-        layout.addWidget(btn, 0, 2)
+        layout.addWidget(btn, 0, 0)
+        layout.addWidget(series_combobox, 0, 1, 1, 3)
         layout.addWidget(self.main_table, 1, 0, 1, 5)
 
         self.tab_widget.addTab(container, self.main_tab)
         self.tabs[self.main_tab] = container
 
     def add_to_new(self, name: str):
-        name = name.strip().replace(" ", "_").replace("-", "_")
+        # NOTE: only thing not allowed is double-quotes
+        name = name.strip().replace('"', "'")
 
         # No funny business
         if name == "" or name == self.main_tab:
@@ -479,7 +501,7 @@ class MigrationWidget(QtWidgets.QWidget):
         with conn:
             # Create table
             conn.execute(f"""
-            CREATE TABLE IF NOT EXISTS {name} (
+            CREATE TABLE IF NOT EXISTS "{name}" (
                 id INTEGER PRIMARY KEY,
 
                 main_id INTEGER NOT NULL,
@@ -518,7 +540,7 @@ class MigrationWidget(QtWidgets.QWidget):
             # Update the tables table
             conn.execute(f"""
                 INSERT OR IGNORE INTO tables (table_name)
-                VALUES ('{name}');
+                VALUES ('"{name}"');
             """)
 
             # Remove where needed
@@ -531,20 +553,22 @@ class MigrationWidget(QtWidgets.QWidget):
 
             for main_id, table in cursor.fetchall():
                 conn.execute(f"""
-                    DELETE FROM {table}
+                    DELETE FROM "{table}"
                     WHERE main_id={main_id};
                 """)
 
-                rows = conn.execute(f"SELECT count() FROM {table};").fetchone()[0]
+                rows = conn.execute(f"""
+                    SELECT count() FROM "{table}";
+                """).fetchone()[0]
 
                 if rows == 0:
                     conn.execute(f"""
-                        DROP TABLE {table};
+                        DROP TABLE "{table}";
                     """)
                     
                     conn.execute(f"""
                         DELETE FROM tables
-                        WHERE table_name='{name}';
+                        WHERE table_name='"{name}"';
                     """)
 
                     self.tab_widget.removeTab(list(self.tabs).index(table))
@@ -561,7 +585,7 @@ class MigrationWidget(QtWidgets.QWidget):
 
             # Insert where needed
             conn.execute(f"""
-                INSERT INTO {name} (main_id, origineel_doosnummer, beschrijving, openingsdatum, sluitingsdatum)
+                INSERT INTO "{name}" (main_id, origineel_doosnummer, beschrijving, openingsdatum, sluitingsdatum)
                 SELECT id, doosnr, beschrijving, begin_datum, eind_datum
                 FROM {self.main_tab}
                 WHERE id IN ({selected_rows_str})
@@ -592,14 +616,22 @@ class MigrationWidget(QtWidgets.QWidget):
 
             return
 
+        container = QtWidgets.QWidget()
+        layout = QtWidgets.QGridLayout()
+        container.setLayout(layout)
+
+        series_label = QtWidgets.QLabel(text=name)
         table_view = QtWidgets.QTableView()
+
+        layout.addWidget(series_label, 0, 0)
+        layout.addWidget(table_view, 1, 0)
 
         from creator.utils.sqlitemodel import SQLliteModel
 
         model = SQLliteModel(name)
         table_view.setModel(model)
 
-        self.tab_widget.addTab(table_view, name)
+        self.tab_widget.addTab(container, name)
         self.tabs[name] = table_view
 
 def set_main(application: Application, main: MainWindow) -> None:
