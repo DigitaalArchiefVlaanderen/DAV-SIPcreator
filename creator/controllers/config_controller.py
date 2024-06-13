@@ -2,52 +2,12 @@ import os
 import json
 
 from ..utils.path import is_path_exists_or_creatable
+from ..utils.configuration import Configuration
 
 
 class ConfigController:
     def __init__(self, path: str):
         self.configuration_path = path
-
-    def _get_default_configuration(self) -> dict:
-        return {
-            "ti": {
-                "API": {
-                    "url": "https://digitaalarchief-ti.vlaanderen.be",
-                    "username": "",
-                    "password": "",
-                    "client_id": "",
-                    "client_secret": "",
-                },
-                "FTPS": {
-                    "url": "ingest.digitaalarchief-ti.vlaanderen.be",
-                    "username": "",
-                    "password": "",
-                    "port": "21",
-                },
-            },
-            "prod": {
-                "API": {
-                    "url": "",
-                    "username": "",
-                    "password": "",
-                    "client_id": "",
-                    "client_secret": "",
-                },
-                "FTPS": {
-                    "url": "ingest.digitaalarchief.vlaanderen.be",
-                    "username": "",
-                    "password": "",
-                    "port": "21",
-                },
-            },
-            "misc": {
-                "SIP Creator opslag locatie": os.path.join(os.getcwd(), "SIP_Creator"),
-                "Omgevingen": {
-                    "ti": False,
-                    "prod": True,
-                },
-            },
-        }
 
     def _verify_configuration(self, configuration: dict) -> bool:
         """Verifies the integrity of the configuration"""
@@ -60,10 +20,7 @@ class ConfigController:
 
             # NOTE: misc needs a few things
             if environment == "misc":
-                if (
-                    not "SIP Creator opslag locatie" in values
-                    or not "Omgevingen" in values
-                ):
+                if not "SIP Creator opslag locatie" in values:
                     return False
 
                 if not is_path_exists_or_creatable(
@@ -71,20 +28,24 @@ class ConfigController:
                 ):
                     configuration[environment]["SIP Creator opslag locatie"] = os.path.join(os.getcwd(), "SIP_Creator")
 
-                if not isinstance(values["Omgevingen"], dict):
-                    return False
-
-                active_envs = 0
-
-                for env_active in values["Omgevingen"].values():
-                    if not isinstance(env_active, bool):
+                for tab in ("Omgevingen",):
+                    if not tab in values:
                         return False
 
-                    if env_active:
-                        active_envs += 1
+                    if not isinstance(values[tab], dict):
+                        return False
 
-                if active_envs != 1:
-                    return False
+                    active = 0
+
+                    for is_active in values[tab].values():
+                        if not isinstance(is_active, bool):
+                            return False
+
+                        if is_active:
+                            active += 1
+
+                    if active != 1:
+                        return False
 
                 continue
 
@@ -115,18 +76,19 @@ class ConfigController:
 
         return True
 
-    def get_configuration(self) -> dict:
+    def get_configuration(self) -> Configuration:
         if not os.path.exists(self.configuration_path):
-            return self._get_default_configuration()
+            return Configuration.get_default()
 
         with open(self.configuration_path, "r", encoding="utf-8") as f:
             try:
                 configuration = json.load(f)
             except Exception:
-                return self._get_default_configuration()
+                return Configuration.get_default()
 
+            # TODO: allow to use old versions and fill in the rest?
             if not self._verify_configuration(configuration):
                 # NOTE: something in the config is bad
-                return self._get_default_configuration()
+                return Configuration.get_default()
 
-            return configuration
+            return Configuration.from_json(configuration)

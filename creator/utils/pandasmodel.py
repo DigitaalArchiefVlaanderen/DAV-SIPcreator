@@ -37,7 +37,6 @@ class PandasModel(QtCore.QAbstractTableModel):
         self.should_filter_name_column = False
 
         # Warning rows
-        # 1.5s (1.000)
         self._check_empty_rows()
 
         # NOTE: we basically take all the existing data

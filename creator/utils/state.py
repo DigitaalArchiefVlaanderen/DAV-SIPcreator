@@ -26,7 +26,7 @@ class State(QtCore.QObject):
 
     @property
     def configuration(self) -> Configuration:
-        return Configuration.from_json(self.configuration_callback())
+        return self.configuration_callback()
 
     @property
     def dossiers(self) -> List[Dossier]:

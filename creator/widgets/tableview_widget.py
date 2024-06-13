@@ -35,9 +35,12 @@ class TableView(QtWidgets.QTableView):
         if copy_text == "":
             return
 
-        if "\n" in copy_text:
+        if "\n" in copy_text and "\t" in copy_text:
             self.paste_grid_content(copy_text, indexes)
         else:
+            # Remove "-marks and remove \n
+            copy_text = copy_text.strip('"')
+
             self.paste_grid_value(copy_text, indexes)
 
     def paste_grid_value(self, copy_text: str, indexes: list):
