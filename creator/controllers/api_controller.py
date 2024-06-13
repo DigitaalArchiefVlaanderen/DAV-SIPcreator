@@ -7,7 +7,7 @@ from ..utils.series import Series
 from ..utils.state_utils.sip import SIP
 from ..utils.sip_status import SIPStatus
 from ..utils.status.api_item_status import APIItemStatus
-from ..utils.configuration import Environment
+from ..utils.configuration import Configuration, Environment
 
 from ..widgets.warning_dialog import WarningDialog
 
@@ -63,41 +63,6 @@ class APIController:
 
         return response
 
-    # TODO: do this manually everywhere, cus we want to decide which environment to use before we do the call
-    @staticmethod
-    def _get_connection_details(configuration: dict):
-        environment = [
-            env for env, active in configuration["misc"]["Omgevingen"].items() if active
-        ][0]
-
-        return configuration[environment]["API"]
-
-    # TODO: depricate this
-    @staticmethod
-    def _get_access_token_old(connection_details: dict, reraise=True) -> str:
-        base_url = connection_details["url"]
-        endpoint = "auth/ropc.php"
-
-        headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        data = {
-            "grant_type": "password",
-            "username": connection_details["username"],
-            "password": connection_details["password"],
-            "scope": "read:sample",
-            "client_id": connection_details["client_id"],
-            "client_secret": connection_details["client_secret"],
-        }
-
-        response = APIController._perform_request(
-            request_type=requests.post,
-            url=f"{base_url}/{endpoint}",
-            headers=headers,
-            data=data,
-            reraise=reraise,
-        )
-
-        return response.json()["access_token"]
-
     @staticmethod
     def _get_access_token(environment: Environment, reraise=True, warn=True) -> str:
         base_url = environment.api_url
@@ -125,8 +90,8 @@ class APIController:
         return response.json()["access_token"]
 
     @staticmethod
-    def _get_user_group_id(access_token, connection_details: dict) -> str:
-        base_url = connection_details["url"]
+    def _get_user_group_id(access_token: str, environment: Environment) -> str:
+        base_url = environment.api_url
         endpoint = "edepot/api/v1/users/current"
 
         headers = {
@@ -146,18 +111,18 @@ class APIController:
                 return group["Id"]
 
     @staticmethod
-    def get_series(configuration: dict, search: str = None) -> list:
-        connection_details = APIController._get_connection_details(configuration)
+    def get_series(configuration: Configuration, search: str = None) -> list[Series]:
+        environment = configuration.active_environment
 
-        access_token = APIController._get_access_token_old(
-            connection_details, reraise=True
+        access_token = APIController._get_access_token(
+            environment, reraise=True, warn=True
         )
 
         user_group_id = APIController._get_user_group_id(
-            access_token, connection_details
+            access_token, environment
         )
 
-        base_url = connection_details["url"]
+        base_url = environment.api_url
         endpoint = "series-register/api/v1/series"
 
         headers = {
@@ -196,14 +161,14 @@ class APIController:
         return series
 
     @staticmethod
-    def get_import_template(configuration: dict, series_id: str) -> str:
-        connection_details = APIController._get_connection_details(configuration)
+    def get_import_template(configuration: Configuration, series_id: str) -> str:
+        environment = configuration.active_environment
 
-        access_token = APIController._get_access_token_old(
-            connection_details, reraise=True
+        access_token = APIController._get_access_token(
+            environment, reraise=True, warn=True
         )
 
-        base_url = connection_details["url"]
+        base_url = environment.api_url
         endpoint = "edepot/api/v1/sips/metadata-template"
 
         headers = {
@@ -223,7 +188,7 @@ class APIController:
             reraise=True,
         )
 
-        storage_location = configuration["misc"]["SIP Creator opslag locatie"]
+        storage_location = configuration.misc.save_location
         folder_location = os.path.join(storage_location, "import_templates")
         file_location = os.path.join(folder_location, f"{series_id}.xlsx")
 
@@ -276,7 +241,7 @@ class APIController:
 
             params["page"] = params["page"] + 1
 
-    # TODO: remove
+    # TODO: replace with from files once possible
     @staticmethod
     def get_sip_status(sip: SIP) -> SIPStatus:
         environment = sip.environment

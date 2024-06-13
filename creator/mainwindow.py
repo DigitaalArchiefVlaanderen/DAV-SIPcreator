@@ -279,7 +279,7 @@ class MainWindow(QtWidgets.QMainWindow):
             dossiers = [d.dossier for d in selected_dossiers]
 
             sip = SIP(
-                environment_name=self.application.state.configuration.active_environment,
+                environment_name=self.application.state.configuration.active_environment_name,
                 dossiers=dossiers,
             )
             sip.value_changed.connect(self.state.update_sip)

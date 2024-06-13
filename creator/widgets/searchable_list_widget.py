@@ -62,7 +62,7 @@ class SearchableListWidget(QtWidgets.QWidget):
 
                 if (
                     widget.sip.environment.name
-                    == self.state.configuration.active_environment
+                    == self.state.configuration.active_environment_name
                 ):
                     widget.show()
                     continue

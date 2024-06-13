@@ -7,7 +7,6 @@ import json
 from ..application import Application
 from ..controllers.config_controller import ConfigController
 
-from ..utils.path import is_path_exists_or_creatable
 from ..widgets.configuration_tab_widget import (
     MiscConfigurationTab,
     ConnectionConfigurationTab,
@@ -40,13 +39,13 @@ class ConfigurationWidget(QtWidgets.QMainWindow):
         tab_widget = QtWidgets.QTabWidget()
         vertical_layout.addWidget(tab_widget)
 
-        for environment, values in configuration.items():
-            if environment == "misc":
-                self.tabs[environment] = MiscConfigurationTab(values)
-            else:
-                self.tabs[environment] = ConnectionConfigurationTab(values)
+        self.tabs["misc"] = MiscConfigurationTab(configuration.misc)
+        tab_widget.addTab(self.tabs["misc"], "misc")
 
-            tab_widget.addTab(self.tabs[environment], environment)
+        for environment in configuration.environments:
+            self.tabs[environment.name] = ConnectionConfigurationTab(environment)
+
+            tab_widget.addTab(self.tabs[environment.name], environment.name)
 
         save_button = QtWidgets.QPushButton(text="Opslaan")
         save_button.clicked.connect(self.save_button_clicked)

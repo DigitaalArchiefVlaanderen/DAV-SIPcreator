@@ -129,7 +129,7 @@ class SIPWidget(QtWidgets.QFrame):
         self.open_edepot_button = QtWidgets.QPushButton(text="Edepot locatie")
         self.open_edepot_button.clicked.connect(
             lambda: os.startfile(
-                f"{self.state.configuration.get_environment(self.state.configuration.active_environment).api_url}/input/processing-list/{self.sip.edepot_sip_id}"
+                f"{self.state.configuration.active_environment.api_url}/input/processing-list/{self.sip.edepot_sip_id}"
             )
         )
         self.open_edepot_button.setEnabled(False)
