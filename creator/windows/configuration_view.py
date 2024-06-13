@@ -7,7 +7,6 @@ import json
 from ..application import Application
 from ..controllers.config_controller import ConfigController
 
-from ..utils.path import is_path_exists_or_creatable
 from ..widgets.configuration_tab_widget import (
     MiscConfigurationTab,
     ConnectionConfigurationTab,
