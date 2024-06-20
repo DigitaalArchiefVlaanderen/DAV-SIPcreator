@@ -6,7 +6,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
     def __init__(
         self,
         table_name: str,
-        db_name: str="main.db",
+        db_name: str,
         is_main: bool=False,
     ):
         super().__init__()
@@ -35,8 +35,11 @@ class SQLliteModel(QtCore.QAbstractTableModel):
                 f"SELECT {self.columns[col + self.columns_to_skip]} FROM \"{self._table_name}\" LIMIT 1 OFFSET {row};"
             ).fetchone()[0]
 
-    def set_value(self, index, new_value):
+    def set_value(self, index, new_value: str):
         row, col = index.row(), index.column()
+
+        # Want to prevent usage of bad characters
+        new_value = new_value.replace('"', "").replace("'", "")
 
         with self.conn as conn:
             conn.execute(
@@ -45,7 +48,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
                     SET {self.columns[col + self.columns_to_skip]}='{new_value}'
                     WHERE id=(
                         SELECT id
-                        FROM {self._table_name}
+                        FROM "{self._table_name}"
                         LIMIT 1 OFFSET {row}
                     );
                 """

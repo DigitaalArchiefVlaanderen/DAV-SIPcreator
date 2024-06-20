@@ -355,7 +355,7 @@ class MigrationWidget(QtWidgets.QWidget):
         )
 
         self.tab_ui = TabUI(path=path)
-        # self.list_view.add_item("name", self.tab_ui)
+        self.list_view.add_item("name", ListView(self.tab_ui))
         self.tab_ui.setup_ui()
         self.tab_ui.load_items()
         self.tab_ui.show()
@@ -414,6 +414,7 @@ class TabUI(QtWidgets.QMainWindow):
             CREATE TABLE tables (
                 id INTEGER PRIMARY KEY,
                 table_name TEXT,
+                uri_serieregister TEXT,
 
                 UNIQUE(table_name)
             );""")
@@ -423,22 +424,22 @@ class TabUI(QtWidgets.QMainWindow):
             VALUES ('{self.main_tab}');
             """)
 
-            conn.execute(f"""
-            CREATE TABLE {self.main_tab} (
-                id INTEGER PRIMARY KEY,
+            # conn.execute(f"""
+            # CREATE TABLE {self.main_tab} (
+            #     id INTEGER PRIMARY KEY,
                 
-                serie TEXT,
+            #     serie TEXT,
 
-                doosnr TEXT,
-                nr_van_het_archiefbestanddeel TEXT,
-                beschrijving TEXT,
-                begin_datum TEXT,
-                eind_datum TEXT,
-                bestemming TEXT,
-                bewaar_termijn TEXT,
-                verwijzing_informatiebeheersplan TEXT,
-                datum_uitvoeren_bestemming TEXT
-            );""")
+            #     doosnr TEXT,
+            #     nr_van_het_archiefbestanddeel TEXT,
+            #     beschrijving TEXT,
+            #     begin_datum TEXT,
+            #     eind_datum TEXT,
+            #     bestemming TEXT,
+            #     bewaar_termijn TEXT,
+            #     verwijzing_informatiebeheersplan TEXT,
+            #     datum_uitvoeren_bestemming TEXT
+            # );""")
 
             conn.commit()
 
@@ -485,13 +486,28 @@ class TabUI(QtWidgets.QMainWindow):
             columns=headers,
         ).fillna("").astype(str).convert_dtypes()
 
+        # NOTE: add headers if needed
+        added_headers = ("id", "series_name", "uri_serieregister")
+
+        for h in added_headers:
+            if not h in df.columns:
+                df[h] = ""
+
+            if h == "id":
+                df[h] = range(df.shape[0])
+
+        # NOTE: reorder headers
+        cols = df.columns.tolist()
+        cols = [added_headers[0], added_headers[1], *(c for c in cols if c not in added_headers), added_headers[2]]
+        df = df[cols]
+
         con = sql.connect(f"{self.name}.db")
         df.to_sql(
             name=self.main_tab,
             con=con,
             index=False,
             method="multi",
-            if_exists="append",
+            # if_exists="append",
             chunksize=1000,
         )
 
@@ -504,6 +520,7 @@ class TabUI(QtWidgets.QMainWindow):
         container.setLayout(layout)
 
         listed_series = APIController.get_series(self.state.configuration)
+        series_names = [s.get_name() for s in listed_series if s.status == "Published"]
         
         series_combobox = QtWidgets.QComboBox()
         series_combobox.setEditable(True)
@@ -515,29 +532,55 @@ class TabUI(QtWidgets.QMainWindow):
             QtCore.Qt.MatchFlag.MatchContains
         )
         series_combobox.setMaximumWidth(900)
-        series_combobox.addItems(
-            [s.get_name() for s in listed_series if s.status == "Published"]
-        )
+        series_combobox.addItems(series_names)
 
         btn = QtWidgets.QPushButton(text="Voeg toe")
-        btn.clicked.connect(lambda: self.add_to_new(series_combobox.currentText()))
+        btn.clicked.connect(
+            lambda: 
+            self.add_to_new(
+                name = series_combobox.currentText(),
+                uri = f"https://serieregister.vlaanderen.be/id/serie/{listed_series[series_names.index(series_combobox.currentText())]._id}"
+            )
+        )
 
-        model = SQLliteModel(self.main_tab, is_main=True)
+        model = SQLliteModel(self.main_tab, db_name=f"{self.name}.db", is_main=True)
         self.main_table.setModel(model)
 
         layout.addWidget(btn, 0, 0)
         layout.addWidget(series_combobox, 0, 1, 1, 3)
         layout.addWidget(self.main_table, 1, 0, 1, 5)
 
+        conn = sql.connect(f"{self.name}.db")
+
+        with conn:
+            # NOTE: set all the series_names where the series_id matches one we got
+            for s in listed_series:
+                name = s.get_name().strip().replace('"', "").replace("'", "")
+
+                conn.execute(f"""
+                    UPDATE {self.main_tab}
+                    SET series_name='"{name}"'
+                    WHERE uri_serieregister='https://serieregister.vlaanderen.be/id/serie/{s._id}';
+                """)
+
         self.tab_widget.addTab(container, self.main_tab)
         self.tabs[self.main_tab] = container
 
     def load_other_tabs(self):
-        pass
+        conn = sql.connect(f"{self.name}.db")
 
-    def add_to_new(self, name: str):
-        # NOTE: only thing not allowed is double-quotes
-        name = name.strip().replace('"', "'")
+        with conn:
+            tables = conn.execute(f"SELECT table_name FROM tables WHERE table_name != '{self.main_tab}';")
+
+        for table_name, *_ in tables:
+            # NOTE: remove leading and trailing quotes
+            self.create_tab(table_name[1:-1])
+
+    def add_to_new(self, name: str, uri: str):
+        from creator.utils.sqlitemodel import SQLliteModel
+
+        # NOTE: only thing not allowed is quotes
+        name = name.strip().replace('"', "").replace("'", "")
 
         # No funny business
         if name == "" or name == self.main_tab:
@@ -545,7 +588,7 @@ class TabUI(QtWidgets.QMainWindow):
 
         conn = sql.connect(f"{self.name}.db")
 
-        selected_rows = [str(r.row() + 1) for r in self.main_table.selectionModel().selectedRows()]
+        selected_rows = [str(r.row()) for r in self.main_table.selectionModel().selectedRows()]
 
         if len(selected_rows) == 0:
             return
@@ -553,6 +596,7 @@ class TabUI(QtWidgets.QMainWindow):
         selected_rows_str = ", ".join(selected_rows)
 
         with conn:
+            # TODO: get definition from importsjabloon
             # Create table
             conn.execute(f"""
             CREATE TABLE IF NOT EXISTS "{name}" (
@@ -593,32 +637,33 @@ class TabUI(QtWidgets.QMainWindow):
 
             # Update the tables table
             conn.execute(f"""
-                INSERT OR IGNORE INTO tables (table_name)
-                VALUES ('"{name}"');
+                INSERT OR IGNORE INTO tables (table_name, uri_serieregister)
+                VALUES ('"{name}"', '{uri}');
             """)
 
             # Remove where needed
             cursor = conn.execute(f"""
-                SELECT id, serie
+                SELECT id, series_name
                 FROM {self.main_tab}
                 WHERE id IN ({selected_rows_str})
-                  AND serie != '{name}'
-                  AND serie != '';
+                  AND series_name != '"{name}"'
+                  AND series_name != '';
             """)
 
             for main_id, table in cursor.fetchall():
+                # NOTE: table already contains ""-marks
                 conn.execute(f"""
-                    DELETE FROM "{table}"
+                    DELETE FROM {table}
                     WHERE main_id={main_id};
                 """)
 
                 rows = conn.execute(f"""
-                    SELECT count() FROM "{table}";
+                    SELECT count() FROM {table};
                 """).fetchone()[0]
 
                 if rows == 0:
                     conn.execute(f"""
-                        DROP TABLE "{table}";
+                        DROP TABLE {table};
                     """)
                     
                     conn.execute(f"""
@@ -632,25 +677,27 @@ class TabUI(QtWidgets.QMainWindow):
                     continue
 
                 # Recalculate shape for table
-                model: SQLliteModel = self.tabs[table].model()
+                model: SQLliteModel = self.tabs[table.replace('"', "")].model()
                 model.row_count = rows
 
                 # Update the graphical side
                 model.layoutChanged.emit()
 
             # Insert where needed
+            # NOTE: don't do other auto-mapping
             conn.execute(f"""
-                INSERT INTO "{name}" (main_id, origineel_doosnummer, beschrijving, openingsdatum, sluitingsdatum)
-                SELECT id, doosnr, beschrijving, begin_datum, eind_datum
+                INSERT INTO "{name}" (main_id) --, beschrijving, openingsdatum, sluitingsdatum)
+                SELECT id --, beschrijving, begin_datum, eind_datum
                 FROM {self.main_tab}
                 WHERE id IN ({selected_rows_str})
-                  AND (serie != '{name}' OR serie IS NULL);
+                  AND (series_name != '"{name}"' OR series_name IS NULL OR series_name == '');
             """)
             
             # Update the main table to show correct linking
             conn.execute(f"""
                 UPDATE {self.main_tab}
-                SET serie='{name}'
+                SET series_name='"{name}"',
+                    uri_serieregister='{uri}'
                 WHERE id IN ({selected_rows_str});
             """)
 
@@ -671,6 +718,9 @@ class TabUI(QtWidgets.QMainWindow):
 
             return
 
+        self.create_tab(name)
+
+    def create_tab(self, name: str):
         container = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         container.setLayout(layout)
@@ -683,12 +733,30 @@ class TabUI(QtWidgets.QMainWindow):
 
         from creator.utils.sqlitemodel import SQLliteModel
 
-        model = SQLliteModel(name)
+        model = SQLliteModel(name, db_name=f"{self.name}.db")
         table_view.setModel(model)
 
         self.tab_widget.addTab(container, name)
         self.tabs[name] = table_view
 
+
+class ListView(QtWidgets.QWidget):
+    def __init__(self, tab_ui: TabUI):
+        super().__init__()
+
+        self.name = tab_ui.name
+        self.tab_ui = tab_ui
+
+        layout = QtWidgets.QGridLayout()
+        self.setLayout(layout)
+
+        title = QtWidgets.QLabel(text=self.name)
+
+        open_button = QtWidgets.QPushButton(text="Open")
+        open_button.clicked.connect(self.tab_ui.show)
+
+        layout.addWidget(title, 0, 0, 1, 2)
+        layout.addWidget(open_button, 0, 2)
 
 def set_main(application: Application, main: MainWindow) -> None:
     config = application.state.configuration
@@ -710,6 +778,4 @@ def set_main(application: Application, main: MainWindow) -> None:
     main.central_widget.setup_ui()
     main.central_widget.load_items()
 
-# TODO: on load of tabUI, make sure everything loads from db
-# TODO: not everything seems to get stored in the correct db
 

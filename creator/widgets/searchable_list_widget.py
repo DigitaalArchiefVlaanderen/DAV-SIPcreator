@@ -144,7 +144,7 @@ class SearchableListWidget(QtWidgets.QWidget):
 
 
 class SearchableSelectionListView(SearchableListWidget):
-    def __init__(self):
+    def __init__(self, item_type_str: str = "dossiers"):
         super().__init__()
 
         self._field = "dossier_label"
@@ -152,12 +152,12 @@ class SearchableSelectionListView(SearchableListWidget):
         self.count_label.setText("0 / 0")
 
         self.remove_selected_button = QtWidgets.QPushButton(
-            text="Verwijder geselecteerde dossiers"
+            text=f"Verwijder geselecteerde {item_type_str}"
         )
         self.remove_selected_button.clicked.connect(self.remove_selected_clicked)
         self.remove_selected_button.setEnabled(False)
 
-        self.select_all_button = QtWidgets.QCheckBox(text="Selecteer alle dossiers")
+        self.select_all_button = QtWidgets.QCheckBox(text=f"Selecteer alle {item_type_str}")
         self.select_all_button.clicked.connect(self.select_all_clicked)
 
         self.grid_layout.addWidget(self.select_all_button, 0, 0, 1, 2)
