@@ -332,29 +332,82 @@ class MigrationWidget(QtWidgets.QWidget):
         self.application: Application = QtWidgets.QApplication.instance()
         self.state: State = self.application.state
 
+        self._layout = QtWidgets.QGridLayout()
+        self.list_view = SearchableSelectionListView(item_type_str="overdrachtslijsten")
+
     def setup_ui(self):
-        grid_layout = QtWidgets.QGridLayout()
-        self.setLayout(grid_layout)
+        self.setLayout(self._layout)
 
-        self.tab_widget = QtWidgets.QTabWidget()
-        grid_layout.addWidget(self.tab_widget, 0, 0)
+        # MAIN UI
+        add_item_button = QtWidgets.QPushButton(text="Importeer overdrachtslijst")
+        add_item_button.clicked.connect(self.add_overdrachtslijst_click)
 
+        self._layout.addWidget(add_item_button, 0, 1, 1, 2)
+        self._layout.addWidget(self.list_view, 1, 0, 1, 4)
+
+    def load_items(self):
+        # Get all the overdrachtslijsten from main db or smth
+        pass
+
+    def add_overdrachtslijst_click(self):
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            caption="Selecteer Overdrachtslijst", filter="Overdrachtslijst (*.xlsx *.xlsm *.xltx *.xltm)"
+        )
+
+        self.tab_ui = TabUI(path=path)
+        # self.list_view.add_item("name", self.tab_ui)
+        self.tab_ui.setup_ui()
+        self.tab_ui.load_items()
+        self.tab_ui.show()
+
+
+class TabUI(QtWidgets.QMainWindow):
+    def __init__(self, path: str):
+        super().__init__()
+
+        self.application: Application = QtWidgets.QApplication.instance()
+        self.state: State = self.application.state
+
+        self.toolbar = Toolbar()
+
+        self.path = path
+        self.name = os.path.splitext(os.path.basename(path))[0]
+
+        self._layout = QtWidgets.QGridLayout()
         self.tabs: dict[str, QtWidgets.QTableView] = dict()
 
         self.main_tab = "Overdrachtslijst"
         self.main_table = QtWidgets.QTableView()
 
-    def load_items(self):
-        self.create_db()
-        self.load_overdrachtslijst()
-        self.load_main_tab()
+        self.tab_widget = QtWidgets.QTabWidget()
 
-    def create_db(self):
+    def setup_ui(self):
+        self.resize(800, 600)
+        self.setWindowTitle(self.name)
+        self.addToolBar(self.toolbar)
+
+        central_widget = QtWidgets.QWidget()
+        central_widget.setLayout(self._layout)
+        self.setCentralWidget(central_widget)
+
+        self._layout.addWidget(self.tab_widget, 0, 0)
+
+    def load_items(self):
+        if self.create_db():
+            # No need to load if the db already existed
+            self.load_overdrachtslijst()
+        
+        self.load_main_tab()
+        self.load_other_tabs()
+
+    def create_db(self) -> bool:
         import sqlite3 as sql
         import os
 
-        os.remove("main.db")
-        conn = sql.connect("main.db")
+        if os.path.exists(f"{self.name}.db"):
+            return False
+
+        conn = sql.connect(f"{self.name}.db")
 
         with conn:
             conn.execute("""
@@ -389,17 +442,15 @@ class MigrationWidget(QtWidgets.QWidget):
 
             conn.commit()
 
+        return True
+
     def load_overdrachtslijst(self):
         import pandas as pd
         from openpyxl import load_workbook
         import sqlite3 as sql
 
-        path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            caption="Selecteer Overdrachtslijst", filter="Overdrachtslijst (*.xlsx *.xlsm *.xltx *.xltm)"
-        )
-
         wb = load_workbook(
-            path,
+            self.path,
             read_only=True,
             data_only=True,
             keep_links=False,
@@ -434,7 +485,7 @@ class MigrationWidget(QtWidgets.QWidget):
             columns=headers,
         ).fillna("").astype(str).convert_dtypes()
 
-        con = sql.connect("main.db")
+        con = sql.connect(f"{self.name}.db")
         df.to_sql(
             name=self.main_tab,
             con=con,
@@ -481,6 +532,9 @@ class MigrationWidget(QtWidgets.QWidget):
         self.tab_widget.addTab(container, self.main_tab)
         self.tabs[self.main_tab] = container
 
+    def load_other_tabs(self):
+        pass
+
     def add_to_new(self, name: str):
         # NOTE: only thing not allowed is double-quotes
         name = name.strip().replace('"', "'")
@@ -489,7 +543,7 @@ class MigrationWidget(QtWidgets.QWidget):
         if name == "" or name == self.main_tab:
             return
 
-        conn = sql.connect("main.db")
+        conn = sql.connect(f"{self.name}.db")
 
         selected_rows = [str(r.row() + 1) for r in self.main_table.selectionModel().selectedRows()]
 
@@ -548,7 +602,8 @@ class MigrationWidget(QtWidgets.QWidget):
                 SELECT id, serie
                 FROM {self.main_tab}
                 WHERE id IN ({selected_rows_str})
-                  AND serie != '{name}';
+                  AND serie != '{name}'
+                  AND serie != '';
             """)
 
             for main_id, table in cursor.fetchall():
@@ -634,6 +689,7 @@ class MigrationWidget(QtWidgets.QWidget):
         self.tab_widget.addTab(container, name)
         self.tabs[name] = table_view
 
+
 def set_main(application: Application, main: MainWindow) -> None:
     config = application.state.configuration
 
@@ -653,3 +709,7 @@ def set_main(application: Application, main: MainWindow) -> None:
     main.setCentralWidget(main.central_widget)
     main.central_widget.setup_ui()
     main.central_widget.load_items()
+
+# TODO: on load of tabUI, make sure everything loads from db
+# TODO: not everything seems to get stored in the correct db
+

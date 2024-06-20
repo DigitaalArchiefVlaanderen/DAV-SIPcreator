@@ -1,14 +1,12 @@
 import sys
 
 from creator.application import Application
-from creator.mainwindow import MainWindow
+from creator.mainwindow import MainWindow, set_main
 
+app = Application(MainWindow, set_main_callback=set_main)
+app.start()
 
-app = Application()
-
-ui = MainWindow()
-ui.setup_ui()
-ui.load_items()
-ui.show()
-
-sys.exit(app.exec())
+try:
+    sys.exit(app.exec())
+except KeyboardInterrupt:
+    sys.exit(-1)
