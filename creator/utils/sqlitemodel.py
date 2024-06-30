@@ -18,9 +18,8 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         # NOTE: keep track of if a change in the data has occurred
         self.has_changed = False
 
-        # How many columns to skip (id for is_main, id/main_id for other)
-        self.columns_to_skip = 1 if self.is_main else 2
-        # self.columns_to_skip = 0
+        # Which columns to hide (id for is_main, id/main_id for other, some columns based on role)
+        self.hidden_columns = []
 
         # Dict with key = 0-index, value = column_name
         self.columns: dict[int, str] = dict()
@@ -37,7 +36,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         return sql.connect(self._db_name)
 
     def get_value(self, index):
-        row, col = index.row(), index.column() + self.columns_to_skip
+        row, col = index.row(), index.column()
 
         # NOTE: quotes are not allowed for now
         return self._data[row][col].replace('"', "").replace("'", "")
@@ -45,7 +44,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
     def set_value(self, index, new_value: str):
         self.has_changed = True
 
-        row, col = index.row(), index.column() + self.columns_to_skip
+        row, col = index.row(), index.column()
 
         # NOTE: quotes are not allowed for now
         self._data[row][col] = new_value.replace('"', "").replace("'", "")
@@ -89,7 +88,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         with self.conn as conn:
             for row in range(self.row_count):
                 main_id = self._data[row][1]
-                set_value = ",\n\t".join([f"{self.columns[col]}='{self._data[row][col]}'" for col in range(self.columns_to_skip, self.col_count)])
+                set_value = ",\n\t".join([f"{self.columns[col]}='{self._data[row][col]}'" for col in range(2, self.col_count)])
 
                 conn.execute(
                     f"""
@@ -103,7 +102,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         return self.row_count
 
     def columnCount(self, *index):
-        return self.col_count - self.columns_to_skip
+        return self.col_count
 
     def data(self, index, role=QtCore.Qt.ItemDataRole.DisplayRole):
         if not index.isValid():
@@ -130,7 +129,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         # section is the index of the column/row.
         if role == QtCore.Qt.ItemDataRole.DisplayRole:
             if orientation == QtCore.Qt.Orientation.Horizontal:
-                return list(self.columns.values())[section + self.columns_to_skip]
+                return list(self.columns.values())[section]
 
             if orientation == QtCore.Qt.Orientation.Vertical:
                 return section
@@ -149,7 +148,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         self.layoutAboutToBeChanged.emit()
 
         self._data.sort(
-            key=lambda row: row[col + self.columns_to_skip],
+            key=lambda row: row[col],
             reverse=order is QtCore.Qt.SortOrder.DescendingOrder
         )
 

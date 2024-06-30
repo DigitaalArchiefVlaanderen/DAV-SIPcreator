@@ -23,6 +23,7 @@ from .utils.state import State
 from .utils.state_utils.dossier import Dossier
 from .utils.state_utils.sip import SIP
 from .utils.sip_status import SIPStatus
+from .utils.sqlitemodel import SQLliteModel
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -413,6 +414,8 @@ class TabUI(QtWidgets.QMainWindow):
 
         self.tab_widget = QtWidgets.QTabWidget()
 
+        self.toolbar.configuration_changed.connect(self.reload_tabs)
+
     def setup_ui(self):
         self.resize(800, 600)
         self.setWindowTitle(self.name)
@@ -533,8 +536,6 @@ class TabUI(QtWidgets.QMainWindow):
         )
 
     def load_main_tab(self):
-        from creator.utils.sqlitemodel import SQLliteModel
-
         container = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         container.setLayout(layout)
@@ -589,6 +590,9 @@ class TabUI(QtWidgets.QMainWindow):
 
         self.tab_widget.addTab(container, self.main_tab)
         self.tabs[self.main_tab] = self.main_table
+
+        # NOTE: hide the id column
+        self.main_table.hideColumn(0)
 
     def load_other_tabs(self):
         conn = sql.connect(self.db_location)
@@ -766,6 +770,22 @@ class TabUI(QtWidgets.QMainWindow):
         self.tab_widget.addTab(container, name)
         self.tabs[name] = table_view
 
+        # NOTE: hide id and main_id
+        table_view.hideColumn(0)
+        table_view.hideColumn(1)
+
+        if self.state.configuration.active_role == "klant":
+            cols_to_skip = ("origineel_doosnummer", "legacy_locatie_id", "legacy_range", "verpakkingstype")
+
+            with sql.connect(self.db_location) as conn:
+                # NOTE: figure out which columns to hide (could be multiple due to duplications)
+                
+                cursor = conn.execute(f"pragma table_info(\"{name}\");")
+
+                for i, column_name, *_ in cursor.fetchall():
+                    if any(c in column_name for c in cols_to_skip):
+                        table_view.hideColumn(i)
+
     def closeEvent(self, event):
         from creator.utils.sqlitemodel import SQLliteModel
 
@@ -798,6 +818,30 @@ class TabUI(QtWidgets.QMainWindow):
 
             model.save_data()
             model.has_changed = False
+
+    def reload_tabs(self) -> None:
+        for table_name, tab_view in self.tabs.items():
+            with sql.connect(self.db_location) as conn:
+                # NOTE: figure out which columns to hide (could be multiple due to duplications)
+                cursor = conn.execute(f"pragma table_info(\"{table_name}\");")
+
+                columns = cursor.fetchall()
+
+            # Show every column
+            for i in range(len(columns)):
+                tab_view.showColumn(i)
+
+            # Hide id and main_id columns where applicable
+            for i, column_name, *_ in columns:
+                if column_name in ("id", "main_id"):
+                    tab_view.hideColumn(i)
+
+            if self.state.configuration.active_role == "klant":
+                cols_to_skip = ("origineel_doosnummer", "legacy_locatie_id", "legacy_range", "verpakkingstype")
+
+                for i, column_name, *_ in columns:
+                    if any(c in column_name for c in cols_to_skip):
+                        tab_view.hideColumn(i)
 
     def _filter_unassigned(self, state: QtCore.Qt.CheckState) -> None:
         from creator.utils.sqlitemodel import SQLliteModel
