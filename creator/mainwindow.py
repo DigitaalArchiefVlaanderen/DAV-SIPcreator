@@ -331,6 +331,8 @@ class MigrationWidget(QtWidgets.QWidget):
 
         self.application: Application = QtWidgets.QApplication.instance()
         self.state: State = self.application.state
+        
+        self.list_storage_path = f"{self.state.configuration.misc.save_location}/overdrachtslijsten"
 
         self._layout = QtWidgets.QGridLayout()
         self.list_view = SearchableSelectionListView(item_type_str="overdrachtslijsten")
@@ -352,23 +354,16 @@ class MigrationWidget(QtWidgets.QWidget):
         self.series = APIController.get_series(self.state.configuration)
 
     def load_items(self):
-        # Get all the overdrachtslijsten from main db or smth
-        with sql.connect(self.main_db) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS overdrachtslijsten (
-                    _id PRIMARY KEY,
-                    path TEXT
-                );
-            """)
+        os.makedirs(self.list_storage_path, exist_ok=True)
 
-            paths = conn.execute("SELECT path FROM overdrachtslijsten;").fetchall()
+        for partial_path in os.listdir(self.list_storage_path):
+            path = os.path.join(self.list_storage_path, partial_path)
 
-            for path, *_ in paths:
-                tab_ui = TabUI(path=path, series=self.series)
-                self.list_view.add_item("name", ListView(tab_ui))
+            tab_ui = TabUI(path=path, series=self.series)
+            self.list_view.add_item("name", ListView(tab_ui))
 
-                tab_ui.setup_ui()
-                tab_ui.load_items()
+            tab_ui.setup_ui()
+            tab_ui.load_items()
 
     def add_overdrachtslijst_click(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -377,9 +372,6 @@ class MigrationWidget(QtWidgets.QWidget):
 
         tab_ui = TabUI(path=path, series=self.series)
         self.list_view.add_item("name", ListView(tab_ui))
-
-        with sql.connect(self.main_db) as conn:
-            conn.execute(f"INSERT INTO overdrachtslijsten (path) VALUES ('{path}');")
 
         tab_ui.setup_ui()
         tab_ui.load_items()
@@ -394,10 +386,13 @@ class TabUI(QtWidgets.QMainWindow):
         self.application: Application = QtWidgets.QApplication.instance()
         self.state: State = self.application.state
 
+        self.storage_base = f"{self.state.configuration.misc.save_location}/overdrachtslijsten"
+
         self.toolbar = Toolbar()
 
         self.path = path
         self.name = os.path.splitext(os.path.basename(path))[0]
+        self.db_location = f"{self.storage_base}/{self.name}.db"
         self.series = series
 
         self._layout = QtWidgets.QGridLayout()
@@ -435,10 +430,12 @@ class TabUI(QtWidgets.QMainWindow):
         import sqlite3 as sql
         import os
 
-        if os.path.exists(f"{self.name}.db"):
+        os.makedirs(self.storage_base, exist_ok=True)
+
+        if os.path.exists(self.db_location):
             return False
 
-        conn = sql.connect(f"{self.name}.db")
+        conn = sql.connect(self.db_location)
 
         with conn:
             conn.execute("""
@@ -515,7 +512,7 @@ class TabUI(QtWidgets.QMainWindow):
         cols = [added_headers[0], added_headers[1], *(c for c in cols if c not in added_headers), added_headers[2]]
         df = df[cols]
 
-        con = sql.connect(f"{self.name}.db")
+        con = sql.connect(self.db_location)
         df.to_sql(
             name=self.main_tab,
             con=con,
@@ -556,7 +553,7 @@ class TabUI(QtWidgets.QMainWindow):
             )
         )
 
-        model = SQLliteModel(self.main_tab, db_name=f"{self.name}.db", is_main=True)
+        model = SQLliteModel(self.main_tab, db_name=self.db_location, is_main=True)
         self.main_table.setModel(model)
 
         unassigned_only_checkbox = QtWidgets.QCheckBox(text="Toon enkel rijen zonder serie")
@@ -567,7 +564,7 @@ class TabUI(QtWidgets.QMainWindow):
         layout.addWidget(unassigned_only_checkbox, 1, 0, 1, 2)
         layout.addWidget(self.main_table, 2, 0, 1, 5)
 
-        conn = sql.connect(f"{self.name}.db")
+        conn = sql.connect(self.db_location)
 
         with conn:
             # NOTE: set all the series_names where the series_id matches one we got
@@ -584,7 +581,7 @@ class TabUI(QtWidgets.QMainWindow):
         self.tabs[self.main_tab] = self.main_table
 
     def load_other_tabs(self):
-        conn = sql.connect(f"{self.name}.db")
+        conn = sql.connect(self.db_location)
 
         with conn:
             tables = conn.execute(f"SELECT table_name FROM tables WHERE table_name != '{self.main_tab}';")
@@ -603,7 +600,7 @@ class TabUI(QtWidgets.QMainWindow):
         if name == "" or name == self.main_tab:
             return
 
-        conn = sql.connect(f"{self.name}.db")
+        conn = sql.connect(self.db_location)
 
         selected_rows = [str(r.row()) for r in self.main_table.selectionModel().selectedRows()]
 
@@ -753,7 +750,7 @@ class TabUI(QtWidgets.QMainWindow):
 
         from creator.utils.sqlitemodel import SQLliteModel
 
-        model = SQLliteModel(name, db_name=f"{self.name}.db")
+        model = SQLliteModel(name, db_name=self.db_location)
         table_view.setModel(model)
 
         self.tab_widget.addTab(container, name)

@@ -50,33 +50,6 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         # NOTE: quotes are not allowed for now
         self._data[row][col] = new_value.replace('"', "").replace("'", "")
 
-    # def get_value(self, index):
-    #     row, col = index.row(), index.column()
-
-    #     with self.conn as conn:
-    #         return conn.execute(
-    #             f"SELECT {self.columns[col + self.columns_to_skip]} FROM \"{self._table_name}\" LIMIT 1 OFFSET {row};"
-    #         ).fetchone()[0]
-
-    # def set_value(self, index, new_value: str):
-    #     row, col = index.row(), index.column()
-
-    #     # Want to prevent usage of bad characters
-    #     new_value = new_value.replace('"', "").replace("'", "")
-
-    #     with self.conn as conn:
-    #         conn.execute(
-    #             f"""
-    #                 UPDATE "{self._table_name}"
-    #                 SET {self.columns[col + self.columns_to_skip]}='{new_value}'
-    #                 WHERE id=(
-    #                     SELECT id
-    #                     FROM "{self._table_name}"
-    #                     LIMIT 1 OFFSET {row}
-    #                 );
-    #             """
-    #         )
-
     def calculate_shape(self):
         with self.conn as conn:
             cursor = conn.execute(f"SELECT count() FROM \"{self._table_name}\";")
