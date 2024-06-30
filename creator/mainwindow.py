@@ -9,6 +9,7 @@ from .application import Application
 
 from .widgets.searchable_list_widget import (
     SearchableSelectionListView,
+    SearchableListWidget,
     SIPListWidget,
 )
 from .widgets.dossier_widget import DossierWidget
@@ -337,7 +338,7 @@ class MigrationWidget(QtWidgets.QWidget):
         self.list_storage_path = f"{self.state.configuration.misc.save_location}/overdrachtslijsten"
 
         self._layout = QtWidgets.QGridLayout()
-        self.list_view = SearchableSelectionListView(item_type_str="overdrachtslijsten")
+        self.list_view = SearchableListWidget()
 
         self.main_db = "main.db"
 
@@ -345,6 +346,13 @@ class MigrationWidget(QtWidgets.QWidget):
         self.setLayout(self._layout)
 
         # MAIN UI
+        font = QtGui.QFont()
+        font.setBold(True)
+        font.setPointSize(20)
+
+        title = QtWidgets.QLabel(text="Overdrachtslijsten")
+        title.setFont(font)
+
         add_item_button = QtWidgets.QPushButton(text="Importeer overdrachtslijst")
         add_item_button.clicked.connect(self.add_overdrachtslijst_click)
 
@@ -357,9 +365,10 @@ class MigrationWidget(QtWidgets.QWidget):
             )
         )
 
-        self._layout.addWidget(add_item_button, 0, 0)
-        self._layout.addWidget(file_location_button, 0, 3)
-        self._layout.addWidget(self.list_view, 1, 0, 1, 4)
+        self._layout.addWidget(title, 0, 0)
+        self._layout.addWidget(add_item_button, 1, 0)
+        self._layout.addWidget(file_location_button, 1, 3)
+        self._layout.addWidget(self.list_view, 2, 0, 1, 4)
 
         from creator.controllers.api_controller import APIController
 
