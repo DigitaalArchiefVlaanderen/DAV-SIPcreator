@@ -564,7 +564,7 @@ class TabUI(QtWidgets.QMainWindow):
             lambda: 
             self.add_to_new(
                 name = series_combobox.currentText(),
-                uri = f"https://serieregister.vlaanderen.be/id/serie/{listed_series[series_names.index(series_combobox.currentText())]._id}"
+                series_id = listed_series[series_names.index(series_combobox.currentText())]._id
             )
         )
 
@@ -608,7 +608,7 @@ class TabUI(QtWidgets.QMainWindow):
             # NOTE: remove leading and trailing quotes
             self.create_tab(table_name[1:-1])
 
-    def add_to_new(self, name: str, uri: str):
+    def add_to_new(self, name: str, series_id: str):
         from creator.utils.sqlitemodel import SQLliteModel
 
         # NOTE: only thing not allowed is quotes
@@ -633,7 +633,6 @@ class TabUI(QtWidgets.QMainWindow):
 
             # Create table
             if not result:
-                series_id = uri.split("/id/serie/")[-1]
                 import_sjabloon = APIController.get_import_template(self.state.configuration, series_id=series_id)
 
                 columns = pd.read_excel(import_sjabloon, dtype=str, engine="openpyxl").columns
@@ -648,6 +647,9 @@ class TabUI(QtWidgets.QMainWindow):
                 );""")
 
                 # Update the tables table
+                base = self.state.configuration.active_environment.api_url.replace("digitaalarchief", "serieregister")
+                uri = f"{base}/id/serie/{series_id}"
+
                 conn.execute(f"""
                     INSERT OR IGNORE INTO tables (table_name, uri_serieregister)
                     VALUES ('"{name}"', '{uri}');
