@@ -346,7 +346,17 @@ class MigrationWidget(QtWidgets.QWidget):
         add_item_button = QtWidgets.QPushButton(text="Importeer overdrachtslijst")
         add_item_button.clicked.connect(self.add_overdrachtslijst_click)
 
-        self._layout.addWidget(add_item_button, 0, 1, 1, 2)
+        file_location_button = QtWidgets.QPushButton(text="Bestandslocatie")
+        file_location_button.clicked.connect(lambda: os.startfile(
+                os.path.join(
+                    self.state.configuration.misc.save_location,
+                    "overdrachtslijsten"
+                )
+            )
+        )
+
+        self._layout.addWidget(add_item_button, 0, 0)
+        self._layout.addWidget(file_location_button, 0, 3)
         self._layout.addWidget(self.list_view, 1, 0, 1, 4)
 
         from creator.controllers.api_controller import APIController
@@ -823,8 +833,8 @@ class ListView(QtWidgets.QWidget):
         open_button = QtWidgets.QPushButton(text="Open")
         open_button.clicked.connect(self.tab_ui.show)
 
-        layout.addWidget(title, 0, 0, 1, 2)
-        layout.addWidget(open_button, 0, 2)
+        layout.addWidget(title, 0, 0, 1, 3)
+        layout.addWidget(open_button, 0, 3)
 
 def set_main(application: Application, main: MainWindow) -> None:
     config = application.state.configuration
