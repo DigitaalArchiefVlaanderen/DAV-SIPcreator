@@ -335,6 +335,8 @@ class MigrationWidget(QtWidgets.QWidget):
         self._layout = QtWidgets.QGridLayout()
         self.list_view = SearchableSelectionListView(item_type_str="overdrachtslijsten")
 
+        self.main_db = "main.db"
+
     def setup_ui(self):
         self.setLayout(self._layout)
 
@@ -345,25 +347,49 @@ class MigrationWidget(QtWidgets.QWidget):
         self._layout.addWidget(add_item_button, 0, 1, 1, 2)
         self._layout.addWidget(self.list_view, 1, 0, 1, 4)
 
+        from creator.controllers.api_controller import APIController
+
+        self.series = APIController.get_series(self.state.configuration)
+
     def load_items(self):
         # Get all the overdrachtslijsten from main db or smth
-        pass
+        with sql.connect(self.main_db) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS overdrachtslijsten (
+                    _id PRIMARY KEY,
+                    path TEXT
+                );
+            """)
+
+            paths = conn.execute("SELECT path FROM overdrachtslijsten;").fetchall()
+
+            for path, *_ in paths:
+                tab_ui = TabUI(path=path, series=self.series)
+                self.list_view.add_item("name", ListView(tab_ui))
+
+                tab_ui.setup_ui()
+                tab_ui.load_items()
 
     def add_overdrachtslijst_click(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
             caption="Selecteer Overdrachtslijst", filter="Overdrachtslijst (*.xlsx *.xlsm *.xltx *.xltm)"
         )
 
-        self.tab_ui = TabUI(path=path)
-        self.list_view.add_item("name", ListView(self.tab_ui))
-        self.tab_ui.setup_ui()
-        self.tab_ui.load_items()
-        self.tab_ui.show()
+        tab_ui = TabUI(path=path, series=self.series)
+        self.list_view.add_item("name", ListView(tab_ui))
+
+        with sql.connect(self.main_db) as conn:
+            conn.execute(f"INSERT INTO overdrachtslijsten (path) VALUES ('{path}');")
+
+        tab_ui.setup_ui()
+        tab_ui.load_items()
+        tab_ui.show()
 
 
 class TabUI(QtWidgets.QMainWindow):
-    def __init__(self, path: str):
+    def __init__(self, path: str, series: list):
         super().__init__()
+        from creator.widgets.tableview_widget import TableView
 
         self.application: Application = QtWidgets.QApplication.instance()
         self.state: State = self.application.state
@@ -372,12 +398,13 @@ class TabUI(QtWidgets.QMainWindow):
 
         self.path = path
         self.name = os.path.splitext(os.path.basename(path))[0]
+        self.series = series
 
         self._layout = QtWidgets.QGridLayout()
         self.tabs: dict[str, QtWidgets.QTableView] = dict()
 
         self.main_tab = "Overdrachtslijst"
-        self.main_table = QtWidgets.QTableView()
+        self.main_table = TableView()
 
         self.tab_widget = QtWidgets.QTabWidget()
 
@@ -391,6 +418,10 @@ class TabUI(QtWidgets.QMainWindow):
         self.setCentralWidget(central_widget)
 
         self._layout.addWidget(self.tab_widget, 0, 0)
+
+        save_button = QtWidgets.QPushButton(text="Opslaan")
+        save_button.clicked.connect(self.save_tabs)
+        self._layout.addWidget(save_button, 1, 0)
 
     def load_items(self):
         if self.create_db():
@@ -423,23 +454,6 @@ class TabUI(QtWidgets.QMainWindow):
             INSERT INTO tables (table_name)
             VALUES ('{self.main_tab}');
             """)
-
-            # conn.execute(f"""
-            # CREATE TABLE {self.main_tab} (
-            #     id INTEGER PRIMARY KEY,
-                
-            #     serie TEXT,
-
-            #     doosnr TEXT,
-            #     nr_van_het_archiefbestanddeel TEXT,
-            #     beschrijving TEXT,
-            #     begin_datum TEXT,
-            #     eind_datum TEXT,
-            #     bestemming TEXT,
-            #     bewaar_termijn TEXT,
-            #     verwijzing_informatiebeheersplan TEXT,
-            #     datum_uitvoeren_bestemming TEXT
-            # );""")
 
             conn.commit()
 
@@ -513,13 +527,12 @@ class TabUI(QtWidgets.QMainWindow):
 
     def load_main_tab(self):
         from creator.utils.sqlitemodel import SQLliteModel
-        from creator.controllers.api_controller import APIController
 
         container = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         container.setLayout(layout)
 
-        listed_series = APIController.get_series(self.state.configuration)
+        listed_series = self.series
         series_names = [s.get_name() for s in listed_series if s.status == "Published"]
         
         series_combobox = QtWidgets.QComboBox()
@@ -546,9 +559,13 @@ class TabUI(QtWidgets.QMainWindow):
         model = SQLliteModel(self.main_tab, db_name=f"{self.name}.db", is_main=True)
         self.main_table.setModel(model)
 
+        unassigned_only_checkbox = QtWidgets.QCheckBox(text="Toon enkel rijen zonder serie")
+        unassigned_only_checkbox.stateChanged.connect(self._filter_unassigned)
+
         layout.addWidget(btn, 0, 0)
         layout.addWidget(series_combobox, 0, 1, 1, 3)
-        layout.addWidget(self.main_table, 1, 0, 1, 5)
+        layout.addWidget(unassigned_only_checkbox, 1, 0, 1, 2)
+        layout.addWidget(self.main_table, 2, 0, 1, 5)
 
         conn = sql.connect(f"{self.name}.db")
 
@@ -564,7 +581,7 @@ class TabUI(QtWidgets.QMainWindow):
                 """)
 
         self.tab_widget.addTab(container, self.main_tab)
-        self.tabs[self.main_tab] = container
+        self.tabs[self.main_tab] = self.main_table
 
     def load_other_tabs(self):
         conn = sql.connect(f"{self.name}.db")
@@ -652,6 +669,8 @@ class TabUI(QtWidgets.QMainWindow):
 
             for main_id, table in cursor.fetchall():
                 # NOTE: table already contains ""-marks
+                tab = table[1:-1]
+
                 conn.execute(f"""
                     DELETE FROM {table}
                     WHERE main_id={main_id};
@@ -668,16 +687,16 @@ class TabUI(QtWidgets.QMainWindow):
                     
                     conn.execute(f"""
                         DELETE FROM tables
-                        WHERE table_name='"{name}"';
+                        WHERE table_name='{table}';
                     """)
 
-                    self.tab_widget.removeTab(list(self.tabs).index(table))
-                    del self.tabs[table]
+                    self.tab_widget.removeTab(list(self.tabs).index(tab))
+                    del self.tabs[tab]
                     
                     continue
 
                 # Recalculate shape for table
-                model: SQLliteModel = self.tabs[table.replace('"', "")].model()
+                model: SQLliteModel = self.tabs[tab].model()
                 model.row_count = rows
 
                 # Update the graphical side
@@ -701,32 +720,33 @@ class TabUI(QtWidgets.QMainWindow):
                 WHERE id IN ({selected_rows_str});
             """)
 
-            # Update the graphical side
-            model: SQLliteModel = self.main_table.model()
-            model.layoutChanged.emit()
-
             conn.commit()
 
+        # Update the graphical side
+        model: SQLliteModel = self.main_table.model()
+        
+        model.get_data()
+        model.layoutChanged.emit()
+        
         # If the tab already exists, stop here
         if name in self.tabs:
-            # Recalculate shape for table
             model: SQLliteModel = self.tabs[name].model()
-            model.calculate_shape()
             
-            # Update the graphical side
+            model.get_data()
             model.layoutChanged.emit()
-
             return
 
         self.create_tab(name)
 
     def create_tab(self, name: str):
+        from creator.widgets.tableview_widget import TableView
+
         container = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         container.setLayout(layout)
 
         series_label = QtWidgets.QLabel(text=name)
-        table_view = QtWidgets.QTableView()
+        table_view = TableView()
 
         layout.addWidget(series_label, 0, 0)
         layout.addWidget(table_view, 1, 0)
@@ -739,6 +759,57 @@ class TabUI(QtWidgets.QMainWindow):
         self.tab_widget.addTab(container, name)
         self.tabs[name] = table_view
 
+    def closeEvent(self, event):
+        from creator.utils.sqlitemodel import SQLliteModel
+
+        models: list[SQLliteModel] = [t.model() for t in self.tabs.values()]
+
+        # NOTE: only ask the user if data has actually changed
+        if not any(m.has_changed for m in models):
+            event.accept()
+            return
+
+        dialog = YesNoDialog(
+            title="Overdrachtslijst sluiten",
+            text="Wil je de huidige data opslaan?\nZonder opslaan gaat de nieuwe data verloren bij heropstarten van de applicatie."
+        )
+        dialog.exec()
+
+        if dialog.result():
+            self.save_tabs()
+
+        event.accept()
+
+    def save_tabs(self) -> None:
+        from creator.utils.sqlitemodel import SQLliteModel
+
+        for table_view in self.tabs.values():
+            if table_view == self.main_table:
+                continue
+
+            model: SQLliteModel = table_view.model()
+
+            model.save_data()
+            model.has_changed = False
+
+    def _filter_unassigned(self, state: QtCore.Qt.CheckState) -> None:
+        from creator.utils.sqlitemodel import SQLliteModel
+
+        model: SQLliteModel = self.main_table.model()
+        data: list[list[str]] = model.get_data()
+
+        if state == QtCore.Qt.CheckState.Checked.value:
+            columns = model.columns
+            series_col = list(columns.values()).index("series_name")
+
+            for row_index, row in enumerate(data):
+                if row[series_col] != "":
+                    self.main_table.setRowHidden(row_index, True)
+
+            return
+        
+        for row_index in range(len(data)):
+            self.main_table.setRowHidden(row_index, False)
 
 class ListView(QtWidgets.QWidget):
     def __init__(self, tab_ui: TabUI):
