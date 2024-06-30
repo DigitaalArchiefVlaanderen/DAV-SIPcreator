@@ -18,6 +18,7 @@ from .widgets.dialog import YesNoDialog
 from .widgets.warning_dialog import WarningDialog
 
 from .controllers.file_controller import FileController
+from .controllers.api_controller import APIController
 
 from .utils.state import State
 from .utils.state_utils.dossier import Dossier
@@ -381,6 +382,9 @@ class MigrationWidget(QtWidgets.QWidget):
             caption="Selecteer Overdrachtslijst", filter="Overdrachtslijst (*.xlsx *.xlsm *.xltx *.xltm)"
         )
 
+        if path == "":
+            return
+
         tab_ui = TabUI(path=path, series=self.series)
         self.list_view.add_item("name", ListView(tab_ui))
 
@@ -624,50 +628,30 @@ class TabUI(QtWidgets.QMainWindow):
         selected_rows_str = ", ".join(selected_rows)
 
         with conn:
-            # TODO: get definition from importsjabloon
+            # Check if table exists
+            result = conn.execute(f'pragma table_info("{name}");').fetchall()
+
             # Create table
-            conn.execute(f"""
-            CREATE TABLE IF NOT EXISTS "{name}" (
-                id INTEGER PRIMARY KEY,
+            if not result:
+                series_id = uri.split("/id/serie/")[-1]
+                import_sjabloon = APIController.get_import_template(self.state.configuration, series_id=series_id)
 
-                main_id INTEGER NOT NULL,
+                columns = pd.read_excel(import_sjabloon, dtype=str, engine="openpyxl").columns
 
-                path_in_sip TEXT,
-                type TEXT,
-                dossierref TEXT,
-                analoog TEXT,
-                naam TEXT,
-                beschrijving TEXT,
-                dossiercode_bron TEXT,
-                stukreferentie_bron TEXT,
-                openingsdatum TEXT,
-                sluitingsdatum TEXT,
-                id_bis_registernummer TEXT,
-                id_rijksregisternummer TEXT,
-                id_naam TEXT,
-                kbo_nummer TEXT,
-                ovo_code TEXT,
-                organisatienaam TEXT,
-                trefwoorden_vrij TEXT,
-                opmerkingen TEXT,
-                auteur TEXT,
-                taal TEXT,
-                openbaarheidsregime TEXT,
-                openbaarheidsmotivering TEXT,
-                hergebruikregime TEXT,
-                hergebruikmotivering TEXT,
-                creatiedatum TEXT,
-                origineel_doosnummer TEXT,
-                legacy_locatie_id TEXT,
-                legacy_range TEXT,
-                verpakkingstype TEXT
-            );""")
+                conn.execute(f"""
+                CREATE TABLE IF NOT EXISTS "{name}" (
+                    id INTEGER PRIMARY KEY,
 
-            # Update the tables table
-            conn.execute(f"""
-                INSERT OR IGNORE INTO tables (table_name, uri_serieregister)
-                VALUES ('"{name}"', '{uri}');
-            """)
+                    main_id INTEGER NOT NULL,
+
+                    {",\n\t".join(f'"{c}" TEXT' for c in columns)}
+                );""")
+
+                # Update the tables table
+                conn.execute(f"""
+                    INSERT OR IGNORE INTO tables (table_name, uri_serieregister)
+                    VALUES ('"{name}"', '{uri}');
+                """)
 
             # Remove where needed
             cursor = conn.execute(f"""
@@ -716,8 +700,8 @@ class TabUI(QtWidgets.QMainWindow):
             # Insert where needed
             # NOTE: don't do other auto-mapping
             conn.execute(f"""
-                INSERT INTO "{name}" (main_id) --, beschrijving, openingsdatum, sluitingsdatum)
-                SELECT id --, beschrijving, begin_datum, eind_datum
+                INSERT INTO "{name}" (main_id, "Analoog?") --, beschrijving, openingsdatum, sluitingsdatum)
+                SELECT id, 'Ja' --, beschrijving, begin_datum, eind_datum
                 FROM {self.main_tab}
                 WHERE id IN ({selected_rows_str})
                   AND (series_name != '"{name}"' OR series_name IS NULL OR series_name == '');
@@ -786,7 +770,7 @@ class TabUI(QtWidgets.QMainWindow):
         table_view.hideColumn(1)
 
         if self.state.configuration.active_role == "klant":
-            cols_to_skip = ("origineel_doosnummer", "legacy_locatie_id", "legacy_range", "verpakkingstype")
+            cols_to_skip = ("Origineel Doosnummer", "Legacy locatie ID", "Legacy range", "Verpakkingstype")
 
             with sql.connect(self.db_location) as conn:
                 # NOTE: figure out which columns to hide (could be multiple due to duplications)
@@ -848,7 +832,7 @@ class TabUI(QtWidgets.QMainWindow):
                     tab_view.hideColumn(i)
 
             if self.state.configuration.active_role == "klant":
-                cols_to_skip = ("origineel_doosnummer", "legacy_locatie_id", "legacy_range", "verpakkingstype")
+                cols_to_skip = ("Origineel Doosnummer", "Legacy locatie ID", "Legacy range", "Verpakkingstype")
 
                 for i, column_name, *_ in columns:
                     if any(c in column_name for c in cols_to_skip):
@@ -862,10 +846,10 @@ class TabUI(QtWidgets.QMainWindow):
             # Returns new column name, and the previous one to look for
             value = 1
 
-            while (new_name := f"{name}_{value}") in old_columns:
+            while (new_name := f'{name}_{value}') in old_columns:
                 value += 1
 
-            return new_name, f"{name}_{value-1}" if value > 1 else name
+            return new_name, f'{name}_{value-1}' if value > 1 else name
 
         with sql.connect(self.db_location) as conn:
             # NOTE: since we need to reset the whole table definition
@@ -875,30 +859,30 @@ class TabUI(QtWidgets.QMainWindow):
             # Get old table definition
             cursor = conn.execute(f'pragma table_info("_old_{table}");')
 
-            old_definitions = [f'{name} {_type}' for _, name, _type, *_ in cursor.fetchall()]
-            old_columns = [d.split(' ')[0] for d in old_definitions]
+            old_definitions = [(name, _type) for _, name, _type, *_ in cursor.fetchall()]
+            old_columns = [d[0] for d in old_definitions]
 
             # Find where to input the new column
-            new_column_name, previous_column_name = find_next(old_columns, "origineel_doosnummer" if location_cols else "trefwoorden_vrij")
+            new_column_name, previous_column_name = find_next(old_columns, "Origineel Doosnummer" if location_cols else "Trefwoorden_vrij")
             
             if location_cols:
-                previous_column_name = previous_column_name.replace("origineel_doosnummer", "verpakkingstype")
+                previous_column_name = previous_column_name.replace("Origineel Doosnummer", "Verpakkingstype")
 
             # Create the new definitions
             new_definitions = []
 
-            for definition in old_definitions:
-                new_definitions.append(definition)
+            for column_name, column_type in old_definitions:
+                new_definitions.append(f'"{column_name}" {column_type}')
 
-                if definition.split(' ')[0] == previous_column_name:
+                if column_name == previous_column_name:
                     if location_cols:
-                        columns = ("origineel_doosnummer", "legacy_locatie_id", "legacy_range", "verpakkingstype")
+                        columns = ("Origineel Doosnummer", "Legacy locatie ID", "Legacy range", "Verpakkingstype")
                         number = new_column_name.split('_')[-1]
 
                         for c in columns:
-                            new_definitions.append(f"{c}_{number} TEXT")
+                            new_definitions.append(f'"{c}_{number}" {column_type}')
                     else:
-                        new_definitions.append(f"{new_column_name} TEXT")
+                        new_definitions.append(f'"{new_column_name}" {column_type}')
 
             # Create new table
             conn.execute(f'''
@@ -909,8 +893,8 @@ class TabUI(QtWidgets.QMainWindow):
 
             # Fill table with old values
             conn.execute(f'''
-                INSERT INTO "{table}" ({", ".join(old_columns)})
-                SELECT {", ".join(old_columns)}
+                INSERT INTO "{table}" ({", ".join(f'"{c}"' for c in old_columns)})
+                SELECT {", ".join(f'"{c}"' for c in old_columns)}
                 FROM "_old_{table}";
             ''')
 

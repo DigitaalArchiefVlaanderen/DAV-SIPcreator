@@ -108,7 +108,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         with self.conn as conn:
             for row in range(self.row_count):
                 main_id = self._data[row][1]
-                set_value = ",\n\t".join([f"{self.columns[col]}='{self._data[row][col]}'" for col in range(2, self.col_count)])
+                set_value = ",\n\t".join([f"\"{self.columns[col]}\"='{self._data[row][col]}'" for col in range(2, self.col_count)])
 
                 conn.execute(
                     f"""
