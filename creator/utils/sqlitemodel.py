@@ -66,10 +66,30 @@ class SQLliteModel(QtCore.QAbstractTableModel):
 
     def get_data(self) -> list[list[str]]:
         with self.conn as conn:
-            self._data = [
+            db_data = [
                 [v if v is not None else "" for v in r]
                 for r in conn.execute(f"SELECT * FROM \"{self._table_name}\";").fetchall()
             ]
+
+            if self.has_changed:
+                # NOTE: treat db_data as the base, overwrite with items from current data where needed
+                new_data = db_data
+                
+                for row_index, row in enumerate(db_data):
+                    if row_index >= len(self._data):
+                        break
+                    
+                    for col_index in range(len(row)):
+                        if col_index >= len(self._data[row_index]):
+                            break
+
+                        # Overwrite with data we have now
+                        new_data[row_index][col_index] = self._data[row_index][col_index]
+
+                self._data = new_data
+            else:
+                self._data = db_data
+
             self.row_count = len(self._data)
 
             cursor = conn.execute(f"pragma table_info(\"{self._table_name}\");")
