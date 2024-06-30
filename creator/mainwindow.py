@@ -757,10 +757,18 @@ class TabUI(QtWidgets.QMainWindow):
         container.setLayout(layout)
 
         series_label = QtWidgets.QLabel(text=name)
+        
+        duplicate_trefwoord_column_button = QtWidgets.QPushButton(text="Dupliceer trefwoorden_vrij kolom")
+        duplicate_location_column_button = QtWidgets.QPushButton(text="Dupliceer locatie kolommen")
+        duplicate_location_column_button.setHidden(self.state.configuration.active_role == "klant")
+        self.toolbar.configuration_changed.connect(lambda: self.hide_or_show_button(duplicate_location_column_button))
+
         table_view = TableView()
 
-        layout.addWidget(series_label, 0, 0)
-        layout.addWidget(table_view, 1, 0)
+        layout.addWidget(series_label, 0, 0, 1, 2)
+        layout.addWidget(duplicate_trefwoord_column_button, 1, 0)
+        layout.addWidget(duplicate_location_column_button, 1, 1)
+        layout.addWidget(table_view, 2, 0, 1, 2)
 
         from creator.utils.sqlitemodel import SQLliteModel
 
@@ -769,6 +777,9 @@ class TabUI(QtWidgets.QMainWindow):
 
         self.tab_widget.addTab(container, name)
         self.tabs[name] = table_view
+
+        duplicate_trefwoord_column_button.clicked.connect(lambda _: self.add_column(name))
+        duplicate_location_column_button.clicked.connect(lambda _: self.add_column(name, location_cols=True))
 
         # NOTE: hide id and main_id
         table_view.hideColumn(0)
@@ -842,6 +853,72 @@ class TabUI(QtWidgets.QMainWindow):
                 for i, column_name, *_ in columns:
                     if any(c in column_name for c in cols_to_skip):
                         tab_view.hideColumn(i)
+
+    def hide_or_show_button(self, button: QtWidgets.QPushButton) -> None:
+        button.setHidden(self.state.configuration.active_role == "klant")
+
+    def add_column(self, table: str, location_cols: bool=False) -> None:
+        def find_next(old_columns: list, name: str) -> tuple[str, str]:
+            # Returns new column name, and the previous one to look for
+            value = 1
+
+            while (new_name := f"{name}_{value}") in old_columns:
+                value += 1
+
+            return new_name, f"{name}_{value-1}" if value > 1 else name
+
+        with sql.connect(self.db_location) as conn:
+            # NOTE: since we need to reset the whole table definition
+            # Rename the table
+            conn.execute(f'ALTER TABLE "{table}" RENAME TO "_old_{table}";')
+
+            # Get old table definition
+            cursor = conn.execute(f'pragma table_info("_old_{table}");')
+
+            old_definitions = [f'{name} {_type}' for _, name, _type, *_ in cursor.fetchall()]
+            old_columns = [d.split(' ')[0] for d in old_definitions]
+
+            # Find where to input the new column
+            new_column_name, previous_column_name = find_next(old_columns, "origineel_doosnummer" if location_cols else "trefwoorden_vrij")
+            
+            if location_cols:
+                previous_column_name = previous_column_name.replace("origineel_doosnummer", "verpakkingstype")
+
+            # Create the new definitions
+            new_definitions = []
+
+            for definition in old_definitions:
+                new_definitions.append(definition)
+
+                if definition.split(' ')[0] == previous_column_name:
+                    if location_cols:
+                        columns = ("origineel_doosnummer", "legacy_locatie_id", "legacy_range", "verpakkingstype")
+                        number = new_column_name.split('_')[-1]
+
+                        for c in columns:
+                            new_definitions.append(f"{c}_{number} TEXT")
+                    else:
+                        new_definitions.append(f"{new_column_name} TEXT")
+
+            # Create new table
+            conn.execute(f'''
+                CREATE TABLE "{table}" (
+                    {",\n\t".join(new_definitions)}
+                );
+            ''')
+
+            # Fill table with old values
+            conn.execute(f'''
+                INSERT INTO "{table}" ({", ".join(old_columns)})
+                SELECT {", ".join(old_columns)}
+                FROM "_old_{table}";
+            ''')
+
+            conn.execute(f'DROP TABLE "_old_{table}";')
+
+        model: SQLliteModel = self.tabs[table].model()
+        model.get_data()
+        model.layoutChanged.emit()
 
     def _filter_unassigned(self, state: QtCore.Qt.CheckState) -> None:
         from creator.utils.sqlitemodel import SQLliteModel
