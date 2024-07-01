@@ -22,10 +22,12 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         table_name: str,
         db_name: str,
         is_main: bool=False,
+        series_id: str=None,
     ):
         super().__init__()
         self._table_name = table_name
         self._db_name = db_name
+        self.series_id = series_id
 
         self.is_main = is_main
 
@@ -141,6 +143,8 @@ class SQLliteModel(QtCore.QAbstractTableModel):
                         WHERE main_id={main_id};
                     """
                 )
+
+        self.has_changed = False
 
     def rowCount(self, *index):
         return self.row_count
@@ -267,17 +271,23 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             self._mark_cell(row, col)
 
     def serie_check(self, row: int, col: int, value: str) -> None:
-        if value != "":
-            # If we have no actual series linked
-            if self._data[row][list(self.columns.values()).index("series_name")] == "":
-                self._mark_cell(row, col, Color.YELLOW, tooltip="De gegeven uri is niet teruggevonden onder de huidige connectie")
-                self._mark_cell(row, list(self.columns.values()).index("series_name"), Color.RED, tooltip="Een serie moet nog gelinkt worden")
-            else:
-                # We are fine
-                self._mark_cell(row, col)
-        else:
-            self._mark_cell(row, col, Color.RED, tooltip="Een serie moet nog gelinkt worden")
+        series_name = self._data[row][list(self.columns.values()).index("series_name")]
+        uri = value
+
+        if series_name == "":
             self._mark_cell(row, list(self.columns.values()).index("series_name"), Color.RED, tooltip="Een serie moet nog gelinkt worden")
+        else:
+            self._mark_cell(row, list(self.columns.values()).index("series_name"))
+            self._mark_cell(row, col)
+            return
+
+        if uri == "":
+            self._mark_cell(row, col, Color.RED, tooltip="Een serie moet nog gelinkt worden")
+            return
+        else:
+            if series_name != "":
+                self._mark_cell(row, col, Color.YELLOW, tooltip="De gegeven uri is niet teruggevonden onder de huidige connectie")
+                return
 
     def date_check(self, row: int, col: int, value: str) -> None:
         # Check empty

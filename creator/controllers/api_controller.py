@@ -133,7 +133,8 @@ class APIController:
         params = {
             "size": 100,
             "page": 0,
-            "status": "Submitted",
+            # "status": "Submitted",
+            "status": "Published",
             "securityGroupId": user_group_id,
         }
 

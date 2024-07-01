@@ -23,11 +23,18 @@ class FileController:
     @staticmethod
     def fill_import_template(df: pd.DataFrame, sip_widget):
         def _col_index_to_xslx_col(col_index: int) -> str:
-            # NOTE: this only supports up to AZ for now
-            if col_index < 26:
+            # NOTE: this only supports up to ZZ for now
+            first_letter_value = (col_index // 26) - 1
+
+            if first_letter_value >= 26:
+                raise ValueError("There are too many columns")
+            if first_letter_value == -1:
                 return chr(65 + col_index)
 
-            return f"A{_col_index_to_xslx_col(col_index-26)}"
+            first_letter = chr(65 + first_letter_value)
+            second_letter = chr(65 + col_index % 26)
+            
+            return f"{first_letter}{second_letter}"
 
         wb = load_workbook(sip_widget.import_template_location)
         ws = wb["Details"]

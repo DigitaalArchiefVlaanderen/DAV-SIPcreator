@@ -1,6 +1,12 @@
 import os
 import json
+import re
 
+import zipfile
+import hashlib
+import ftplib
+import socket
+from openpyxl import load_workbook
 from PySide6 import QtWidgets, QtCore, QtGui
 import pandas as pd
 import sqlite3 as sql
@@ -15,7 +21,7 @@ from .widgets.searchable_list_widget import (
 from .widgets.dossier_widget import DossierWidget
 from .widgets.sip_widget import SIPWidget
 from .widgets.toolbar import Toolbar
-from .widgets.dialog import YesNoDialog
+from .widgets.dialog import YesNoDialog, Dialog
 from .widgets.warning_dialog import WarningDialog
 
 from .controllers.file_controller import FileController
@@ -438,11 +444,18 @@ class TabUI(QtWidgets.QMainWindow):
         central_widget.setLayout(self._layout)
         self.setCentralWidget(central_widget)
 
+        self.create_sips_button = QtWidgets.QPushButton(text="Maak SIPs")
+        self.create_sips_button.clicked.connect(self.create_sips)
+        self.create_sips_button.setHidden(self.state.configuration.active_role == "klant")
+        self.toolbar.configuration_changed.connect(lambda: self.hide_or_show_button(self.create_sips_button))
+        self.toolbar.configuration_changed.connect(self.set_create_button_status)
+
         self._layout.addWidget(self.tab_widget, 0, 0)
 
         save_button = QtWidgets.QPushButton(text="Opslaan")
         save_button.clicked.connect(self.save_tabs)
         self._layout.addWidget(save_button, 1, 0)
+        self._layout.addWidget(self.create_sips_button, 2, 0)
 
     def load_items(self):
         if self.create_db():
@@ -451,6 +464,14 @@ class TabUI(QtWidgets.QMainWindow):
         
         self.load_main_tab()
         self.load_other_tabs()
+        
+        # NOTE: make create sip button active based on status
+        for table_view in self.tabs.values():
+            model: SQLliteModel = table_view.model()
+
+            model.bad_rows_changed.connect(self.set_create_button_status)
+
+        self.set_create_button_status()
 
     def create_db(self) -> bool:
         import sqlite3 as sql
@@ -611,11 +632,13 @@ class TabUI(QtWidgets.QMainWindow):
         conn = sql.connect(self.db_location)
 
         with conn:
-            tables = conn.execute(f"SELECT table_name FROM tables WHERE table_name != '{self.main_tab}';")
+            tables = conn.execute(f"SELECT table_name, uri_serieregister FROM tables WHERE table_name != '{self.main_tab}';")
 
-        for table_name, *_ in tables:
+        for table_name, uri_serieregister in tables:
+            serie_id = uri_serieregister.rsplit("/id/serie/", 1)[-1]
+
             # NOTE: remove leading and trailing quotes
-            self.create_tab(table_name[1:-1])
+            self.create_tab(table_name[1:-1], serie_id)
 
     def add_to_new(self, name: str, series_id: str):
         from creator.utils.sqlitemodel import SQLliteModel
@@ -635,6 +658,9 @@ class TabUI(QtWidgets.QMainWindow):
             return
 
         selected_rows_str = ", ".join(selected_rows)
+
+        base = self.state.configuration.active_environment.api_url.replace("digitaalarchief", "serieregister")
+        uri = f"{base}/id/serie/{series_id}"
 
         with conn:
             # Check if table exists
@@ -656,9 +682,6 @@ class TabUI(QtWidgets.QMainWindow):
                 );""")
 
                 # Update the tables table
-                base = self.state.configuration.active_environment.api_url.replace("digitaalarchief", "serieregister")
-                uri = f"{base}/id/serie/{series_id}"
-
                 conn.execute(f"""
                     INSERT OR IGNORE INTO tables (table_name, uri_serieregister)
                     VALUES ('"{name}"', '{uri}');
@@ -742,9 +765,9 @@ class TabUI(QtWidgets.QMainWindow):
             model.layoutChanged.emit()
             return
 
-        self.create_tab(name)
+        self.create_tab(name, series_id)
 
-    def create_tab(self, name: str):
+    def create_tab(self, name: str, series_id: str):
         from creator.widgets.tableview_widget import TableView
 
         container = QtWidgets.QWidget()
@@ -767,7 +790,7 @@ class TabUI(QtWidgets.QMainWindow):
 
         from creator.utils.sqlitemodel import SQLliteModel
 
-        model = SQLliteModel(name, db_name=self.db_location)
+        model = SQLliteModel(name, db_name=self.db_location, series_id=series_id)
         table_view.setModel(model)
 
         self.tab_widget.addTab(container, name)
@@ -848,6 +871,16 @@ class TabUI(QtWidgets.QMainWindow):
                 for i, column_name, *_ in columns:
                     if any(c in column_name for c in cols_to_skip):
                         tab_view.hideColumn(i)
+
+    def set_create_button_status(self, *_) -> None:
+        for table_view in self.tabs.values():
+            model: SQLliteModel = table_view.model()
+
+            if len(model.colors) > 0:
+                self.create_sips_button.setEnabled(False)
+                return
+            
+        self.create_sips_button.setEnabled(True)
 
     def hide_or_show_button(self, button: QtWidgets.QPushButton) -> None:
         button.setHidden(self.state.configuration.active_role == "klant")
@@ -933,6 +966,155 @@ class TabUI(QtWidgets.QMainWindow):
         
         for row_index in range(len(data)):
             self.main_table.setRowHidden(row_index, False)
+
+    def create_sips(self) -> None:
+        def _col_index_to_xslx_col(col_index: int) -> str:
+            # NOTE: this only supports up to ZZ for now
+            first_letter_value = (col_index // 26) - 1
+
+            if first_letter_value >= 26:
+                raise ValueError("There are too many columns")
+            if first_letter_value == -1:
+                return chr(65 + col_index)
+
+            first_letter = chr(65 + first_letter_value)
+            second_letter = chr(65 + col_index % 26)
+            
+            return f"{first_letter}{second_letter}"
+
+        storage_location = self.state.configuration.misc.save_location
+        sjabloon_base_path = os.path.join(storage_location, FileController.IMPORT_TEMPLATE_STORAGE)
+        sip_storage_path = os.path.join(storage_location, FileController.SIP_STORAGE)
+        grid_storage_path = os.path.join(storage_location, FileController.GRID_STORAGE)
+
+        os.makedirs(sip_storage_path, exist_ok=True)
+
+        for series_name, table_view in self.tabs.items():
+            if series_name == self.main_tab:
+                continue
+
+            model: SQLliteModel = table_view.model()
+            model.save_data()
+
+            # Copy import_template to grid_storage
+            temp_loc = os.path.join(grid_storage_path, f"temp_{model.series_id}.xlsx")
+
+            wb = load_workbook(os.path.join(sjabloon_base_path, f"{model.series_id}.xlsx"))
+            ws = wb["Details"]
+
+            # NOTE: overwrite the headers
+            for col_index, col in model.columns.items():
+                # NOTE: skip id and main_id
+                if col_index < 2:
+                    continue
+
+                re_match = re.match(r"(.*)_\d+$", col)
+
+                if re_match:
+                    col = re_match.group(1)
+
+                ws[f"{_col_index_to_xslx_col(col_index - 2)}1"] = col
+
+            for row_index, row in enumerate(model._data):
+                for col_index, value in enumerate(row):
+                    # NOTE: skip id and main_id
+                    if col_index < 2:
+                        continue
+
+                    ws[f"{_col_index_to_xslx_col(col_index - 2)}{row_index+2}"] = value
+
+            wb.save(temp_loc)
+            wb.close()
+
+            sip_location = os.path.join(sip_storage_path, f"{model.series_id}_migratie.zip")
+            md5_location = os.path.join(sip_storage_path, f"{model.series_id}_migratie.xml")
+
+            with zipfile.ZipFile(
+                sip_location, "w", compression=zipfile.ZIP_DEFLATED
+            ) as zfile:
+                zfile.write(
+                    temp_loc,
+                    "Metadata.xlsx"
+                )
+
+            md5 = hashlib.md5(open(sip_location, "rb").read()).hexdigest()
+
+            side_car_info = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <mhs:Sidecar xmlns:mhs="https://zeticon.mediahaven.com/metadata/20.3/mhs/" version="20.3" xmlns:mh="https://zeticon.mediahaven.com/metadata/20.3/mh/">
+        <mhs:Technical>
+                <mh:Md5>{md5}</mh:Md5>
+        </mhs:Technical>
+    </mhs:Sidecar>""".format(
+                md5=md5
+            )
+
+            with open(md5_location, "w", encoding="utf-8") as f:
+                f.write(side_car_info)
+
+            os.remove(temp_loc)
+
+        
+        Dialog(
+            title="SIPs aangemaakt",
+            text="SIPS zijn aangemaakt voor de overdrachtslijst."
+        ).exec()
+
+        self.close()
+
+    def upload_sips(self) -> None:
+        if not self.state.configuration.active_environment.has_ftps_credentials():
+            WarningDialog(
+                title="Connectie fout",
+                text=f"Je FTPS connectie gegevens staan niet in orde voor omgeving '{self.sip.environment.name}'",
+            ).exec()
+            return
+
+        storage_location = self.state.configuration.misc.save_location
+        sip_storage_path = os.path.join(storage_location, FileController.SIP_STORAGE)
+
+        for series_name, table_view in self.tabs.items():
+            if series_name == self.main_tab:
+                continue
+
+            model: SQLliteModel = table_view.model()
+
+            sip_location = os.path.join(sip_storage_path, f"{model.series_id}_migratie.zip")
+            md5_location = os.path.join(sip_storage_path, f"{model.series_id}_migratie.xml")
+
+            if not os.path.exists(sip_location) or not os.path.exists(md5_location):
+                self.create_sips()
+            
+            try:
+                with ftplib.FTP_TLS(
+                    self.sip.environment.ftps_url,
+                    self.sip.environment.ftps_username,
+                    self.sip.environment.ftps_password,
+                ) as session:
+                    session.prot_p()
+
+                    with open(sip_location, "rb") as f:
+                        session.storbinary(f"STOR {model.series_id}_migratie.zip", f)
+                    with open(md5_location, "rb") as f:
+                        session.storbinary(f"STOR {model.series_id}_migratie.xml", f)
+            except ftplib.error_perm:
+                WarningDialog(
+                    title="Connectie fout",
+                    text=f"Je FTPS connectie login gegevens staan niet in orde voor omgeving '{self.sip.environment.name}'",
+                ).exec()
+                return
+            except socket.gaierror:
+                WarningDialog(
+                    title="Connectie fout",
+                    text=f"Je FTPS connectie url staat niet in orde voor omgeving '{self.sip.environment.name}'",
+                ).exec()
+                return
+
+        Dialog(
+            title="Upload geslaagd",
+            text="Upload voor de overdrachtslijst is geslaagd.\nDe overdrachtslijst blijft in de lijst staan zolang hij op je computer staat.\nOm hem weg te halen, verwijder de correcte database uit de bestandslocatie."
+        ).exec()
+
 
 class ListView(QtWidgets.QWidget):
     def __init__(self, tab_ui: TabUI):
