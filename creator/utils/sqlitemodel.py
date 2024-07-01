@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import Enum
 
 from PySide6 import QtCore, QtGui
@@ -44,8 +45,6 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         self.tooltips: dict[tuple[int, int], str] = {}
 
         self.get_data()
-
-        # self.calculate_shape()
 
     @property
     def conn(self):
@@ -118,9 +117,13 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             self.col_count = len(self.columns)
 
         # NOTE: for the checks, set all the cells
+        changed_before = self.has_changed
+
         for row_index, row in enumerate(self._data):
             for col_index, value in enumerate(row):
                 self.setData(self.index(row_index, col_index), value)
+
+        self.has_changed = changed_before
 
         # NOTE: not very good to use this method for retrieval and getting
         return self._data
@@ -168,17 +171,33 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             if tooltip:
                 return tooltip
 
-    def setData(self, index, value, role=QtCore.Qt.ItemDataRole.EditRole):
+    def setData(self, index, value: str, role=QtCore.Qt.ItemDataRole.EditRole):
         if not index.isValid():
             return False
 
         row, col = index.row(), index.column()
+        column = self.columns[col]
 
         if role == QtCore.Qt.ItemDataRole.EditRole:
             self.set_value(index, value)
 
-            if self.columns[col] == "Path in SIP":
+            if column == "Path in SIP":
                 self.path_in_sip_check(row, col, value)
+
+                # NOTE: set Type and DossierRef
+                self.set_value(
+                    self.index(row, col+1),
+                    "stuk" if "/" in value else "dossier"
+                )
+                self.set_value(
+                    self.index(row, col+2),
+                    value.split("/", 1)[0]
+                )
+            elif column == "uri_serieregister":
+                # NOTE: this also checks the series_name
+                self.serie_check(row, col, value)
+            elif column in ("Openingsdatum", "Sluitingsdatum"):
+                self.date_check(row, col, value)
 
             return True
 
@@ -194,6 +213,12 @@ class SQLliteModel(QtCore.QAbstractTableModel):
                 return section
 
     def flags(self, index):
+        if self.columns[index.column()] in ("Type", "DossierRef"):
+            return (
+                QtCore.Qt.ItemFlag.ItemIsSelectable
+                | QtCore.Qt.ItemFlag.ItemIsEnabled
+            )
+
         return (
             QtCore.Qt.ItemFlag.ItemIsSelectable
             | QtCore.Qt.ItemFlag.ItemIsEnabled
@@ -213,6 +238,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
 
         self.layoutChanged.emit()
 
+    # NOTE: utils
     def _mark_cell(self, row: int, col: int, color: Color = None, tooltip: str = None) -> None:        
         _id = self._data[row][0]
 
@@ -224,10 +250,10 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             if (_id, col) in self.tooltips:
                 del self.tooltips[(_id, col)]
         else:
-            self.colors.setdefault((_id, col), color)
+            self.colors[(_id, col)] = color
 
             if tooltip:
-                self.tooltips.setdefault((_id, col), tooltip)
+                self.tooltips[(_id, col)] = tooltip
 
         self.bad_rows_changed.emit(len(self.colors))
 
@@ -239,3 +265,91 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             self._mark_cell(row, col, Color.RED, "Path in SIP mag geen '/' bevatten")
         else:
             self._mark_cell(row, col)
+
+    def serie_check(self, row: int, col: int, value: str) -> None:
+        if value != "":
+            # If we have no actual series linked
+            if self._data[row][list(self.columns.values()).index("series_name")] == "":
+                self._mark_cell(row, col, Color.YELLOW, tooltip="De gegeven uri is niet teruggevonden onder de huidige connectie")
+                self._mark_cell(row, list(self.columns.values()).index("series_name"), Color.RED, tooltip="Een serie moet nog gelinkt worden")
+            else:
+                # We are fine
+                self._mark_cell(row, col)
+        else:
+            self._mark_cell(row, col, Color.RED, tooltip="Een serie moet nog gelinkt worden")
+            self._mark_cell(row, list(self.columns.values()).index("series_name"), Color.RED, tooltip="Een serie moet nog gelinkt worden")
+
+    def date_check(self, row: int, col: int, value: str) -> None:
+        # Check empty
+        if value == "":
+            self._mark_cell(row, col, Color.RED, "Datum mag niet leeg zijn")
+            return
+
+        # Check valid date
+        try:
+            date = datetime.strptime(value, "%Y-%m-%d")
+        except ValueError:
+            self._mark_cell(row, col, Color.RED, "Datum moet in het formaat yyyy-mm-dd zijn, en moet een geldige datum zijn")
+            return
+        
+        # Check range
+        splits = self._table_name.rsplit('(Geldig van ', 1)[-1][:-1].split(' ')
+        before, after = " ".join(splits[:3]), " ".join(splits[-3:])
+
+        date_mon_map = {
+            "jan.": "01",
+            "feb.": "02",
+            "mrt.": "03",
+            "apr.": "04",
+            "mei.": "05",
+            "jun.": "06",
+            "jul.": "07",
+            "aug.": "08",
+            "sep.": "09",
+            "oct.": "10",
+            "nov.": "11",
+            "dec.": "12",
+        }
+
+        if before != "...":
+            for k, v in date_mon_map.items():
+                before = before.replace(k, v)
+
+            before = datetime.strptime(before, "%d %m %Y")
+            
+            if date < before:
+                self._mark_cell(row, col, Color.RED, "Datum mag niet voor de openingsdatum van de serie zijn")
+                return
+
+        if after != "...":
+            for k, v in date_mon_map.items():
+                after = after.replace(k, v)
+
+            after = datetime.strptime(after, "%d %m %Y")
+            
+            if date > after:
+                self._mark_cell(row, col, Color.RED, "Datum mag niet na de sluitingsdatum van de serie zijn")
+                return
+
+        # Check start vs end in row
+        columns = list(self.columns.values())
+        start_column, end_column = columns.index("Openingsdatum"), columns.index("Sluitingsdatum")
+        
+        start_value = self._data[row][start_column]
+        end_value = self._data[row][end_column]
+
+        try:
+            start_date = datetime.strptime(start_value, "%Y-%m-%d")
+            end_date = datetime.strptime(end_value, "%Y-%m-%d")
+        except ValueError:
+            # The other column is in a bad format
+            self._mark_cell(row, col)
+            return
+
+        if start_date > end_date:
+            self._mark_cell(row, start_column, Color.RED, "Openingsdatum mag niet na sluitingsdatum vallen")
+            self._mark_cell(row, end_column, Color.RED, "Openingsdatum mag niet na sluitingsdatum vallen")
+            return
+        else:
+            self._mark_cell(row, start_column)
+            self._mark_cell(row, end_column)
