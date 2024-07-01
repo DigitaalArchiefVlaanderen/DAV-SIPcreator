@@ -202,6 +202,8 @@ class SQLliteModel(QtCore.QAbstractTableModel):
                 self.serie_check(row, col, value)
             elif column in ("Openingsdatum", "Sluitingsdatum"):
                 self.date_check(row, col, value)
+            elif any(c in column for c in ("Origineel Doosnummer", "Legacy locatie ID", "Legacy range", "Verpakkingstype")):
+                self.location_check(row, col, value)
 
             return True
 
@@ -363,3 +365,10 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         else:
             self._mark_cell(row, start_column)
             self._mark_cell(row, end_column)
+
+    def location_check(self, row: int, col: int, value: str) -> None:
+        if value == "":
+            self._mark_cell(row, col, Color.YELLOW, "Leeg locatie-veld")
+            return
+
+        self._mark_cell(row, col) 
