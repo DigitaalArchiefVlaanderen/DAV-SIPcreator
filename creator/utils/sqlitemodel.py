@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import Enum
+import re
 
 from PySide6 import QtCore, QtGui
 
@@ -40,9 +41,13 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         # Dict with key = 0-index, value = column_name
         self.columns: dict[int, str] = dict()
 
+        # Keep track of whether or not we're performing a retrieval
+        # Useful for avoiding extra signal emits
+        self.performing_retrieval = False
+
         self.row_count, self.col_count = -1, -1
 
-        self._data: list[list[str]] = []
+        self.raw_data: list[list[str]] = []
         self.colors: dict[tuple[int, int], Color] = {}
         self.tooltips: dict[tuple[int, int], str] = {}
 
@@ -56,7 +61,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         row, col = index.row(), index.column()
 
         # NOTE: quotes are not allowed for now
-        return self._data[row][col].replace('"', "").replace("'", "")
+        return self.raw_data[row][col].replace('"', "").replace("'", "")
     
     def set_value(self, index, new_value: str):
         self.has_changed = True
@@ -64,7 +69,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         row, col = index.row(), index.column()
 
         # NOTE: quotes are not allowed for now
-        self._data[row][col] = str(new_value).replace('"', "").replace("'", "")
+        self.raw_data[row][col] = str(new_value).replace('"', "").replace("'", "")
 
     def calculate_shape(self):
         with self.conn as conn:
@@ -82,6 +87,8 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             self.col_count = len(self.columns)
 
     def get_data(self) -> list[list[str]]:
+        self.performing_retrieval = True
+
         with self.conn as conn:
             db_data = [
                 [v if v is not None else "" for v in r]
@@ -93,21 +100,21 @@ class SQLliteModel(QtCore.QAbstractTableModel):
                 new_data = db_data
                 
                 for row_index, row in enumerate(db_data):
-                    if row_index >= len(self._data):
+                    if row_index >= len(self.raw_data):
                         break
                     
                     for col_index in range(len(row)):
-                        if col_index >= len(self._data[row_index]):
+                        if col_index >= len(self.raw_data[row_index]):
                             break
 
                         # Overwrite with data we have now
-                        new_data[row_index][col_index] = self._data[row_index][col_index]
+                        new_data[row_index][col_index] = self.raw_data[row_index][col_index]
 
-                self._data = new_data
+                self.raw_data = new_data
             else:
-                self._data = db_data
+                self.raw_data = db_data
 
-            self.row_count = len(self._data)
+            self.row_count = len(self.raw_data)
 
             cursor = conn.execute(f"pragma table_info(\"{self._table_name}\");")
 
@@ -121,20 +128,27 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         # NOTE: for the checks, set all the cells
         changed_before = self.has_changed
 
-        for row_index, row in enumerate(self._data):
+
+        # Reset colors and tooltips
+        self.colors = {}
+        self.tooltips = {}
+
+        for row_index, row in enumerate(self.raw_data):
             for col_index, value in enumerate(row):
                 self.setData(self.index(row_index, col_index), value)
 
         self.has_changed = changed_before
 
-        # NOTE: not very good to use this method for retrieval and getting
-        return self._data
+        self.performing_retrieval = False
+
+        # NOTE: since no signals were being emitted before, emit one now
+        self.bad_rows_changed.emit(len(self.colors))
 
     def save_data(self) -> None:
         with self.conn as conn:
             for row in range(self.row_count):
-                main_id = self._data[row][1]
-                set_value = ",\n\t".join([f"\"{self.columns[col]}\"='{self._data[row][col]}'" for col in range(2, self.col_count)])
+                main_id = self.raw_data[row][1]
+                set_value = ",\n\t".join([f"\"{self.columns[col]}\"='{self.raw_data[row][col]}'" for col in range(2, self.col_count)])
 
                 conn.execute(
                     f"""
@@ -157,7 +171,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             return
 
         row, col = index.row(), index.column()
-        _id = self._data[row][0]
+        _id = int(self.raw_data[row][0])
 
         if (
             role == QtCore.Qt.ItemDataRole.DisplayRole
@@ -237,7 +251,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
     def sort(self, col: int, order: QtCore.Qt.SortOrder) -> None:
         self.layoutAboutToBeChanged.emit()
 
-        self._data.sort(
+        self.raw_data.sort(
             key=lambda row: row[col],
             reverse=order is QtCore.Qt.SortOrder.DescendingOrder
         )
@@ -246,7 +260,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
 
     # NOTE: utils
     def _mark_cell(self, row: int, col: int, color: Color = None, tooltip: str = None) -> None:        
-        _id = self._data[row][0]
+        _id = int(self.raw_data[row][0])
 
         if not color:
             # Unmark
@@ -261,7 +275,8 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             if tooltip:
                 self.tooltips[(_id, col)] = tooltip
 
-        self.bad_rows_changed.emit(len(self.colors))
+        if not self.performing_retrieval:
+            self.bad_rows_changed.emit(len(self.colors))
 
     # NOTE: Checks
     def path_in_sip_check(self, row: int, col: int, value: str) -> None:
@@ -273,7 +288,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             self._mark_cell(row, col)
 
     def serie_check(self, row: int, col: int, value: str) -> None:
-        series_name = self._data[row][list(self.columns.values()).index("series_name")]
+        series_name = self.raw_data[row][list(self.columns.values()).index("series_name")]
         uri = value
 
         if series_name == "":
@@ -305,8 +320,19 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             return
         
         # Check range
-        splits = self._table_name.rsplit('(Geldig van ', 1)[-1][:-1].split(' ')
-        before, after = " ".join(splits[:3]), " ".join(splits[-3:])
+        van_tot = re.match(r".* \(Geldig van (.*?)( t.e.m | tot )(.*?)\)", self._table_name)
+        van = re.match(r".* \(Geldig van (.*)\)", self._table_name)
+        tot = re.match(r".* \(Geldig tot (.*)\)", self._table_name)
+
+        before = after = None
+
+        if van_tot:
+            before = van_tot.group(1)
+            after = van_tot.group(3)
+        elif van:
+            before = van.group(1)
+        elif tot:
+            after = tot.group(1)
 
         date_mon_map = {
             "jan.": "01",
@@ -323,7 +349,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             "dec.": "12",
         }
 
-        if before != "...":
+        if before is not None and before != "...":
             for k, v in date_mon_map.items():
                 before = before.replace(k, v)
 
@@ -333,7 +359,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
                 self._mark_cell(row, col, Color.RED, "Datum mag niet voor de openingsdatum van de serie zijn")
                 return
 
-        if after != "...":
+        if after is not None and after != "...":
             for k, v in date_mon_map.items():
                 after = after.replace(k, v)
 
@@ -347,8 +373,8 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         columns = list(self.columns.values())
         start_column, end_column = columns.index("Openingsdatum"), columns.index("Sluitingsdatum")
         
-        start_value = self._data[row][start_column]
-        end_value = self._data[row][end_column]
+        start_value = self.raw_data[row][start_column]
+        end_value = self.raw_data[row][end_column]
 
         try:
             start_date = datetime.strptime(start_value, "%Y-%m-%d")

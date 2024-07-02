@@ -18,6 +18,7 @@ from .widgets.searchable_list_widget import (
     SearchableListWidget,
     SIPListWidget,
 )
+from .widgets.tableview_widget import TableView
 from .widgets.dossier_widget import DossierWidget
 from .widgets.sip_widget import SIPWidget
 from .widgets.toolbar import Toolbar
@@ -359,10 +360,10 @@ class MigrationWidget(QtWidgets.QWidget):
         title = QtWidgets.QLabel(text="Overdrachtslijsten")
         title.setFont(font)
 
-        add_item_button = QtWidgets.QPushButton(text="Importeer overdrachtslijst")
-        add_item_button.clicked.connect(self.add_overdrachtslijst_click)
-        add_item_button.setHidden(self.state.configuration.active_role == "klant")
-        self.parent().toolbar.configuration_changed.connect(lambda: add_item_button.setHidden(self.state.configuration.active_role == "klant"))
+        self.add_item_button = QtWidgets.QPushButton(text="Importeer overdrachtslijst")
+        self.add_item_button.clicked.connect(self.add_overdrachtslijst_click)
+        self.add_item_button.setHidden(self.state.configuration.active_role == "klant")
+        self.parent().toolbar.configuration_changed.connect(lambda: self.add_item_button.setHidden(self.state.configuration.active_role == "klant"))
 
         file_location_button = QtWidgets.QPushButton(text="Bestandslocatie")
         file_location_button.clicked.connect(lambda: os.startfile(
@@ -374,7 +375,7 @@ class MigrationWidget(QtWidgets.QWidget):
         )
 
         self._layout.addWidget(title, 0, 0)
-        self._layout.addWidget(add_item_button, 1, 0)
+        self._layout.addWidget(self.add_item_button, 1, 0)
         self._layout.addWidget(file_location_button, 1, 3)
         self._layout.addWidget(self.list_view, 2, 0, 1, 4)
 
@@ -416,7 +417,6 @@ class TabUI(QtWidgets.QMainWindow):
 
     def __init__(self, path: str, series: list):
         super().__init__()
-        from creator.widgets.tableview_widget import TableView
 
         self.application: Application = QtWidgets.QApplication.instance()
         self.state: State = self.application.state
@@ -610,13 +610,13 @@ class TabUI(QtWidgets.QMainWindow):
 
         model = SQLliteModel(self.main_tab, db_name=self.db_location, is_main=True)
         self.main_table.setModel(model)
-
+        
         unassigned_only_checkbox = QtWidgets.QCheckBox(text="Toon enkel rijen zonder serie")
         unassigned_only_checkbox.stateChanged.connect(self._filter_unassigned)
 
         layout.addWidget(btn, 0, 0)
         layout.addWidget(series_combobox, 0, 1, 1, 3)
-        layout.addWidget(unassigned_only_checkbox, 1, 0, 1, 2)
+        layout.addWidget(unassigned_only_checkbox, 1, 0)
         layout.addWidget(self.main_table, 2, 0, 1, 5)
 
         conn = sql.connect(self.db_location)
@@ -764,14 +764,14 @@ class TabUI(QtWidgets.QMainWindow):
         # Update the graphical side
         model: SQLliteModel = self.main_table.model()
         
-        model.get_data()
+        model.raw_data
         model.layoutChanged.emit()
         
         # If the tab already exists, stop here
         if name in self.tabs:
             model: SQLliteModel = self.tabs[name].model()
             
-            model.get_data()
+            model.raw_data
             model.layoutChanged.emit()
             return
 
@@ -792,16 +792,20 @@ class TabUI(QtWidgets.QMainWindow):
         self.configuration_changed.connect(lambda: self.hide_or_show_button(duplicate_location_column_button))
 
         table_view = TableView()
+        bad_rows_checkbox = QtWidgets.QCheckBox(text="Toon enkel rijen met fouten")
 
         layout.addWidget(series_label, 0, 0, 1, 2)
         layout.addWidget(duplicate_trefwoord_column_button, 1, 0)
         layout.addWidget(duplicate_location_column_button, 1, 1)
-        layout.addWidget(table_view, 2, 0, 1, 2)
-
-        from creator.utils.sqlitemodel import SQLliteModel
+        layout.addWidget(bad_rows_checkbox, 2, 0)
+        layout.addWidget(table_view, 3, 0, 1, 5)
 
         model = SQLliteModel(name, db_name=self.db_location, series_id=series_id)
         table_view.setModel(model)
+
+        bad_rows_checkbox.stateChanged.connect(lambda checkstate: self._filter_bad_rows(checkstate, self.tabs[name]))
+        model.bad_rows_changed.connect(lambda _: self._filter_bad_rows(bad_rows_checkbox.checkState().value, table_view))
+        self.configuration_changed.connect(lambda: self._filter_bad_rows(bad_rows_checkbox.checkState().value, table_view))
 
         self.tab_widget.addTab(container, name)
         self.tabs[name] = table_view
@@ -860,6 +864,10 @@ class TabUI(QtWidgets.QMainWindow):
 
     def reload_tabs(self) -> None:
         for table_name, tab_view in self.tabs.items():
+            # Reload all the data
+            model: SQLliteModel = tab_view.model()
+            model.get_data()
+
             with sql.connect(self.db_location) as conn:
                 # NOTE: figure out which columns to hide (could be multiple due to duplications)
                 cursor = conn.execute(f"pragma table_info(\"{table_name}\");")
@@ -959,14 +967,12 @@ class TabUI(QtWidgets.QMainWindow):
             conn.execute(f'DROP TABLE "_old_{table}";')
 
         model: SQLliteModel = self.tabs[table].model()
-        model.get_data()
+        model.raw_data
         model.layoutChanged.emit()
 
     def _filter_unassigned(self, state: QtCore.Qt.CheckState) -> None:
-        from creator.utils.sqlitemodel import SQLliteModel
-
         model: SQLliteModel = self.main_table.model()
-        data: list[list[str]] = model.get_data()
+        data: list[list[str]] = model.raw_data
 
         if state == QtCore.Qt.CheckState.Checked.value:
             columns = model.columns
@@ -980,6 +986,27 @@ class TabUI(QtWidgets.QMainWindow):
         
         for row_index in range(len(data)):
             self.main_table.setRowHidden(row_index, False)
+
+    def _filter_bad_rows(self, state: QtCore.Qt.CheckState, table_view: TableView) -> None:
+        model: SQLliteModel = table_view.model()
+
+        if state != QtCore.Qt.CheckState.Checked.value:
+            # NOTE: show all
+            for i in range(model.row_count):
+                table_view.showRow(i)
+
+            return
+
+        # NOTE: since sometimes columns might be hidden, we need to make sure we skip those
+        ids_to_show = set(_id for (_id, col_index) in model.colors.keys() if not table_view.isColumnHidden(col_index))
+
+        for i, row in enumerate(model.raw_data):
+            _id = int(row[0])
+
+            if _id in ids_to_show:
+                table_view.showRow(i)
+            else:
+                table_view.hideRow(i)
 
     def create_sips(self) -> None:
         def _col_index_to_xslx_col(col_index: int) -> str:
@@ -1148,17 +1175,17 @@ class ListView(QtWidgets.QWidget):
         open_button = QtWidgets.QPushButton(text="Open")
         open_button.clicked.connect(self.tab_ui.show)
 
-        upload_button = QtWidgets.QPushButton(text="Upload")
-        upload_button.clicked.connect(self.tab_ui.upload_sips)
-        upload_button.setHidden(self.state.configuration.active_role == "klant")
-        self.tab_ui.configuration_changed.connect(lambda: upload_button.setHidden(self.state.configuration.active_role == "klant"))
+        self.upload_button = QtWidgets.QPushButton(text="Upload")
+        self.upload_button.clicked.connect(self.tab_ui.upload_sips)
+        self.upload_button.setHidden(self.state.configuration.active_role == "klant")
+        self.tab_ui.configuration_changed.connect(lambda: self.upload_button.setHidden(self.state.configuration.active_role == "klant"))
 
-        upload_button.setEnabled(self.tab_ui.can_upload)
-        self.tab_ui.can_upload_changed.connect(lambda can_upload: upload_button.setEnabled(can_upload))
+        self.upload_button.setEnabled(self.tab_ui.can_upload)
+        self.tab_ui.can_upload_changed.connect(self.upload_button.setEnabled)
 
         layout.addWidget(title, 0, 0, 1, 3)
         layout.addWidget(open_button, 0, 3)
-        layout.addWidget(upload_button, 1, 3)
+        layout.addWidget(self.upload_button, 1, 3)
 
 def set_main(application: Application, main: MainWindow) -> None:
     config = application.state.configuration
