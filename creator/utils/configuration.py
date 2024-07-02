@@ -2,6 +2,8 @@ import os
 from dataclasses import dataclass
 from typing import List
 
+from .version import ConfigurationVersion
+
 
 @dataclass
 class Environment:
@@ -123,18 +125,28 @@ class Configuration:
         )
 
     @staticmethod
-    def from_json(json: dict) -> "Configuration":
+    def from_json(json: dict, version: ConfigurationVersion) -> "Configuration":
         environments = []
         misc = None
 
         for k, v in json.items():
             if k == "misc":
-                misc = Misc(
-                    environments_activity=v["Omgevingen"],
-                    role_activity=v["Rollen"],
-                    type_activity=v["Type SIPs"],
-                    save_location=v["SIP Creator opslag locatie"],
-                )
+                if version == ConfigurationVersion.V1:
+                    misc_default = Misc.get_default()
+
+                    misc = Misc(
+                        environments_activity=v["Omgevingen"],
+                        role_activity=misc_default.role_activity,
+                        type_activity=misc_default.type_activity,
+                        save_location=v["SIP Creator opslag locatie"],
+                    )
+                elif version == ConfigurationVersion.V2:
+                    misc = Misc(
+                        environments_activity=v["Omgevingen"],
+                        role_activity=v["Rollen"],
+                        type_activity=v["Type SIPs"],
+                        save_location=v["SIP Creator opslag locatie"],
+                    )
             else:
                 environments.append(
                     Environment(

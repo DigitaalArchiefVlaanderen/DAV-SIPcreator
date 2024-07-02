@@ -3,13 +3,14 @@ import json
 
 from ..utils.path import is_path_exists_or_creatable
 from ..utils.configuration import Configuration
+from ..utils.version import ConfigurationVersion
 
 
 class ConfigController:
     def __init__(self, path: str):
         self.configuration_path = path
 
-    def _verify_configuration(self, configuration: dict) -> bool:
+    def _verify_configuration(self, configuration: dict, version: ConfigurationVersion=ConfigurationVersion.V2) -> bool:
         """Verifies the integrity of the configuration"""
         if "misc" not in configuration:
             return False
@@ -28,7 +29,12 @@ class ConfigController:
                 ):
                     configuration[environment]["SIP Creator opslag locatie"] = os.path.join(os.getcwd(), "SIP_Creator")
 
-                for tab in ("Omgevingen", "Rollen", "Type SIPs"):
+                if version == ConfigurationVersion.V1:
+                    tabs = ("Omgevingen",)
+                elif version == ConfigurationVersion.V2:
+                    tabs = ("Omgevingen", "Rollen", "Type SIPs")
+
+                for tab in tabs:
                     if not tab in values:
                         return False
 
@@ -86,9 +92,14 @@ class ConfigController:
             except Exception:
                 return Configuration.get_default()
 
-            # TODO: allow to use old versions and fill in the rest?
             if not self._verify_configuration(configuration):
                 # NOTE: something in the config is bad
-                return Configuration.get_default()
 
-            return Configuration.from_json(configuration)
+                # Check if we're just using an older version
+                if not self._verify_configuration(configuration, version=ConfigurationVersion.V1):
+                    return Configuration.get_default()
+                
+                # Valid for version 1
+                return Configuration.from_json(configuration, version=ConfigurationVersion.V1)
+
+            return Configuration.from_json(configuration, version=ConfigurationVersion.V2)
