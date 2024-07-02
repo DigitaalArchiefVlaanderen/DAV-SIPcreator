@@ -1040,8 +1040,8 @@ class TabUI(QtWidgets.QMainWindow):
             wb.save(temp_loc)
             wb.close()
 
-            sip_location = os.path.join(sip_storage_path, f"{model.series_id}_migratie.zip")
-            md5_location = os.path.join(sip_storage_path, f"{model.series_id}_migratie.xml")
+            sip_location = os.path.join(sip_storage_path, f"{model.series_id}_{model._table_name.rsplit('(', 1)[0]}.zip")
+            md5_location = os.path.join(sip_storage_path, f"{model.series_id}_{model._table_name.rsplit('(', 1)[0]}.xml")
 
             with zipfile.ZipFile(
                 sip_location, "w", compression=zipfile.ZIP_DEFLATED
@@ -1093,8 +1093,8 @@ class TabUI(QtWidgets.QMainWindow):
 
             model: SQLliteModel = table_view.model()
 
-            sip_location = os.path.join(sip_storage_path, f"{model.series_id}_migratie.zip")
-            md5_location = os.path.join(sip_storage_path, f"{model.series_id}_migratie.xml")
+            sip_location = os.path.join(sip_storage_path, f"{model.series_id}_{model._table_name.rsplit('(', 1)[0]}.zip")
+            md5_location = os.path.join(sip_storage_path, f"{model.series_id}_{model._table_name.rsplit('(', 1)[0]}.xml")
 
             if not os.path.exists(sip_location) or not os.path.exists(md5_location):
                 self.create_sips()
@@ -1108,9 +1108,9 @@ class TabUI(QtWidgets.QMainWindow):
                     session.prot_p()
 
                     with open(sip_location, "rb") as f:
-                        session.storbinary(f"STOR {model.series_id}_migratie.zip", f)
+                        session.storbinary(f"STOR {model.series_id}_{model._table_name.rsplit('(', 1)[0]}.zip", f)
                     with open(md5_location, "rb") as f:
-                        session.storbinary(f"STOR {model.series_id}_migratie.xml", f)
+                        session.storbinary(f"STOR {model.series_id}_{model._table_name.rsplit('(', 1)[0]}.xml", f)
             except ftplib.error_perm:
                 WarningDialog(
                     title="Connectie fout",
@@ -1153,8 +1153,8 @@ class ListView(QtWidgets.QWidget):
         upload_button.setHidden(self.state.configuration.active_role == "klant")
         self.tab_ui.configuration_changed.connect(lambda: upload_button.setHidden(self.state.configuration.active_role == "klant"))
 
-        upload_button.setEnabled(not self.tab_ui.can_upload)
-        self.tab_ui.can_upload_changed.connect(lambda can_upload: upload_button.setEnabled(not can_upload))
+        upload_button.setEnabled(self.tab_ui.can_upload)
+        self.tab_ui.can_upload_changed.connect(lambda can_upload: upload_button.setEnabled(can_upload))
 
         layout.addWidget(title, 0, 0, 1, 3)
         layout.addWidget(open_button, 0, 3)
