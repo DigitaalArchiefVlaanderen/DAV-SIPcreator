@@ -398,12 +398,33 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             self._mark_cell(row, start_column)
             self._mark_cell(row, end_column)
 
-    def location_check(self, row: int, col: int, value: str) -> None:
-        if value == "":
-            self._mark_cell(row, col, Color.YELLOW, "Leeg locatie-veld")
-            return
+    def location_check(self, row: int, col: int, _: str) -> None:
+        actual_column_name = self.columns[col]
+        suffix = ""
 
-        self._mark_cell(row, col) 
+        # Check if it is a duplicated column
+        if "_" in actual_column_name:
+            suffix = "_" + actual_column_name.rsplit("_", 1)[-1]
+
+        # TODO: check original if duplicated one?
+        
+        # If we have a value in any of the columns, they all need a value
+        cols = [c + suffix for c in ("Origineel Doosnummer", "Legacy locatie ID", "Legacy range", "Verpakkingstype")]
+
+        column_names = list(self.columns.values())
+        col_indexes = [column_names.index(c) for c in cols]
+
+        row_values = self.raw_data[row]
+
+        # If any has a value
+        should_have_a_value = any(row_values[c] != "" for c in col_indexes)
+
+        for c in col_indexes:
+            if should_have_a_value and row_values[c] == "":
+                self._mark_cell(row, c, Color.RED, "De combinatie van de 4 locatie-kolommen moeten een waarde hebben")
+            else:
+                self._mark_cell(row, c)
+
 
     def name_check(self, row: int, col: int, value: str) -> None:
         if value == "":
