@@ -968,7 +968,7 @@ class TabUI(QtWidgets.QMainWindow):
             conn.execute(f'DROP TABLE "_old_{table}";')
 
         model: SQLliteModel = self.tabs[table].model()
-        model.raw_data
+        model.get_data()
         model.layoutChanged.emit()
 
     def _filter_unassigned(self, state: QtCore.Qt.CheckState) -> None:

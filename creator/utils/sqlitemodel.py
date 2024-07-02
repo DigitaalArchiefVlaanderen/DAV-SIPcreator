@@ -399,6 +399,25 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             self._mark_cell(row, end_column)
 
     def location_check(self, row: int, col: int, _: str) -> None:
+        # NOTE: if all the columns have empty values, mark them all red
+        original_cols = ("Origineel Doosnummer", "Legacy locatie ID", "Legacy range", "Verpakkingstype")
+        column_names = list(self.columns.values())
+        all_duplicate_cols = [c for c in self.columns.values() if any(oc in c for oc in original_cols)]
+        duplicate_col_indexes = [column_names.index(c) for c in all_duplicate_cols]
+
+        row_values = self.raw_data[row]
+
+        if all(row_values[c] == "" for c in duplicate_col_indexes):
+            for col_index in duplicate_col_indexes:
+                self._mark_cell(row, col_index, Color.RED, "Een locatie moet ingevuld zijn")
+
+            self.layoutChanged.emit()
+            return
+        elif all(row_values[c] == "" for c in duplicate_col_indexes if c != col):
+            # NOTE: all empty except the current one, unset them all but do not return
+            for col_index in duplicate_col_indexes:
+                self._mark_cell(row, col_index)
+
         actual_column_name = self.columns[col]
         suffix = ""
 
@@ -406,25 +425,20 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         if "_" in actual_column_name:
             suffix = "_" + actual_column_name.rsplit("_", 1)[-1]
 
-        # TODO: check original if duplicated one?
-        
         # If we have a value in any of the columns, they all need a value
-        cols = [c + suffix for c in ("Origineel Doosnummer", "Legacy locatie ID", "Legacy range", "Verpakkingstype")]
+        cols = [c + suffix for c in original_cols]
 
-        column_names = list(self.columns.values())
         col_indexes = [column_names.index(c) for c in cols]
-
-        row_values = self.raw_data[row]
 
         # If any has a value
         should_have_a_value = any(row_values[c] != "" for c in col_indexes)
+
 
         for c in col_indexes:
             if should_have_a_value and row_values[c] == "":
                 self._mark_cell(row, c, Color.RED, "De combinatie van de 4 locatie-kolommen moeten een waarde hebben")
             else:
                 self._mark_cell(row, c)
-
 
     def name_check(self, row: int, col: int, value: str) -> None:
         if value == "":
