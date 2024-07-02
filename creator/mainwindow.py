@@ -1,6 +1,7 @@
 import os
 import json
 import re
+import threading
 
 import zipfile
 import hashlib
@@ -415,6 +416,7 @@ class MigrationWidget(QtWidgets.QWidget):
 
 class TabUI(QtWidgets.QMainWindow):
     can_upload_changed: QtCore.Signal = QtCore.Signal(*(bool,), arguments=["can_upload"])
+    has_uploaded: QtCore.Signal = QtCore.Signal()
     configuration_changed: QtCore.Signal = QtCore.Signal()
 
     def __init__(self, path: str, series: list):
@@ -424,10 +426,9 @@ class TabUI(QtWidgets.QMainWindow):
         self.state: State = self.application.state
 
         self.can_upload = False
+        self.edepot_ids = []
 
         self.storage_base = f"{self.state.configuration.misc.save_location}/overdrachtslijsten"
-
-        self.can_upload = False
 
         self.toolbar = Toolbar()
         self.toolbar.configuration_changed.connect(self.configuration_changed.emit)
@@ -485,6 +486,18 @@ class TabUI(QtWidgets.QMainWindow):
 
         self.set_create_button_status()
 
+        with sql.connect(self.db_location) as conn:
+            cursor = conn.execute(f'''
+                SELECT edepot_id FROM tables;
+            ''')
+
+            for edepot_id, *_ in cursor.fetchall():
+                if edepot_id is not None:
+                    self.edepot_ids.append(edepot_id)
+
+            if len(self.edepot_ids) > 0:
+                self.has_uploaded.emit()
+
     def create_db(self) -> bool:
         import sqlite3 as sql
         import os
@@ -502,6 +515,7 @@ class TabUI(QtWidgets.QMainWindow):
                 id INTEGER PRIMARY KEY,
                 table_name TEXT,
                 uri_serieregister TEXT,
+                edepot_id TEXT,
 
                 UNIQUE(table_name)
             );""")
@@ -1153,11 +1167,42 @@ class TabUI(QtWidgets.QMainWindow):
                 ).exec()
                 return
 
+        t = threading.Thread(
+            target=self.update_status
+        )
+        t.start()
         Dialog(
             title="Upload geslaagd",
-            text="Upload voor de overdrachtslijst is geslaagd.\nDe overdrachtslijst blijft in de lijst staan zolang hij op je computer staat.\nOm hem weg te halen, verwijder de correcte database uit de bestandslocatie."
+            text="Upload voor de overdrachtslijst is geslaagd.\nDe overdrachtslijst blijft in de lijst staan zolang hij op je computer staat.\nOm hem weg te halen, verwijder de correcte database uit de bestandslocatie.\n\nWanneer de items op het edepot staan zal de knop hiervoor beschikbaar worden."
         ).exec()
 
+    def update_status(self) -> None:
+        import time
+
+        # NOTE: wait some time for the edepot to pick them up
+        time.sleep(10)
+
+        for series_name, table_view in self.tabs.items():
+            if series_name == self.main_tab:
+                continue
+
+            model: SQLliteModel = table_view.model()
+
+            edepot_id = APIController.get_sip_id_for_name(
+                self.state.configuration.active_environment,
+                f"{model.series_id}-{series_name.rsplit('(', 1)[0]}.zip"
+            )
+
+            with sql.connect(self.db_location) as conn:
+                conn.execute(f'''
+                    UPDATE tables
+                    SET edepot_id='{edepot_id}'
+                    WHERE table_name='"{series_name}"';
+                ''')
+
+                self.edepot_ids.append(edepot_id)
+
+        self.has_uploaded.emit()
 
 class ListView(QtWidgets.QWidget):
     def __init__(self, tab_ui: TabUI):
@@ -1185,9 +1230,22 @@ class ListView(QtWidgets.QWidget):
         self.upload_button.setEnabled(self.tab_ui.can_upload)
         self.tab_ui.can_upload_changed.connect(self.upload_button.setEnabled)
 
+        self.edepot_button = QtWidgets.QPushButton(text="Open edepot")
+        self.edepot_button.clicked.connect(
+            lambda: [os.startfile(
+                f"{self.state.configuration.active_environment.api_url}/input/processing-list/{edepot_id}"
+            ) for edepot_id in self.tab_ui.edepot_ids]
+        )
+        self.edepot_button.setHidden(self.state.configuration.active_role == "klant")
+        self.tab_ui.configuration_changed.connect(lambda: self.edepot_button.setHidden(self.state.configuration.active_role == "klant"))
+
+        self.edepot_button.setEnabled(len(self.tab_ui.edepot_ids) > 0)
+        self.tab_ui.has_uploaded.connect(lambda: self.edepot_button.setEnabled(True))
+
         layout.addWidget(title, 0, 0, 1, 3)
         layout.addWidget(open_button, 0, 3)
         layout.addWidget(self.upload_button, 1, 3)
+        layout.addWidget(self.edepot_button, 2, 3)
 
 def set_main(application: Application, main: MainWindow) -> None:
     config = application.state.configuration
