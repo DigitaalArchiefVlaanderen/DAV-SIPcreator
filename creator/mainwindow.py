@@ -64,7 +64,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.application.quit()
 
 class DigitalWidget(QtWidgets.QWidget):
-    def __init__(self, parent):
+    def __init__(self, parent: MainWindow):
         super().__init__(parent)
 
         self.application: Application = QtWidgets.QApplication.instance()
@@ -335,7 +335,7 @@ class DigitalWidget(QtWidgets.QWidget):
         )
 
 class MigrationWidget(QtWidgets.QWidget):
-    def __init__(self, parent):
+    def __init__(self, parent: MainWindow):
         super().__init__(parent)
 
         self.application: Application = QtWidgets.QApplication.instance()
@@ -361,6 +361,8 @@ class MigrationWidget(QtWidgets.QWidget):
 
         add_item_button = QtWidgets.QPushButton(text="Importeer overdrachtslijst")
         add_item_button.clicked.connect(self.add_overdrachtslijst_click)
+        add_item_button.setHidden(self.state.configuration.active_role == "klant")
+        self.parent().toolbar.configuration_changed.connect(lambda: add_item_button.setHidden(self.state.configuration.active_role == "klant"))
 
         file_location_button = QtWidgets.QPushButton(text="Bestandslocatie")
         file_location_button.clicked.connect(lambda: os.startfile(
@@ -409,6 +411,9 @@ class MigrationWidget(QtWidgets.QWidget):
 
 
 class TabUI(QtWidgets.QMainWindow):
+    can_upload_changed: QtCore.Signal = QtCore.Signal(*(bool,), arguments=["can_upload"])
+    configuration_changed: QtCore.Signal = QtCore.Signal()
+
     def __init__(self, path: str, series: list):
         super().__init__()
         from creator.widgets.tableview_widget import TableView
@@ -416,9 +421,14 @@ class TabUI(QtWidgets.QMainWindow):
         self.application: Application = QtWidgets.QApplication.instance()
         self.state: State = self.application.state
 
+        self.can_upload = False
+
         self.storage_base = f"{self.state.configuration.misc.save_location}/overdrachtslijsten"
 
+        self.can_upload = False
+
         self.toolbar = Toolbar()
+        self.toolbar.configuration_changed.connect(self.configuration_changed.emit)
 
         self.path = path
         self.name = os.path.splitext(os.path.basename(path))[0]
@@ -433,7 +443,7 @@ class TabUI(QtWidgets.QMainWindow):
 
         self.tab_widget = QtWidgets.QTabWidget()
 
-        self.toolbar.configuration_changed.connect(self.reload_tabs)
+        self.configuration_changed.connect(self.reload_tabs)
 
     def setup_ui(self):
         self.resize(800, 600)
@@ -447,8 +457,8 @@ class TabUI(QtWidgets.QMainWindow):
         self.create_sips_button = QtWidgets.QPushButton(text="Maak SIPs")
         self.create_sips_button.clicked.connect(self.create_sips)
         self.create_sips_button.setHidden(self.state.configuration.active_role == "klant")
-        self.toolbar.configuration_changed.connect(lambda: self.hide_or_show_button(self.create_sips_button))
-        self.toolbar.configuration_changed.connect(self.set_create_button_status)
+        self.configuration_changed.connect(lambda: self.hide_or_show_button(self.create_sips_button))
+        self.configuration_changed.connect(self.set_create_button_status)
 
         self._layout.addWidget(self.tab_widget, 0, 0)
 
@@ -779,7 +789,7 @@ class TabUI(QtWidgets.QMainWindow):
         duplicate_trefwoord_column_button = QtWidgets.QPushButton(text="Dupliceer trefwoorden_vrij kolom")
         duplicate_location_column_button = QtWidgets.QPushButton(text="Dupliceer locatie kolommen")
         duplicate_location_column_button.setHidden(self.state.configuration.active_role == "klant")
-        self.toolbar.configuration_changed.connect(lambda: self.hide_or_show_button(duplicate_location_column_button))
+        self.configuration_changed.connect(lambda: self.hide_or_show_button(duplicate_location_column_button))
 
         table_view = TableView()
 
@@ -878,9 +888,13 @@ class TabUI(QtWidgets.QMainWindow):
 
             if len(model.colors) > 0:
                 self.create_sips_button.setEnabled(False)
+                self.can_upload = False
+                self.can_upload_changed.emit(False)
                 return
             
         self.create_sips_button.setEnabled(True)
+        self.can_upload = True
+        self.can_upload_changed.emit(True)
 
     def hide_or_show_button(self, button: QtWidgets.QPushButton) -> None:
         button.setHidden(self.state.configuration.active_role == "klant")
@@ -1120,6 +1134,9 @@ class ListView(QtWidgets.QWidget):
     def __init__(self, tab_ui: TabUI):
         super().__init__()
 
+        self.application: Application = QtWidgets.QApplication.instance()
+        self.state: State = self.application.state
+
         self.name = tab_ui.name
         self.tab_ui = tab_ui
 
@@ -1131,8 +1148,17 @@ class ListView(QtWidgets.QWidget):
         open_button = QtWidgets.QPushButton(text="Open")
         open_button.clicked.connect(self.tab_ui.show)
 
+        upload_button = QtWidgets.QPushButton(text="Upload")
+        upload_button.clicked.connect(self.tab_ui.upload_sips)
+        upload_button.setHidden(self.state.configuration.active_role == "klant")
+        self.tab_ui.configuration_changed.connect(lambda: upload_button.setHidden(self.state.configuration.active_role == "klant"))
+
+        upload_button.setEnabled(not self.tab_ui.can_upload)
+        self.tab_ui.can_upload_changed.connect(lambda can_upload: upload_button.setEnabled(not can_upload))
+
         layout.addWidget(title, 0, 0, 1, 3)
         layout.addWidget(open_button, 0, 3)
+        layout.addWidget(upload_button, 1, 3)
 
 def set_main(application: Application, main: MainWindow) -> None:
     config = application.state.configuration
