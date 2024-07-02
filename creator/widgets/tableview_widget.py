@@ -19,13 +19,15 @@ class TableView(QtWidgets.QTableView):
         for index in indexes:
             rows[index.row()] = rows.get(index.row(), []) + [index.column()]
 
-        copy_text = ""
+        copy_rows = []
 
         for row, columns in rows.items():
-            copy_text += "\t".join(
-                [self.model().index(row, col).data() for col in columns]
+            copy_rows.append("\t".join(
+                    [self.model().index(row, col).data() for col in columns]
+                )
             )
-            copy_text += "\n"
+
+        copy_text = "\n".join(copy_rows)
 
         QtWidgets.QApplication.clipboard().setText(copy_text)
 
@@ -35,7 +37,7 @@ class TableView(QtWidgets.QTableView):
         if copy_text == "":
             return
 
-        if "\n" in copy_text and "\t" in copy_text:
+        if "\n" in copy_text or "\t" in copy_text:
             self.paste_grid_content(copy_text, indexes)
         else:
             # Remove "-marks and remove \n
@@ -54,7 +56,7 @@ class TableView(QtWidgets.QTableView):
             self.model().dataChanged.emit(index, index)
 
     def paste_grid_content(self, copy_text: str, indexes: list):
-        row_contents = copy_text.split("\n")[:-1]
+        row_contents = copy_text.split("\n")
 
         init_index = indexes[0]
 

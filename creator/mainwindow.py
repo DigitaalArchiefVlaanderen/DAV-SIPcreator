@@ -404,7 +404,9 @@ class MigrationWidget(QtWidgets.QWidget):
             return
 
         tab_ui = TabUI(path=path, series=self.series)
-        self.list_view.add_item("name", ListView(tab_ui))
+        
+        if tab_ui.name not in [w['reference'].name for w in self.list_view.widgets]:
+            self.list_view.add_item("name", ListView(tab_ui))
 
         tab_ui.setup_ui()
         tab_ui.load_items()
@@ -651,8 +653,6 @@ class TabUI(QtWidgets.QMainWindow):
             self.create_tab(table_name[1:-1], serie_id)
 
     def add_to_new(self, name: str, series_id: str):
-        from creator.utils.sqlitemodel import SQLliteModel
-
         # NOTE: only thing not allowed is quotes
         name = name.strip().replace('"', "").replace("'", "")
 
@@ -745,7 +745,7 @@ class TabUI(QtWidgets.QMainWindow):
             # NOTE: don't do other auto-mapping
             conn.execute(f"""
                 INSERT INTO "{name}" (main_id, "Analoog?") --, beschrijving, openingsdatum, sluitingsdatum)
-                SELECT id, 'Ja' --, beschrijving, begin_datum, eind_datum
+                SELECT id, 'ja' --, beschrijving, begin_datum, eind_datum
                 FROM {self.main_tab}
                 WHERE id IN ({selected_rows_str})
                   AND (series_name != '"{name}"' OR series_name IS NULL OR series_name == '');
@@ -764,14 +764,14 @@ class TabUI(QtWidgets.QMainWindow):
         # Update the graphical side
         model: SQLliteModel = self.main_table.model()
         
-        model.raw_data
+        model.get_data()
         model.layoutChanged.emit()
         
         # If the tab already exists, stop here
         if name in self.tabs:
             model: SQLliteModel = self.tabs[name].model()
             
-            model.raw_data
+            model.get_data()
             model.layoutChanged.emit()
             return
 
@@ -1057,7 +1057,7 @@ class TabUI(QtWidgets.QMainWindow):
 
                 ws[f"{_col_index_to_xslx_col(col_index - 2)}1"] = col
 
-            for row_index, row in enumerate(model._data):
+            for row_index, row in enumerate(model.raw_data):
                 for col_index, value in enumerate(row):
                     # NOTE: skip id and main_id
                     if col_index < 2:
@@ -1068,8 +1068,8 @@ class TabUI(QtWidgets.QMainWindow):
             wb.save(temp_loc)
             wb.close()
 
-            sip_location = os.path.join(sip_storage_path, f"{model.series_id}_{model._table_name.rsplit('(', 1)[0]}.zip")
-            md5_location = os.path.join(sip_storage_path, f"{model.series_id}_{model._table_name.rsplit('(', 1)[0]}.xml")
+            sip_location = os.path.join(sip_storage_path, f"{model.series_id}-{model._table_name.rsplit('(', 1)[0]}.zip")
+            md5_location = os.path.join(sip_storage_path, f"{model.series_id}-{model._table_name.rsplit('(', 1)[0]}.xml")
 
             with zipfile.ZipFile(
                 sip_location, "w", compression=zipfile.ZIP_DEFLATED
@@ -1105,7 +1105,8 @@ class TabUI(QtWidgets.QMainWindow):
         self.close()
 
     def upload_sips(self) -> None:
-        if not self.state.configuration.active_environment.has_ftps_credentials():
+        env = self.state.configuration.active_environment
+        if not env.has_ftps_credentials():
             WarningDialog(
                 title="Connectie fout",
                 text=f"Je FTPS connectie gegevens staan niet in orde voor omgeving '{self.sip.environment.name}'",
@@ -1121,24 +1122,24 @@ class TabUI(QtWidgets.QMainWindow):
 
             model: SQLliteModel = table_view.model()
 
-            sip_location = os.path.join(sip_storage_path, f"{model.series_id}_{model._table_name.rsplit('(', 1)[0]}.zip")
-            md5_location = os.path.join(sip_storage_path, f"{model.series_id}_{model._table_name.rsplit('(', 1)[0]}.xml")
+            sip_location = os.path.join(sip_storage_path, f"{model.series_id}-{model._table_name.rsplit('(', 1)[0]}.zip")
+            md5_location = os.path.join(sip_storage_path, f"{model.series_id}-{model._table_name.rsplit('(', 1)[0]}.xml")
 
             if not os.path.exists(sip_location) or not os.path.exists(md5_location):
                 self.create_sips()
             
             try:
                 with ftplib.FTP_TLS(
-                    self.sip.environment.ftps_url,
-                    self.sip.environment.ftps_username,
-                    self.sip.environment.ftps_password,
+                    env.ftps_url,
+                    env.ftps_username,
+                    env.ftps_password,
                 ) as session:
                     session.prot_p()
 
                     with open(sip_location, "rb") as f:
-                        session.storbinary(f"STOR {model.series_id}_{model._table_name.rsplit('(', 1)[0]}.zip", f)
+                        session.storbinary(f"STOR {model.series_id}-{model._table_name.rsplit('(', 1)[0]}.zip", f)
                     with open(md5_location, "rb") as f:
-                        session.storbinary(f"STOR {model.series_id}_{model._table_name.rsplit('(', 1)[0]}.xml", f)
+                        session.storbinary(f"STOR {model.series_id}-{model._table_name.rsplit('(', 1)[0]}.xml", f)
             except ftplib.error_perm:
                 WarningDialog(
                     title="Connectie fout",

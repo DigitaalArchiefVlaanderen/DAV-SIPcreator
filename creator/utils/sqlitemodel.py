@@ -239,7 +239,10 @@ class SQLliteModel(QtCore.QAbstractTableModel):
                 return section
 
     def flags(self, index):
-        if self.columns[index.column()] in ("Type", "DossierRef"):
+        if not index.isValid():
+            return
+
+        if self.columns[index.column()] in ("Type", "DossierRef", "Analoog?"):
             return (
                 QtCore.Qt.ItemFlag.ItemIsSelectable
                 | QtCore.Qt.ItemFlag.ItemIsEnabled
