@@ -32,7 +32,7 @@ from .utils.state import State
 from .utils.state_utils.dossier import Dossier
 from .utils.state_utils.sip import SIP
 from .utils.sip_status import SIPStatus
-from .utils.sqlitemodel import SQLliteModel
+from .utils.sqlitemodel import SQLliteModel, Color
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -893,8 +893,9 @@ class TabUI(QtWidgets.QMainWindow):
     def set_create_button_status(self, *_) -> None:
         for table_view in self.tabs.values():
             model: SQLliteModel = table_view.model()
+            red_colors = [c for c in model.colors.values() if c == Color.RED]
 
-            if len(model.colors) > 0:
+            if len(red_colors) > 0:
                 self.create_sips_button.setEnabled(False)
                 self.can_upload = False
                 self.can_upload_changed.emit(False)

@@ -218,6 +218,12 @@ class SQLliteModel(QtCore.QAbstractTableModel):
                 self.date_check(row, col, value)
             elif any(c in column for c in ("Origineel Doosnummer", "Legacy locatie ID", "Legacy range", "Verpakkingstype")):
                 self.location_check(row, col, value)
+            elif column == "Naam":
+                self.name_check(row, col, value)
+            elif column == "ID_Rijksregisternummer":
+                new_value = self.rrn_check(row, col, value)
+
+                self.set_value(index, new_value)
 
             return True
 
@@ -398,3 +404,41 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             return
 
         self._mark_cell(row, col) 
+
+    def name_check(self, row: int, col: int, value: str) -> None:
+        if value == "":
+            self._mark_cell(row, col, Color.RED, "Naam mag niet leeg zijn")
+            return
+        
+        self._mark_cell(row, col)
+
+    def rrn_check(self, row: int, col: int, value: str) -> str:
+        if value == "":
+            self._mark_cell(row, col)
+            return value
+
+        # NOTE: we allow loose form matching, and will just set it correctly later
+        loose_form_match = re.match(r"^\d{11}$", value)
+        if loose_form_match:
+            value = f"{value[:2]}.{value[2:4]}.{value[4:6]}-{value[6:9]}.{value[9:]}"
+            
+        strict_form_match = re.match(r"^\d{2}\.\d{2}\.\d{2}-\d{3}\.\d{2}$", value)
+
+        if not strict_form_match:
+            self._mark_cell(row, col, Color.RED, "Rijksregisternummer moet van vorm xx.xx.xx-xxx.xx zijn, of 11 cijfers na elkaar zijn")
+            return value
+        
+        # NOTE: check if the actual rrn is valid
+        calc, control = value[:-2].replace(".", "").replace("-", ""), value[-2:]
+
+        is_valid_check = lambda c: 97 - int(c) % 97 == int(control)
+
+        # NOTE: for people born after 2000, add a 2 to the calc
+        calc_before, calc_after = calc, f"2{calc}"
+
+        if not is_valid_check(calc_before) and not is_valid_check(calc_after):
+            self._mark_cell(row, col, Color.RED, "Ingegeven rijksregisternummer is niet mogelijk")
+            return value
+
+        self._mark_cell(row, col)
+        return value
