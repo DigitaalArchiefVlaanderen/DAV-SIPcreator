@@ -477,12 +477,6 @@ class TabUI(QtWidgets.QMainWindow):
         
         self.load_main_tab()
         self.load_other_tabs()
-        
-        # NOTE: make create sip button active based on status
-        for table_view in self.tabs.values():
-            model: SQLliteModel = table_view.model()
-
-            model.bad_rows_changed.connect(self.set_create_button_status)
 
         self.set_create_button_status()
 
@@ -625,6 +619,7 @@ class TabUI(QtWidgets.QMainWindow):
         )
 
         model = SQLliteModel(self.main_tab, db_name=self.db_location, is_main=True)
+        model.bad_rows_changed.connect(self.set_create_button_status)
         self.main_table.setModel(model)
         
         unassigned_only_checkbox = QtWidgets.QCheckBox(text="Toon enkel rijen zonder serie")
@@ -774,22 +769,21 @@ class TabUI(QtWidgets.QMainWindow):
             """)
 
             conn.commit()
+        
+        # If the tab already exists, just update the data
+        if name in self.tabs:
+            model: SQLliteModel = self.tabs[name].model()
+            
+            model.get_data()
+            model.layoutChanged.emit()
+        else:
+            self.create_tab(name, series_id)
 
         # Update the graphical side
         model: SQLliteModel = self.main_table.model()
         
         model.get_data()
         model.layoutChanged.emit()
-        
-        # If the tab already exists, stop here
-        if name in self.tabs:
-            model: SQLliteModel = self.tabs[name].model()
-            
-            model.get_data()
-            model.layoutChanged.emit()
-            return
-
-        self.create_tab(name, series_id)
 
     def create_tab(self, name: str, series_id: str):
         from creator.widgets.tableview_widget import TableView
@@ -819,6 +813,7 @@ class TabUI(QtWidgets.QMainWindow):
 
         bad_rows_checkbox.stateChanged.connect(lambda checkstate: self._filter_bad_rows(checkstate, self.tabs[name]))
         model.bad_rows_changed.connect(lambda _: self._filter_bad_rows(bad_rows_checkbox.checkState().value, table_view))
+        model.bad_rows_changed.connect(self.set_create_button_status)
         self.configuration_changed.connect(lambda: self._filter_bad_rows(bad_rows_checkbox.checkState().value, table_view))
 
         self.tab_widget.addTab(container, name)
@@ -907,7 +902,7 @@ class TabUI(QtWidgets.QMainWindow):
     def set_create_button_status(self, *_) -> None:
         for table_view in self.tabs.values():
             model: SQLliteModel = table_view.model()
-            red_colors = [c for c in model.colors.values() if c == Color.RED]
+            red_colors = [_ for c in model.colors.values() if c == Color.RED]
 
             if len(red_colors) > 0:
                 self.create_sips_button.setEnabled(False)
