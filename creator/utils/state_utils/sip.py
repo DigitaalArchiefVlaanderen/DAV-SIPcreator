@@ -161,7 +161,10 @@ class SIP(QtCore.QObject):
                     overlapping_names.append(file_name)
 
             if len(overlapping_names):
-                raise FilenameNotUniqueException(overlap=overlapping_names)
+                # raise FilenameNotUniqueException(overlap=overlapping_names)
+                # NOTE: since this check is no longer required, remove the exception throwing
+                # Do keep the code in case we need it at some point
+                pass
 
             sip_structure = {
                 **sip_structure,
