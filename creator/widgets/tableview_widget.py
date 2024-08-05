@@ -27,7 +27,9 @@ class TableView(QtWidgets.QTableView):
                 )
             )
 
-        copy_text = "\n".join(copy_rows)
+        # NOTE: excel complicates matters, they add a trailing '\n' character
+        # This however means we need to do the same, and expect this
+        copy_text = "\n".join(copy_rows) + "\n"
 
         QtWidgets.QApplication.clipboard().setText(copy_text)
 
@@ -56,7 +58,10 @@ class TableView(QtWidgets.QTableView):
             self.model().dataChanged.emit(index, index)
 
     def paste_grid_content(self, copy_text: str, indexes: list):
-        row_contents = copy_text.split("\n")
+        # NOTE: excel complicates matters, they add a trailing '\n' character
+        # This however means we need to do the same, and expect this
+        # We need to make sure we catch it here
+        row_contents = copy_text[:-1].split("\n")
 
         init_index = indexes[0]
 

@@ -1039,6 +1039,7 @@ class TabUI(QtWidgets.QMainWindow):
         grid_storage_path = os.path.join(storage_location, FileController.GRID_STORAGE)
 
         os.makedirs(sip_storage_path, exist_ok=True)
+        os.makedirs(grid_storage_path, exist_ok=True)
 
         for series_name, table_view in self.tabs.items():
             if series_name == self.main_tab:
@@ -1104,7 +1105,6 @@ class TabUI(QtWidgets.QMainWindow):
                 f.write(side_car_info)
 
             os.remove(temp_loc)
-
         
         Dialog(
             title="SIPs aangemaakt",
