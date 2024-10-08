@@ -408,7 +408,7 @@ class MigrationWidget(QtWidgets.QWidget):
 
         tab_ui = TabUI(path=path, series=self.series)
         
-        if tab_ui.overdrachtslijst_name not in [w['reference'].name for w in self.list_view.widgets]:
+        if tab_ui.overdrachtslijst_name not in [w['reference'].overdrachtslijst_name for w in self.list_view.widgets]:
             tab_ui.setup_ui()
             tab_ui.load_items()
             self.list_view.add_item("overdrachtslijst_name", ListView(tab_ui))
@@ -441,7 +441,7 @@ class TabUI(QtWidgets.QMainWindow):
         self.series = series
 
         self._layout = QtWidgets.QGridLayout()
-        self.tabs: dict[str, QtWidgets.QTableView] = dict()
+        self.tabs: dict[str, TableView] = dict()
 
         self.main_tab = "Overdrachtslijst"
         self.main_table = TableView()
@@ -501,7 +501,7 @@ class TabUI(QtWidgets.QMainWindow):
                 self.can_upload_changed.emit(False)
 
                 # NOTE: this means some of the items had not been found in the edepot yet
-                if not len(result) == len(self.edepot_ids):
+                if len(result) - 1 != len(self.edepot_ids):
                     self.edepot_ids = []
 
                     t = threading.Thread(
@@ -520,14 +520,13 @@ class TabUI(QtWidgets.QMainWindow):
 
         os.makedirs(self.storage_base, exist_ok=True)
 
-        conn = sql.connect(self.db_location)
 
         if os.path.exists(self.db_location):
-            with conn:
+            with sql.connect(self.db_location) as conn:
                 # ALTERS
                 columns = conn.execute("PRAGMA table_info(tables);").fetchall()
 
-                if 'uploaded' not in columns:
+                if 'uploaded' not in [column_name for _, column_name, *_ in columns]:
                     conn.execute("""
                         ALTER TABLE tables
                         ADD COLUMN uploaded BOOLEAN;
@@ -542,13 +541,14 @@ class TabUI(QtWidgets.QMainWindow):
                     """)
             return False
 
-        with conn:
+        with sql.connect(self.db_location) as conn:
             conn.execute("""
             CREATE TABLE tables (
                 id INTEGER PRIMARY KEY,
                 table_name TEXT,
                 uri_serieregister TEXT,
                 edepot_id TEXT,
+                uploaded BOOLEAN DEFAULT 0,
 
                 UNIQUE(table_name)
             );""")
@@ -818,11 +818,17 @@ class TabUI(QtWidgets.QMainWindow):
         else:
             self.create_tab(name, series_id)
 
-        # Update the graphical side
+        # Update the graphical side for all tables involved
         model: SQLliteModel = self.main_table.model()
         
         model.get_data()
         model.layoutChanged.emit()
+
+        for table in self.tabs.values():
+            model: SQLliteModel = table.model()
+
+            model.get_data()
+            model.layoutChanged.emit()
 
     def create_tab(self, name: str, series_id: str):
         from creator.widgets.tableview_widget import TableView
