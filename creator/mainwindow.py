@@ -77,7 +77,7 @@ class DigitalWidget(QtWidgets.QWidget):
     def fail_reason_show(self, sip: SIP, reason: str):
         WarningDialog(
             title="SIP upload gefaald",
-            text=f"SIP '{sip.name}' is geweigerd door het Edepot met volgende reden:\n\n{reason}",
+            text=f"SIP '{sip.name}' is geweigerd door het E-depot met volgende reden:\n\n{reason}",
         ).exec()
 
         storage_location = self.state.configuration.misc.save_location
@@ -89,7 +89,7 @@ class DigitalWidget(QtWidgets.QWidget):
             encoding="utf-8",
         ) as f:
             f.write(
-                f"SIP '{sip.name}' is geweigerd door het Edepot met volgende reden:\n\n{reason}"
+                f"SIP '{sip.name}' is geweigerd door het E-depot met volgende reden:\n\n{reason}"
             )
 
     def setup_ui(self):
