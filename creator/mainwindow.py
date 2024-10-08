@@ -418,7 +418,7 @@ class MigrationWidget(QtWidgets.QWidget):
 
 class TabUI(QtWidgets.QMainWindow):
     can_upload_changed: QtCore.Signal = QtCore.Signal(*(bool,), arguments=["can_upload"])
-    has_uploaded: QtCore.Signal = QtCore.Signal()
+    edepot_available_changed: QtCore.Signal = QtCore.Signal(*(bool,), arguments=["edepot_available"])
     configuration_changed: QtCore.Signal = QtCore.Signal()
 
     def __init__(self, path: str, series: list):
@@ -487,32 +487,34 @@ class TabUI(QtWidgets.QMainWindow):
                 SELECT uploaded, edepot_id FROM tables;
             ''').fetchall()
 
-            has_uploaded = False
+        has_uploaded = False
 
-            for uploaded, edepot_id in result:
-                if edepot_id is not None:
-                    self.edepot_ids.append(edepot_id)
+        for uploaded, edepot_id in result:
+            if edepot_id is not None:
+                self.edepot_ids.append(edepot_id)
 
-                has_uploaded = has_uploaded or uploaded
+            has_uploaded = has_uploaded or uploaded
 
-            if has_uploaded:
-                self.has_uploaded.emit()
-                self.can_upload = False
-                self.can_upload_changed.emit(False)
+        if has_uploaded:
+            self.can_upload = False
+            self.can_upload_changed.emit(False)
 
-                # NOTE: this means some of the items had not been found in the edepot yet
-                if len(result) - 1 != len(self.edepot_ids):
-                    self.edepot_ids = []
+            # NOTE: this means some of the items had not been found in the edepot yet
+            if len(result) - 1 != len(self.edepot_ids):
+                self.edepot_ids = []
+                self.edepot_available_changed.emit(False)
 
-                    t = threading.Thread(
-                        target=self.update_status
-                    )
-                    t.start()
+                t = threading.Thread(
+                    target=self.update_status
+                )
+                t.start()
 
-                    Dialog(
-                        title="Zoeken E-depot",
-                        text="Sommige items waren al geupload maar nog niet teruggevonden in het E-depot, deze worden nu verder gezocht.\n\nWanneer de link naar het E-depot beschikbaar is, zal de knop hiervoor actief worden."
-                    ).exec()
+                Dialog(
+                    title="Zoeken E-depot",
+                    text="Sommige items waren al geupload maar nog niet teruggevonden in het E-depot, deze worden nu verder gezocht.\n\nWanneer de link naar het E-depot beschikbaar is, zal de knop hiervoor actief worden."
+                ).exec()
+            else:
+                self.edepot_available_changed.emit(True)
 
     def create_db(self) -> bool:
         import sqlite3 as sql
@@ -1162,6 +1164,10 @@ class TabUI(QtWidgets.QMainWindow):
                     WHERE table_name='"{series_name}"';
                 ''')
 
+        self.can_upload = True
+        self.can_upload_changed.emit(True)
+        self.edepot_available_changed.emit(False)
+
         Dialog(
             title="SIPs aangemaakt",
             text="SIPS zijn aangemaakt voor de overdrachtslijst."
@@ -1232,7 +1238,7 @@ class TabUI(QtWidgets.QMainWindow):
 
         Dialog(
             title="Upload geslaagd",
-            text="Upload voor de overdrachtslijst is geslaagd.\nDe overdrachtslijst blijft in de lijst staan zolang hij op je computer staat.\nOm hem weg te halen, verwijder de correcte database uit de bestandslocatie.\n\nWanneer de items op het edepot staan zal de knop hiervoor beschikbaar worden.\n\nZodra de link naar het edepot beschikbaar is, zal de knop ook actief worden."
+            text="Upload voor de overdrachtslijst is geslaagd.\nDe overdrachtslijst blijft in de lijst staan zolang hij op je computer staat.\nOm hem weg te halen, verwijder de correcte database uit de bestandslocatie.\n\nWanneer de items op het E-depot staan zal de knop hiervoor beschikbaar worden.\n\nZodra de link naar het E-depot beschikbaar is, zal de knop ook actief worden."
         ).exec()
         self.can_upload_changed.emit(False)
 
@@ -1261,8 +1267,8 @@ class TabUI(QtWidgets.QMainWindow):
 
             if times_slept == max_time_to_sleep:
                 Dialog(
-                    title=f"SIP niet binnen de {max_time_to_sleep // 60} minuten op het edepot gevonden",
-                    text="De SIP was succesvol opgeladen via FTP, maat is niet binnen de tijd opgepikt door het edepot."
+                    title=f"SIP niet binnen de {max_time_to_sleep // 60} minuten op het E-depot gevonden",
+                    text="De SIP was succesvol opgeladen via FTP, maat is niet binnen de tijd opgepikt door het E-depot."
                 ).exec()
                 break
 
@@ -1275,7 +1281,7 @@ class TabUI(QtWidgets.QMainWindow):
 
                 self.edepot_ids.append(edepot_id)
 
-        self.has_uploaded.emit()
+        self.edepot_available_changed.emit(True)
 
 class ListView(QtWidgets.QWidget):
     def __init__(self, tab_ui: TabUI):
@@ -1303,7 +1309,7 @@ class ListView(QtWidgets.QWidget):
         self.upload_button.setEnabled(self.tab_ui.can_upload)
         self.tab_ui.can_upload_changed.connect(self.upload_button.setEnabled)
 
-        self.edepot_button = QtWidgets.QPushButton(text="Open edepot")
+        self.edepot_button = QtWidgets.QPushButton(text="Open E-depot")
         self.edepot_button.clicked.connect(
             lambda: [os.startfile(
                 f"{self.state.configuration.active_environment.api_url}/input/processing-list/{edepot_id}"
@@ -1313,7 +1319,7 @@ class ListView(QtWidgets.QWidget):
         self.tab_ui.configuration_changed.connect(lambda: self.edepot_button.setHidden(self.state.configuration.active_role == "klant"))
 
         self.edepot_button.setEnabled(len(self.tab_ui.edepot_ids) == len(self.tab_ui.tabs) - 1 and len(self.tab_ui.edepot_ids) > 0)
-        self.tab_ui.has_uploaded.connect(lambda: self.edepot_button.setEnabled(True))
+        self.tab_ui.edepot_available_changed.connect(self.edepot_button.setEnabled)
 
         layout.addWidget(title, 0, 0, 1, 3)
         layout.addWidget(open_button, 0, 3)
