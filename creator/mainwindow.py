@@ -479,6 +479,7 @@ class TabUI(QtWidgets.QMainWindow):
         self.load_other_tabs()
 
         self.set_create_button_status()
+        self.set_upload_button_status()
 
         with sql.connect(self.db_location) as conn:
             cursor = conn.execute(f'''
@@ -513,6 +514,12 @@ class TabUI(QtWidgets.QMainWindow):
 
                 UNIQUE(table_name)
             );""")
+
+            # TODO: add name of overdrachtslijst
+            # ALTERS
+            # conn.execute("""
+            # ALTER TABLE
+            # """)
 
             conn.execute(f"""
             INSERT INTO tables (table_name)
@@ -914,6 +921,23 @@ class TabUI(QtWidgets.QMainWindow):
         self.can_upload = True
         self.can_upload_changed.emit(True)
 
+    def set_upload_button_status(self) -> None:
+        for series_name in self.tabs.keys():
+            with sql.connect(self.db_location) as conn:
+                result = [edepot_id for edepot_id, *_ in conn.execute(f"""
+                    SELECT edepot_id
+                    FROM tables
+                    WHERE table_name='"{series_name}"'
+                """).fetchall()]
+
+                # NOTE: only allow upload when none has occurred yet
+                if result[0] == "":
+                    self.can_upload = True
+                    self.can_upload_changed.emit(True)
+                else:
+                    self.can_upload = False
+                    self.can_upload_changed.emit(False)
+
     def hide_or_show_button(self, button: QtWidgets.QPushButton) -> None:
         button.setHidden(self.state.configuration.active_role == "klant")
 
@@ -1106,6 +1130,14 @@ class TabUI(QtWidgets.QMainWindow):
 
             os.remove(temp_loc)
         
+            # NOTE; set the edepot_id to empty again, since it hasn't been uploaded in it's current form
+            with sql.connect(self.db_location) as conn:
+                conn.execute(f'''
+                    UPDATE tables
+                    SET edepot_id=''
+                    WHERE table_name='"{series_name}"';
+                ''')
+
         Dialog(
             title="SIPs aangemaakt",
             text="SIPS zijn aangemaakt voor de overdrachtslijst."
