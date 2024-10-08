@@ -382,6 +382,7 @@ class MigrationWidget(QtWidgets.QWidget):
 
         from creator.controllers.api_controller import APIController
 
+        # NOTE: preload the series
         self.series = APIController.get_series(self.state.configuration)
 
     def load_items(self):
@@ -391,10 +392,11 @@ class MigrationWidget(QtWidgets.QWidget):
             path = os.path.join(self.list_storage_path, partial_path)
 
             tab_ui = TabUI(path=path, series=self.series)
-            self.list_view.add_item("name", ListView(tab_ui))
-
             tab_ui.setup_ui()
             tab_ui.load_items()
+
+            self.list_view.add_item("overdrachtslijst_name", ListView(tab_ui))
+
 
     def add_overdrachtslijst_click(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -406,11 +408,11 @@ class MigrationWidget(QtWidgets.QWidget):
 
         tab_ui = TabUI(path=path, series=self.series)
         
-        if tab_ui.name not in [w['reference'].name for w in self.list_view.widgets]:
-            self.list_view.add_item("name", ListView(tab_ui))
+        if tab_ui.overdrachtslijst_name not in [w['reference'].name for w in self.list_view.widgets]:
+            tab_ui.setup_ui()
+            tab_ui.load_items()
+            self.list_view.add_item("overdrachtslijst_name", ListView(tab_ui))
 
-        tab_ui.setup_ui()
-        tab_ui.load_items()
         tab_ui.show()
 
 
@@ -479,19 +481,38 @@ class TabUI(QtWidgets.QMainWindow):
         self.load_other_tabs()
 
         self.set_create_button_status()
-        self.set_upload_button_status()
 
         with sql.connect(self.db_location) as conn:
-            cursor = conn.execute(f'''
-                SELECT edepot_id FROM tables;
-            ''')
+            result = conn.execute(f'''
+                SELECT uploaded, edepot_id FROM tables;
+            ''').fetchall()
 
-            for edepot_id, *_ in cursor.fetchall():
+            has_uploaded = False
+
+            for uploaded, edepot_id in result:
                 if edepot_id is not None:
                     self.edepot_ids.append(edepot_id)
 
-            if len(self.edepot_ids) > 0:
+                has_uploaded = has_uploaded or uploaded
+
+            if has_uploaded:
                 self.has_uploaded.emit()
+                self.can_upload = False
+                self.can_upload_changed.emit(False)
+
+                # NOTE: this means some of the items had not been found in the edepot yet
+                if not len(result) == len(self.edepot_ids):
+                    self.edepot_ids = []
+
+                    t = threading.Thread(
+                        target=self.update_status
+                    )
+                    t.start()
+
+                    Dialog(
+                        title="Zoeken E-depot",
+                        text="Sommige items waren al geupload maar nog niet teruggevonden in het E-depot, deze worden nu verder gezocht.\n\nWanneer de link naar het E-depot beschikbaar is, zal de knop hiervoor actief worden."
+                    ).exec()
 
     def create_db(self) -> bool:
         import sqlite3 as sql
@@ -499,10 +520,27 @@ class TabUI(QtWidgets.QMainWindow):
 
         os.makedirs(self.storage_base, exist_ok=True)
 
-        if os.path.exists(self.db_location):
-            return False
-
         conn = sql.connect(self.db_location)
+
+        if os.path.exists(self.db_location):
+            with conn:
+                # ALTERS
+                columns = conn.execute("PRAGMA table_info(tables);").fetchall()
+
+                if 'uploaded' not in columns:
+                    conn.execute("""
+                        ALTER TABLE tables
+                        ADD COLUMN uploaded BOOLEAN;
+                    """)
+
+                    conn.execute("""
+                        UPDATE tables
+                        SET uploaded = CASE
+                            WHEN edepot_id IS NOT NULL THEN 1
+                            ELSE 0
+                        END;
+                    """)
+            return False
 
         with conn:
             conn.execute("""
@@ -872,6 +910,8 @@ class TabUI(QtWidgets.QMainWindow):
             model.save_data()
             model.has_changed = False
 
+        self.close()
+
     def reload_tabs(self) -> None:
         for table_name, tab_view in self.tabs.items():
             # Reload all the data
@@ -914,23 +954,6 @@ class TabUI(QtWidgets.QMainWindow):
         self.create_sips_button.setEnabled(True)
         self.can_upload = True
         self.can_upload_changed.emit(True)
-
-    def set_upload_button_status(self) -> None:
-        for series_name in self.tabs.keys():
-            with sql.connect(self.db_location) as conn:
-                result = [edepot_id for edepot_id, *_ in conn.execute(f"""
-                    SELECT edepot_id
-                    FROM tables
-                    WHERE table_name='"{series_name}"'
-                """).fetchall()]
-
-                # NOTE: only allow upload when none has occurred yet
-                if result[0] == "":
-                    self.can_upload = True
-                    self.can_upload_changed.emit(True)
-                else:
-                    self.can_upload = False
-                    self.can_upload_changed.emit(False)
 
     def hide_or_show_button(self, button: QtWidgets.QPushButton) -> None:
         button.setHidden(self.state.configuration.active_role == "klant")
@@ -1128,7 +1151,8 @@ class TabUI(QtWidgets.QMainWindow):
             with sql.connect(self.db_location) as conn:
                 conn.execute(f'''
                     UPDATE tables
-                    SET edepot_id=''
+                    SET edepot_id=null,
+                        uploaded=0
                     WHERE table_name='"{series_name}"';
                 ''')
 
@@ -1157,8 +1181,8 @@ class TabUI(QtWidgets.QMainWindow):
 
             model: SQLliteModel = table_view.model()
 
-            sip_location = os.path.join(sip_storage_path, f"{model.series_id}-{model._table_name.rsplit('(', 1)[0]}.zip")
-            md5_location = os.path.join(sip_storage_path, f"{model.series_id}-{model._table_name.rsplit('(', 1)[0]}.xml")
+            sip_location = os.path.join(sip_storage_path, f"{model.series_id}-{self.overdrachtslijst_name}.zip")
+            md5_location = os.path.join(sip_storage_path, f"{model.series_id}-{self.overdrachtslijst_name}.xml")
 
             if not os.path.exists(sip_location) or not os.path.exists(md5_location):
                 self.create_sips()
@@ -1172,9 +1196,9 @@ class TabUI(QtWidgets.QMainWindow):
                     session.prot_p()
 
                     with open(sip_location, "rb") as f:
-                        session.storbinary(f"STOR {model.series_id}-{model._table_name.rsplit('(', 1)[0]}.zip", f)
+                        session.storbinary(f"STOR {model.series_id}-{self.overdrachtslijst_name}.zip", f)
                     with open(md5_location, "rb") as f:
-                        session.storbinary(f"STOR {model.series_id}-{model._table_name.rsplit('(', 1)[0]}.xml", f)
+                        session.storbinary(f"STOR {model.series_id}-{self.overdrachtslijst_name}.xml", f)
             except ftplib.error_perm:
                 WarningDialog(
                     title="Connectie fout",
@@ -1187,32 +1211,54 @@ class TabUI(QtWidgets.QMainWindow):
                     text=f"Je FTPS connectie url staat niet in orde voor omgeving '{self.sip.environment.name}'",
                 ).exec()
                 return
+ 
+            with sql.connect(self.db_location) as conn:
+                conn.execute(f'''
+                    UPDATE tables
+                    SET uploaded=1
+                    WHERE table_name='"{series_name}"';
+                ''')
 
         t = threading.Thread(
             target=self.update_status
         )
         t.start()
+
         Dialog(
             title="Upload geslaagd",
-            text="Upload voor de overdrachtslijst is geslaagd.\nDe overdrachtslijst blijft in de lijst staan zolang hij op je computer staat.\nOm hem weg te halen, verwijder de correcte database uit de bestandslocatie.\n\nWanneer de items op het edepot staan zal de knop hiervoor beschikbaar worden."
+            text="Upload voor de overdrachtslijst is geslaagd.\nDe overdrachtslijst blijft in de lijst staan zolang hij op je computer staat.\nOm hem weg te halen, verwijder de correcte database uit de bestandslocatie.\n\nWanneer de items op het edepot staan zal de knop hiervoor beschikbaar worden.\n\nZodra de link naar het edepot beschikbaar is, zal de knop ook actief worden."
         ).exec()
+        self.can_upload_changed.emit(False)
 
     def update_status(self) -> None:
         import time
-
-        # NOTE: wait some time for the edepot to pick them up
-        time.sleep(10)
 
         for series_name, table_view in self.tabs.items():
             if series_name == self.main_tab:
                 continue
 
             model: SQLliteModel = table_view.model()
+            edepot_id = None
+            times_slept = 0
+            max_time_to_sleep = 300
 
-            edepot_id = APIController.get_sip_id_for_name(
-                self.state.configuration.active_environment,
-                f"{model.series_id}-{series_name.rsplit('(', 1)[0]}.zip"
-            )
+            while edepot_id is None and times_slept < max_time_to_sleep:
+                edepot_id = APIController.get_sip_id_for_name(
+                    self.state.configuration.active_environment,
+                    f"{model.series_id}-{self.overdrachtslijst_name}.zip"
+                )
+
+                # NOTE: wait some time for the edepot to pick them up
+                time.sleep(10)
+
+                times_slept += 10
+
+            if times_slept == max_time_to_sleep:
+                Dialog(
+                    title=f"SIP niet binnen de {max_time_to_sleep // 60} minuten op het edepot gevonden",
+                    text="De SIP was succesvol opgeladen via FTP, maat is niet binnen de tijd opgepikt door het edepot."
+                ).exec()
+                break
 
             with sql.connect(self.db_location) as conn:
                 conn.execute(f'''
@@ -1224,7 +1270,6 @@ class TabUI(QtWidgets.QMainWindow):
                 self.edepot_ids.append(edepot_id)
 
         self.has_uploaded.emit()
-        self.can_upload_changed.emit(False)
 
 class ListView(QtWidgets.QWidget):
     def __init__(self, tab_ui: TabUI):
@@ -1261,7 +1306,7 @@ class ListView(QtWidgets.QWidget):
         self.edepot_button.setHidden(self.state.configuration.active_role == "klant")
         self.tab_ui.configuration_changed.connect(lambda: self.edepot_button.setHidden(self.state.configuration.active_role == "klant"))
 
-        self.edepot_button.setEnabled(len(self.tab_ui.edepot_ids) > 0)
+        self.edepot_button.setEnabled(len(self.tab_ui.edepot_ids) == len(self.tab_ui.tabs) - 1 and len(self.tab_ui.edepot_ids) > 0)
         self.tab_ui.has_uploaded.connect(lambda: self.edepot_button.setEnabled(True))
 
         layout.addWidget(title, 0, 0, 1, 3)

@@ -273,6 +273,7 @@ class APIController:
 
             sip_objects = response["Content"]
 
+            # NOTE: we just have to assume the sip name will be unique, since the API is not supporting searching by name/time
             for sip_object in sip_objects:
                 if sip_object["OriginalFilename"] == zip_name:
                     return sip_object["Id"]

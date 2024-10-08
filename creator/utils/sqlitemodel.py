@@ -128,7 +128,6 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         # NOTE: for the checks, set all the cells
         changed_before = self.has_changed
 
-
         # Reset colors and tooltips
         self.colors = {}
         self.tooltips = {}
