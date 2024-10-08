@@ -1198,6 +1198,7 @@ class TabUI(QtWidgets.QMainWindow):
                 self.edepot_ids.append(edepot_id)
 
         self.has_uploaded.emit()
+        self.can_upload_changed.emit(False)
 
 class ListView(QtWidgets.QWidget):
     def __init__(self, tab_ui: TabUI):
