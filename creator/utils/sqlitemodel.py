@@ -215,6 +215,8 @@ class SQLliteModel(QtCore.QAbstractTableModel):
                 self.serie_check(row, col, value)
             elif column in ("Openingsdatum", "Sluitingsdatum"):
                 self.date_check(row, col, value)
+
+                self.dataChanged.emit(self.index(row, col-1), self.index(row, col+1))
             elif any(c in column for c in ("Origineel Doosnummer", "Legacy locatie ID", "Legacy range", "Verpakkingstype")):
                 self.location_check(row, col, value)
             elif column == "Naam":
