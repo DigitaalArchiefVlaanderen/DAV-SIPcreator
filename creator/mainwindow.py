@@ -434,8 +434,8 @@ class TabUI(QtWidgets.QMainWindow):
         self.toolbar.configuration_changed.connect(self.configuration_changed.emit)
 
         self.path = path
-        self.name = os.path.splitext(os.path.basename(path))[0]
-        self.db_location = f"{self.storage_base}/{self.name}.db"
+        self.overdrachtslijst_name = os.path.splitext(os.path.basename(path))[0]
+        self.db_location = f"{self.storage_base}/{self.overdrachtslijst_name}.db"
         self.series = series
 
         self._layout = QtWidgets.QGridLayout()
@@ -450,7 +450,7 @@ class TabUI(QtWidgets.QMainWindow):
 
     def setup_ui(self):
         self.resize(800, 600)
-        self.setWindowTitle(self.name)
+        self.setWindowTitle(self.overdrachtslijst_name)
         self.addToolBar(self.toolbar)
 
         central_widget = QtWidgets.QWidget()
@@ -514,12 +514,6 @@ class TabUI(QtWidgets.QMainWindow):
 
                 UNIQUE(table_name)
             );""")
-
-            # TODO: add name of overdrachtslijst
-            # ALTERS
-            # conn.execute("""
-            # ALTER TABLE
-            # """)
 
             conn.execute(f"""
             INSERT INTO tables (table_name)
@@ -1102,8 +1096,8 @@ class TabUI(QtWidgets.QMainWindow):
             wb.save(temp_loc)
             wb.close()
 
-            sip_location = os.path.join(sip_storage_path, f"{model.series_id}-{model._table_name.rsplit('(', 1)[0]}.zip")
-            md5_location = os.path.join(sip_storage_path, f"{model.series_id}-{model._table_name.rsplit('(', 1)[0]}.xml")
+            sip_location = os.path.join(sip_storage_path, f"{model.series_id}-{self.overdrachtslijst_name}.zip")
+            md5_location = os.path.join(sip_storage_path, f"{model.series_id}-{self.overdrachtslijst_name}.xml")
 
             with zipfile.ZipFile(
                 sip_location, "w", compression=zipfile.ZIP_DEFLATED
@@ -1239,13 +1233,13 @@ class ListView(QtWidgets.QWidget):
         self.application: Application = QtWidgets.QApplication.instance()
         self.state: State = self.application.state
 
-        self.name = tab_ui.name
+        self.overdrachtslijst_name = tab_ui.overdrachtslijst_name
         self.tab_ui = tab_ui
 
         layout = QtWidgets.QGridLayout()
         self.setLayout(layout)
 
-        title = QtWidgets.QLabel(text=self.name)
+        title = QtWidgets.QLabel(text=self.overdrachtslijst_name)
 
         open_button = QtWidgets.QPushButton(text="Open")
         open_button.clicked.connect(self.tab_ui.show)
