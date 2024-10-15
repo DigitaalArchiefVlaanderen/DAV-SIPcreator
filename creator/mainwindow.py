@@ -1110,7 +1110,6 @@ class TabUI(QtWidgets.QMainWindow):
             ws = wb["Details"]
 
             data = model.raw_data
-            # data = [[]]
 
             # NOTE: overwrite the headers
             for col_index, col in model.columns.items():
@@ -1118,7 +1117,9 @@ class TabUI(QtWidgets.QMainWindow):
                 if col_index < 2:
                     continue
 
-                re_match = re.match(r"(.*)_\d+$", col)
+                # NOTE: duplicate columns generate like <col>_<n>
+                # duplicate columns read generate like <col>.<n>
+                re_match = re.match(r"(.*)[_.]\d+$", col)
 
                 if re_match:
                     col = re_match.group(1)
@@ -1135,7 +1136,6 @@ class TabUI(QtWidgets.QMainWindow):
 
             wb.save(temp_loc)
             wb.close()
-            print("-----------------------------------------")
 
             sip_location = os.path.join(sip_storage_path, f"{model.series_id}-{self.overdrachtslijst_name}.zip")
             md5_location = os.path.join(sip_storage_path, f"{model.series_id}-{self.overdrachtslijst_name}.xml")
