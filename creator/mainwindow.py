@@ -583,11 +583,16 @@ class TabUI(QtWidgets.QMainWindow):
         ws = wb[self.main_tab]
         data = ws.values
 
+        # TODO: remove this? headers should be standardized
         header_transform = lambda h: str(h).strip().lower().replace(" ", "_").replace("-", "_").replace("\n", "").replace(".", "")
 
-        while "doosnr" != header_transform((headers := next(data))[0]):
-            pass
-        
+        try:
+            while "doosnr" != header_transform((headers := next(data))[0]):
+                pass
+        except StopIteration:
+            # TODO: proper error here
+            raise
+
         # Filter out empty headers
         headers = [
             header_transform(h)
@@ -606,6 +611,7 @@ class TabUI(QtWidgets.QMainWindow):
         ).fillna("").astype(str).convert_dtypes()
 
         # NOTE: add headers if needed
+        # TODO: URI Serieregister is the actual name
         added_headers = ("id", "series_name", "uri_serieregister")
 
         for h in added_headers:
@@ -794,8 +800,8 @@ class TabUI(QtWidgets.QMainWindow):
             # Insert where needed
             # NOTE: don't do other auto-mapping
             conn.execute(f"""
-                INSERT INTO "{name}" (main_id, "Analoog?") --, beschrijving, openingsdatum, sluitingsdatum)
-                SELECT id, 'ja' --, beschrijving, begin_datum, eind_datum
+                INSERT INTO "{name}" (main_id, "Analoog?", "Path in SIP", "DossierRef", "Naam", "Openingsdatum", "Sluitingsdatum", "Origineel Doosnummer")
+                SELECT id, 'ja', "Beschrijving", "Beschrijving", "Beschrijving", "Begindatum", "Einddatum", "Doosnr" || '/{self.overdrachtslijst_name}'
                 FROM {self.main_tab}
                 WHERE id IN ({selected_rows_str})
                   AND (series_name != '"{name}"' OR series_name IS NULL OR series_name == '');
@@ -958,7 +964,7 @@ class TabUI(QtWidgets.QMainWindow):
                 self.can_upload = False
                 self.can_upload_changed.emit(False)
                 return
-            
+
         self.create_sips_button.setEnabled(True)
         self.can_upload = True
         self.can_upload_changed.emit(True)
@@ -1103,6 +1109,9 @@ class TabUI(QtWidgets.QMainWindow):
             wb = load_workbook(os.path.join(sjabloon_base_path, f"{model.series_id}.xlsx"))
             ws = wb["Details"]
 
+            data = model.raw_data
+            # data = [[]]
+
             # NOTE: overwrite the headers
             for col_index, col in model.columns.items():
                 # NOTE: skip id and main_id
@@ -1116,7 +1125,7 @@ class TabUI(QtWidgets.QMainWindow):
 
                 ws[f"{_col_index_to_xslx_col(col_index - 2)}1"] = col
 
-            for row_index, row in enumerate(model.raw_data):
+            for row_index, row in enumerate(data):
                 for col_index, value in enumerate(row):
                     # NOTE: skip id and main_id
                     if col_index < 2:
@@ -1126,6 +1135,7 @@ class TabUI(QtWidgets.QMainWindow):
 
             wb.save(temp_loc)
             wb.close()
+            print("-----------------------------------------")
 
             sip_location = os.path.join(sip_storage_path, f"{model.series_id}-{self.overdrachtslijst_name}.zip")
             md5_location = os.path.join(sip_storage_path, f"{model.series_id}-{self.overdrachtslijst_name}.xml")
