@@ -110,6 +110,26 @@ class APIController:
             if group["Type"] == "Organisation":
                 return group["Id"]
 
+
+    @staticmethod
+    def _get_organisation_id(access_token: str, environment: Environment) -> str:
+        base_url = environment.api_url
+        endpoint = "edepot/api/v1/users/current"
+
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
+
+        response = APIController._perform_request(
+            request_type=requests.get,
+            url=f"{base_url}/{endpoint}",
+            headers=headers,
+            reraise=True,
+        ).json()
+
+        return response["Organisation"]["Id"]
+
     @staticmethod
     def get_series(configuration: Configuration, search: str = None) -> list[Series]:
         environment = configuration.active_environment
@@ -118,7 +138,7 @@ class APIController:
             environment, reraise=True, warn=True
         )
 
-        user_group_id = APIController._get_user_group_id(
+        organisation_id = APIController._get_organisation_id(
             access_token, environment
         )
 
@@ -133,9 +153,8 @@ class APIController:
         params = {
             "size": 100,
             "page": 0,
-            # "status": "Submitted",
             "status": "Published",
-            "securityGroupId": user_group_id,
+            "q": f"+OrganisationId:{organisation_id}"
         }
 
         if search is not None:
