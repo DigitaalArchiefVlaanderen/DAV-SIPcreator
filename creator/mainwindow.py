@@ -600,6 +600,23 @@ class TabUI(QtWidgets.QMainWindow):
             if h is not None
         ]
 
+        # new_headers = []
+
+        # for header in headers:
+        #     match header:
+        #         case "beschrijving":
+        #             new_headers.append("Beschrijving")
+        #         case "begin_datum":
+        #             new_headers.append("Begindatum")
+        #         case "eind_datum":
+        #             new_headers.append("Einddatum")
+        #         case "doosnr":
+        #             new_headers.append("Doosnr")
+        #         case _:
+        #             new_headers.append(header)
+
+        # headers = new_headers
+
         # Filter out empty rows
         df = pd.DataFrame(
             (
@@ -1150,13 +1167,12 @@ class TabUI(QtWidgets.QMainWindow):
 
             md5 = hashlib.md5(open(sip_location, "rb").read()).hexdigest()
 
-            side_car_info = """
-    <?xml version="1.0" encoding="UTF-8"?>
-    <mhs:Sidecar xmlns:mhs="https://zeticon.mediahaven.com/metadata/20.3/mhs/" version="20.3" xmlns:mh="https://zeticon.mediahaven.com/metadata/20.3/mh/">
-        <mhs:Technical>
-                <mh:Md5>{md5}</mh:Md5>
-        </mhs:Technical>
-    </mhs:Sidecar>""".format(
+            side_car_info = """<?xml version="1.0" encoding="UTF-8"?>
+<mhs:Sidecar xmlns:mhs="https://zeticon.mediahaven.com/metadata/20.3/mhs/" version="20.3" xmlns:mh="https://zeticon.mediahaven.com/metadata/20.3/mh/">
+    <mhs:Technical>
+            <mh:Md5>{md5}</mh:Md5>
+    </mhs:Technical>
+</mhs:Sidecar>""".format(
                 md5=md5
             )
 
