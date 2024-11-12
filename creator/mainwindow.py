@@ -625,6 +625,7 @@ class TabUI(QtWidgets.QMainWindow):
             "Doosnr",
             "URI Serieregister",
         )
+        headers = [h for h in headers if h is not None]
         for h in expected_headers:
             if h not in headers:
                 raise Exception(f"Verwachtte om de kolom '{h}' tegen te komen, maar is niet gevonden.")
