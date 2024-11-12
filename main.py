@@ -3,10 +3,18 @@ import sys
 from creator.application import Application
 from creator.mainwindow import MainWindow, set_main
 
-app = Application(MainWindow, set_main_callback=set_main)
-app.start()
+from creator.widgets.warning_dialog import WarningDialog
 
-try:
-    sys.exit(app.exec())
-except KeyboardInterrupt:
-    sys.exit(-1)
+def excepthook(cls, exception, traceback):
+    WarningDialog(
+        title="Een fout is opgetreden",
+        text=f"{exception}\n\nSipCreator sluit nu af."
+    ).exec()
+    sys.exit()
+
+
+sys.excepthook = excepthook
+app = Application(MainWindow, set_main_callback=set_main)
+
+app.start()
+sys.exit(app.exec())

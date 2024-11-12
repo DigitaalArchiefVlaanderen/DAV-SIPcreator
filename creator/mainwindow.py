@@ -475,7 +475,13 @@ class TabUI(QtWidgets.QMainWindow):
     def load_items(self):
         if self.create_db():
             # No need to load if the db already existed
-            self.load_overdrachtslijst()
+
+            try:
+                self.load_overdrachtslijst()
+            except:
+                # NOTE: if an exception occurred and we just created the db, remove it again
+                os.remove(self.db_location)
+                raise
         
         self.load_main_tab()
         self.load_other_tabs()
@@ -610,7 +616,18 @@ class TabUI(QtWidgets.QMainWindow):
                 pass
         except StopIteration:
             # TODO: proper error here
-            raise
+            raise Exception("Geen hoofdingen gevonden in de overdrachtslijst")
+
+        expected_headers = (
+            "Beschrijving",
+            "Begindatum",
+            "Einddatum",
+            "Doosnr",
+            "URI Serieregister",
+        )
+        for h in expected_headers:
+            if h not in headers:
+                raise Exception(f"Verwachtte om de kolom '{h}' tegen te komen, maar is niet gevonden.")
 
         # Filter out empty rows
         df = pd.DataFrame(
@@ -1364,8 +1381,6 @@ def set_main(application: Application, main: MainWindow) -> None:
 
     # TODO: use role
     active_role, active_type = config.active_role, config.active_type
-
-    print(active_type)
 
     if active_type == "digitaal":
         main.central_widget = DigitalWidget(main)
