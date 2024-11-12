@@ -565,6 +565,26 @@ class TabUI(QtWidgets.QMainWindow):
         return True
 
     def load_overdrachtslijst(self):
+        # def header_mapping(headers: tuple[str]) -> list[str]:
+        #     new_headers = []
+
+        #     for header in headers:
+        #         match header:
+        #             case "Beschrijving ":
+        #                 new_headers.append("Beschrijving")
+        #             case "Begin-\ndatum":
+        #                 new_headers.append("Begindatum")
+        #             case "Eind-\ndatum":
+        #                 new_headers.append("Einddatum")
+        #             case "Doosnr. ":
+        #                 new_headers.append("Doosnr")
+        #             case None:
+        #                 new_headers.append("URI Serieregister")
+        #             case _:
+        #                 new_headers.append(header)
+
+        #     return new_headers
+
         import pandas as pd
         from openpyxl import load_workbook
         import sqlite3 as sql
@@ -583,39 +603,14 @@ class TabUI(QtWidgets.QMainWindow):
         ws = wb[self.main_tab]
         data = ws.values
 
-        # TODO: remove this? headers should be standardized
-        header_transform = lambda h: str(h).strip().lower().replace(" ", "_").replace("-", "_").replace("\n", "").replace(".", "")
-
         try:
-            while "doosnr" != header_transform((headers := next(data))[0]):
+            # TODO: check all?
+            # while "Doosnr" not in (headers := header_mapping(next(data))):
+            while "Doosnr" not in (headers := next(data)):
                 pass
         except StopIteration:
             # TODO: proper error here
             raise
-
-        # Filter out empty headers
-        headers = [
-            header_transform(h)
-            for h in headers
-            if h is not None
-        ]
-
-        # new_headers = []
-
-        # for header in headers:
-        #     match header:
-        #         case "beschrijving":
-        #             new_headers.append("Beschrijving")
-        #         case "begin_datum":
-        #             new_headers.append("Begindatum")
-        #         case "eind_datum":
-        #             new_headers.append("Einddatum")
-        #         case "doosnr":
-        #             new_headers.append("Doosnr")
-        #         case _:
-        #             new_headers.append(header)
-
-        # headers = new_headers
 
         # Filter out empty rows
         df = pd.DataFrame(
@@ -627,20 +622,13 @@ class TabUI(QtWidgets.QMainWindow):
             columns=headers,
         ).fillna("").astype(str).convert_dtypes()
 
-        # NOTE: add headers if needed
-        # TODO: URI Serieregister is the actual name
-        added_headers = ("id", "series_name", "uri_serieregister")
-
-        for h in added_headers:
-            if not h in df.columns:
-                df[h] = ""
-
-            if h == "id":
-                df[h] = range(df.shape[0])
+        # df["URI Serieregister"] = "https://serieregister-ti.vlaanderen.be/id/serie/e641d8943266475594d43bd7e9d9bb08ea4893ce5e9646e39bc56911bfffc079"
+        df["id"] = range(df.shape[0])
+        df["series_name"] = ""
 
         # NOTE: reorder headers
         cols = df.columns.tolist()
-        cols = [added_headers[0], added_headers[1], *(c for c in cols if c not in added_headers), added_headers[2]]
+        cols = ["id", "series_name", *(c for c in cols if c not in ("id", "series_name", "URI Serieregister")), "URI Serieregister"]
         df = df[cols]
 
         con = sql.connect(self.db_location)
@@ -694,30 +682,44 @@ class TabUI(QtWidgets.QMainWindow):
         layout.addWidget(unassigned_only_checkbox, 1, 0)
         layout.addWidget(self.main_table, 2, 0, 1, 5)
 
-        conn = sql.connect(self.db_location)
-
-        with conn:
-            # NOTE: set all the series_names where the series_id matches one we got
-            for s in listed_series:
-                name = s.get_name().strip().replace('"', "").replace("'", "")
-
-                conn.execute(f"""
-                    UPDATE {self.main_tab}
-                    SET series_name='"{name}"'
-                    WHERE uri_serieregister='https://serieregister.vlaanderen.be/id/serie/{s._id}';
-                """)
-
         self.tab_widget.addTab(container, self.main_tab)
         self.tabs[self.main_tab] = self.main_table
 
         # NOTE: hide the id column
         self.main_table.hideColumn(0)
 
+        # NOTE: map all the URI Serieregisters
+        conn = sql.connect(self.db_location)
+        with conn:
+            unique_serie_uris = [
+                uri for uri, *_ in 
+                conn.execute(f"""SELECT "URI Serieregister" FROM {self.main_tab} GROUP BY "URI Serieregister";""").fetchall()
+            ]
+
+            uri_index_maps = {}
+
+            for serie_uri in unique_serie_uris:
+                uri_index_maps[serie_uri] = [
+                    i for i, *_ in
+                    conn.execute(f"""SELECT id FROM {self.main_tab} WHERE "URI Serieregister" = '{serie_uri}';""").fetchall()
+                ]
+
+        # NOTE: set all the series_names where the series_id matches one we got
+        for uri, indexes in uri_index_maps.items():
+            match = [s for s in self.series if s._id == uri.split("/")[-1]]
+
+            if len(match) != 1:
+                continue
+
+            series = match[0]
+
+            self.add_to_new(name=series.get_name(), series_id=series._id, mapping_ids=indexes)
+
     def load_other_tabs(self):
         conn = sql.connect(self.db_location)
 
         with conn:
-            tables = conn.execute(f"SELECT table_name, uri_serieregister FROM tables WHERE table_name != '{self.main_tab}';")
+            tables = conn.execute(f"""SELECT table_name, "URI Serieregister" FROM tables WHERE table_name != '{self.main_tab}';""")
 
         for table_name, uri_serieregister in tables:
             serie_id = uri_serieregister.rsplit("/id/serie/", 1)[-1]
@@ -725,7 +727,7 @@ class TabUI(QtWidgets.QMainWindow):
             # NOTE: remove leading and trailing quotes
             self.create_tab(table_name[1:-1], serie_id)
 
-    def add_to_new(self, name: str, series_id: str):
+    def add_to_new(self, name: str, series_id: str, mapping_ids: list[int] = None):
         # NOTE: only thing not allowed is quotes
         name = name.strip().replace('"', "").replace("'", "")
 
@@ -735,15 +737,17 @@ class TabUI(QtWidgets.QMainWindow):
 
         conn = sql.connect(self.db_location)
 
-        selected_rows = [str(r.row()) for r in self.main_table.selectionModel().selectedRows()]
+        if mapping_ids is None:
+            selected_rows = [str(r.row()) for r in self.main_table.selectionModel().selectedRows()]
 
-        if len(selected_rows) == 0:
-            return
+            if len(selected_rows) == 0:
+                return
 
-        selected_rows_str = ", ".join(selected_rows)
+            selected_rows_str = ", ".join(selected_rows)
+        else:
+            selected_rows_str = ", ".join(str(i) for i in mapping_ids)
 
-        base = self.state.configuration.active_environment.api_url.replace("digitaalarchief", "serieregister")
-        uri = f"{base}/id/serie/{series_id}"
+        uri = f"{self.state.configuration.active_environment.get_serie_register_uri()}/{series_id}"
 
         with conn:
             # Check if table exists
@@ -828,7 +832,7 @@ class TabUI(QtWidgets.QMainWindow):
             conn.execute(f"""
                 UPDATE {self.main_tab}
                 SET series_name='"{name}"',
-                    uri_serieregister='{uri}'
+                    "URI Serieregister"='{uri}'
                 WHERE id IN ({selected_rows_str});
             """)
 
@@ -840,6 +844,9 @@ class TabUI(QtWidgets.QMainWindow):
             
             model.get_data()
             model.layoutChanged.emit()
+        elif mapping_ids:
+            # NOTE: we added this automatically, don't add the tab here
+            pass
         else:
             self.create_tab(name, series_id)
 

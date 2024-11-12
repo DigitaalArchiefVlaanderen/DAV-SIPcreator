@@ -77,6 +77,9 @@ class Environment:
             port=self.ftps_port,
         )
 
+    def get_serie_register_uri(self) -> str:
+        return self.api_url.replace("digitaalarchief", "serieregister") + "/id/serie"
+
 @dataclass
 class Misc:
     environments_activity: dict
