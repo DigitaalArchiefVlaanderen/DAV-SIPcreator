@@ -533,8 +533,9 @@ class TabUI(QtWidgets.QMainWindow):
             with sql.connect(self.db_location) as conn:
                 # ALTERS
                 columns = conn.execute("PRAGMA table_info(tables);").fetchall()
+                column_names = [column_name for _, column_name, *_ in columns]
 
-                if 'uploaded' not in [column_name for _, column_name, *_ in columns]:
+                if 'uploaded' not in column_names:
                     conn.execute("""
                         ALTER TABLE tables
                         ADD COLUMN uploaded BOOLEAN;
@@ -547,6 +548,13 @@ class TabUI(QtWidgets.QMainWindow):
                             ELSE 0
                         END;
                     """)
+            
+                if 'URI Serieregister' not in column_names:
+                    if 'uri_serieregister' in column_names:
+                        conn.execute('ALTER TABLE tables RENAME COLUMN uri_serieregister TO "URI Serieregister";')
+                    else:
+                        conn.execute('ALTER TABLE tables ADD COLUMN "URI Serieregister" TEXT;')
+            
             return False
 
         with sql.connect(self.db_location) as conn:
@@ -554,7 +562,7 @@ class TabUI(QtWidgets.QMainWindow):
             CREATE TABLE tables (
                 id INTEGER PRIMARY KEY,
                 table_name TEXT,
-                uri_serieregister TEXT,
+                "URI Serieregister" TEXT,
                 edepot_id TEXT,
                 uploaded BOOLEAN DEFAULT 0,
 
@@ -723,8 +731,10 @@ class TabUI(QtWidgets.QMainWindow):
                 ]
 
         # NOTE: set all the series_names where the series_id matches one we got
+        uri_pre = self.state.configuration.active_environment.get_serie_register_uri()
+
         for uri, indexes in uri_index_maps.items():
-            match = [s for s in self.series if s._id == uri.split("/")[-1]]
+            match = [s for s in self.series if s._id == uri.split(uri_pre + "/")[-1]]
 
             if len(match) != 1:
                 continue
@@ -738,12 +748,20 @@ class TabUI(QtWidgets.QMainWindow):
 
         with conn:
             tables = conn.execute(f"""SELECT table_name, "URI Serieregister" FROM tables WHERE table_name != '{self.main_tab}';""")
+        
+        # NOTE: set all the series_names where the series_id matches one we got
+        uri_pre = self.state.configuration.active_environment.get_serie_register_uri()
 
         for table_name, uri_serieregister in tables:
-            serie_id = uri_serieregister.rsplit("/id/serie/", 1)[-1]
+            match = [s for s in self.series if s._id == uri_serieregister.split(uri_pre + "/")[-1]]
+
+            if len(match) != 1:
+                continue
+
+            series = match[0]
 
             # NOTE: remove leading and trailing quotes
-            self.create_tab(table_name[1:-1], serie_id)
+            self.create_tab(name=table_name[1:-1], series_id=series._id)
 
     def add_to_new(self, name: str, series_id: str, mapping_ids: list[int] = None):
         # NOTE: only thing not allowed is quotes
