@@ -1,5 +1,4 @@
 import sqlite3 as sql
-from PySide6.QtWidgets import QApplication
 
 from typing import List, Iterable
 import json
@@ -9,7 +8,6 @@ from ..utils.state_utils.dossier import Dossier
 from ..utils.state_utils.sip import SIP
 from ..utils.sip_status import SIPStatus
 from ..utils.series import Series
-from ..utils.configuration import Configuration
 
 
 class DBController:
@@ -120,6 +118,9 @@ class DBController:
                 )
 
     def insert_series(self, series: Series):
+        if series._id == "":
+            return
+
         if self.find_series(series_id=series._id) is not None:
             self.update_series(series=series)
             return
@@ -238,6 +239,9 @@ class DBController:
             conn.commit()
 
     def update_sip(self, sip: SIP):
+        if sip.status == SIPStatus.DELETED:
+            return self.delete_sip(sip)
+
         with self.conn as conn:
             conn.execute(
                 tables.update_sip,
@@ -250,6 +254,36 @@ class DBController:
                     json.dumps(sip.tag_mapping),
                     json.dumps(sip.folder_mapping),
                     sip.edepot_sip_id,
+                    sip._id,
+                ),
+            )
+
+            conn.commit()
+
+    def delete_sip(self, sip: SIP):
+        # Delete the sip from the db, including all it's connections
+        with self.conn as conn:
+            conn.execute(
+                tables.delete_series,
+                (
+                    sip.series._id,
+                ),
+            )
+            conn.execute(
+                tables.delete_dossiers_by_sip,
+                (
+                    sip._id,
+                ),
+            )
+            conn.execute(
+                tables.delete_dossier_links_by_sip,
+                (
+                    sip._id,
+                ),
+            )
+            conn.execute(
+                tables.delete_sip,
+                (
                     sip._id,
                 ),
             )

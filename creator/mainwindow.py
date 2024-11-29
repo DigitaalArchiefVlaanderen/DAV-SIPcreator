@@ -232,6 +232,7 @@ class DigitalWidget(QtWidgets.QWidget):
                 SIPStatus.SIP_CREATED,
             ):
                 sip_widget.open_explorer_button.setEnabled(True)
+                sip_widget.delete_button.setEnabled(True)
 
             if sip.status in (SIPStatus.PROCESSING, SIPStatus.ACCEPTED, SIPStatus.REJECTED):
                 sip_widget.open_edepot_button.setEnabled(True)

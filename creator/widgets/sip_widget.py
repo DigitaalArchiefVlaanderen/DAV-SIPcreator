@@ -1,9 +1,7 @@
 from PySide6 import QtWidgets, QtGui, QtCore
 
-import shutil
 import os
 import ftplib
-import uuid
 import socket
 import threading
 
@@ -16,6 +14,7 @@ from ..utils.state_utils.sip import SIP
 from ..utils.sip_status import SIPStatus
 
 from ..widgets.warning_dialog import WarningDialog
+from ..widgets.dialog import YesNoDialog
 
 from ..windows.sip_view import SIPView
 
@@ -134,10 +133,15 @@ class SIPWidget(QtWidgets.QFrame):
         )
         self.open_edepot_button.setEnabled(False)
 
+        self.delete_button = QtWidgets.QPushButton(text="Verwijder")
+        self.delete_button.clicked.connect(self.delete_button_clicked)
+        self.delete_button.setEnabled(False)
+
         controls_layout.addWidget(self.open_button)
         controls_layout.addWidget(self.upload_button)
         controls_layout.addWidget(self.open_explorer_button)
         controls_layout.addWidget(self.open_edepot_button)
+        controls_layout.addWidget(self.delete_button)
         controls_layout.addStretch()
 
         # Layout
@@ -223,6 +227,45 @@ class SIPWidget(QtWidgets.QFrame):
         self.sip.set_status(SIPStatus.UPLOADING)
         t.start()
 
+    def delete_button_clicked(self) -> None:
+        # Deletes the SIP and it's corresponding files (md5)
+
+        dialog = YesNoDialog(
+            title="Verwijder files",
+            text="Ben je zeker dat je de SIP en al zijn bijhorende files wilt verwijderen?\nDeze actie kan niet ongedaan gemaakt worden.",
+        )
+        dialog.exec()
+
+        if not dialog.result():
+            return
+
+        sip_location = os.path.join(
+            self.state.configuration.misc.save_location,
+            FileController.SIP_STORAGE,
+            self.sip.file_name,
+        )
+        sidecar_location = os.path.join(
+            self.state.configuration.misc.save_location,
+            FileController.SIP_STORAGE,
+            self.sip.sidecar_file_name,
+        )
+
+        try:
+            os.remove(sip_location)
+        except FileNotFoundError:
+            pass
+
+        try:
+            os.remove(sidecar_location)
+        except FileNotFoundError:
+            pass
+
+        self.deleteLater()
+
+        # NOTE: set the status to deleted, this will be caught automatically and deleted appropriately
+        self.sip.set_status(SIPStatus.DELETED)
+
+
     # Handlers
     def _update_status(self, status: SIPStatus) -> None:
         self.sip_status_label.setText(status.get_status_label())
@@ -233,11 +276,13 @@ class SIPWidget(QtWidgets.QFrame):
             self.upload_button.setEnabled(False)
             self.open_explorer_button.setEnabled(False)
             self.open_edepot_button.setEnabled(False)
+            self.delete_button.setEnabled(False)
         elif status == SIPStatus.SIP_CREATED:
             self.open_button.setEnabled(False)
             self.upload_button.setEnabled(True)
             self.open_explorer_button.setEnabled(True)
             self.open_edepot_button.setEnabled(False)
+            self.delete_button.setEnabled(True)
         elif status in (
             SIPStatus.UPLOADING,
             SIPStatus.UPLOADED,
@@ -246,6 +291,7 @@ class SIPWidget(QtWidgets.QFrame):
             self.upload_button.setEnabled(False)
             self.open_explorer_button.setEnabled(True)
             self.open_edepot_button.setEnabled(False)
+            self.delete_button.setEnabled(True)
         elif status in (
             SIPStatus.PROCESSING,
             SIPStatus.ACCEPTED,
@@ -255,6 +301,7 @@ class SIPWidget(QtWidgets.QFrame):
             self.upload_button.setEnabled(False)
             self.open_explorer_button.setEnabled(True)
             self.open_edepot_button.setEnabled(True)
+            self.delete_button.setEnabled(True)
 
     def _update_name(self, name: str) -> None:
         # The updating of the status is handled separately

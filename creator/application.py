@@ -42,6 +42,7 @@ class SIPStatusThread(threading.Thread):
                 SIPStatus.IN_PROGRESS,
                 SIPStatus.SIP_CREATED,
                 SIPStatus.UPLOADING,
+                SIPStatus.DELETED,
             ):
                 continue
 
