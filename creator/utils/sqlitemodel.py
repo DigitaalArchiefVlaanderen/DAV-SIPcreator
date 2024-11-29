@@ -210,7 +210,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
                     self.index(row, col+2),
                     value.split("/", 1)[0]
                 )
-            elif column == "uri_serieregister":
+            elif column == "URI Serieregister":
                 # NOTE: this also checks the series_name
                 self.serie_check(row, col, value)
             elif column in ("Openingsdatum", "Sluitingsdatum"):
