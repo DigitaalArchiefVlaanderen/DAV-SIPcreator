@@ -579,26 +579,6 @@ class TabUI(QtWidgets.QMainWindow):
         return True
 
     def load_overdrachtslijst(self):
-        # def header_mapping(headers: tuple[str]) -> list[str]:
-        #     new_headers = []
-
-        #     for header in headers:
-        #         match header:
-        #             case "Beschrijving ":
-        #                 new_headers.append("Beschrijving")
-        #             case "Begin-\ndatum":
-        #                 new_headers.append("Begindatum")
-        #             case "Eind-\ndatum":
-        #                 new_headers.append("Einddatum")
-        #             case "Doosnr. ":
-        #                 new_headers.append("Doosnr")
-        #             case None:
-        #                 new_headers.append("URI Serieregister")
-        #             case _:
-        #                 new_headers.append(header)
-
-        #     return new_headers
-
         import pandas as pd
         from openpyxl import load_workbook
         import sqlite3 as sql
@@ -618,8 +598,7 @@ class TabUI(QtWidgets.QMainWindow):
         data = ws.values
 
         try:
-            # TODO: check all?
-            # while "Doosnr" not in (headers := header_mapping(next(data))):
+            # TODO: check all required columns?
             while "Doosnr" not in (headers := next(data)):
                 pass
         except StopIteration:
@@ -806,7 +785,7 @@ class TabUI(QtWidgets.QMainWindow):
 
                 # Update the tables table
                 conn.execute(f"""
-                    INSERT OR IGNORE INTO tables (table_name, uri_serieregister)
+                    INSERT OR IGNORE INTO tables (table_name, "URI Serieregister")
                     VALUES ('"{name}"', '{uri}');
                 """)
 
