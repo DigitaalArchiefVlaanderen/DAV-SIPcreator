@@ -86,6 +86,7 @@ class Misc:
     role_activity: dict
     type_activity: dict
     save_location: str
+    bestandscontrole_lijst_location: str
 
     @staticmethod
     def get_default() -> "Misc":
@@ -103,6 +104,7 @@ class Misc:
                 migratie=False,
             ),
             save_location=os.path.join(os.getcwd(), "SIP_Creator"),
+            bestandscontrole_lijst_location=""
         )
 
 
@@ -142,6 +144,7 @@ class Configuration:
                         role_activity=misc_default.role_activity,
                         type_activity=misc_default.type_activity,
                         save_location=v["SIP Creator opslag locatie"],
+                        bestandscontrole_lijst_location="",
                     )
                 elif version == ConfigurationVersion.V2:
                     misc = Misc(
@@ -149,6 +152,15 @@ class Configuration:
                         role_activity=v["Rollen"],
                         type_activity=v["Type SIPs"],
                         save_location=v["SIP Creator opslag locatie"],
+                        bestandscontrole_lijst_location="",
+                    )
+                elif version == ConfigurationVersion.V3:
+                    misc = Misc(
+                        environments_activity=v["Omgevingen"],
+                        role_activity=v["Rollen"],
+                        type_activity=v["Type SIPs"],
+                        save_location=v["SIP Creator opslag locatie"],
+                        bestandscontrole_lijst_location=v["Bestandscontrole lijst locatie"],
                     )
             else:
                 environments.append(
@@ -193,6 +205,7 @@ class Configuration:
             "Omgevingen": self.misc.environments_activity,
             "Rollen": self.misc.role_activity,
             "SIP Creator opslag locatie": self.misc.save_location,
+            "Bestandscontrole lijst locatie": self.misc.bestandscontrole_lijst_location,
         }
 
     def get_environment(self, name: str) -> Environment:

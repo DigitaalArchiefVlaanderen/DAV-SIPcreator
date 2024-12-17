@@ -11,6 +11,7 @@ from openpyxl import load_workbook
 from PySide6 import QtWidgets, QtCore, QtGui
 import pandas as pd
 import sqlite3 as sql
+from pathlib import Path
 
 from .application import Application
 
@@ -365,7 +366,7 @@ class MigrationWidget(QtWidgets.QWidget):
         self.add_item_button = QtWidgets.QPushButton(text="Importeer overdrachtslijst")
         self.add_item_button.clicked.connect(self.add_overdrachtslijst_click)
         self.add_item_button.setHidden(self.state.configuration.active_role == "klant")
-        self.parent().toolbar.configuration_changed.connect(lambda: self.add_item_button.setHidden(self.state.configuration.active_role == "klant"))
+        self.parent().toolbar.configuration_changed.connect(self.hide_add_button)
 
         file_location_button = QtWidgets.QPushButton(text="Bestandslocatie")
         file_location_button.clicked.connect(lambda: os.startfile(
@@ -398,7 +399,6 @@ class MigrationWidget(QtWidgets.QWidget):
 
             self.list_view.add_item("overdrachtslijst_name", ListView(tab_ui))
 
-
     def add_overdrachtslijst_click(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
             caption="Selecteer Overdrachtslijst", filter="Overdrachtslijst (*.xlsx *.xlsm *.xltx *.xltm)"
@@ -415,6 +415,14 @@ class MigrationWidget(QtWidgets.QWidget):
             self.list_view.add_item("overdrachtslijst_name", ListView(tab_ui))
 
         tab_ui.show()
+
+    def hide_add_button(self) -> None:
+        try:
+            self.add_item_button.setHidden(self.state.configuration.active_role == "klant")
+        except RuntimeError:
+            # TODO: why does this happen? is there a cleaner solution?
+            # NOTE: happens if the button already no longer exists
+            pass
 
 
 class TabUI(QtWidgets.QMainWindow):
@@ -437,7 +445,7 @@ class TabUI(QtWidgets.QMainWindow):
         self.toolbar.configuration_changed.connect(self.configuration_changed.emit)
 
         self.path = path
-        self.overdrachtslijst_name = os.path.splitext(os.path.basename(path))[0]
+        self.overdrachtslijst_name = Path(path).stem
         self.db_location = f"{self.storage_base}/{self.overdrachtslijst_name}.db"
         self.series = series
 
@@ -581,7 +589,6 @@ class TabUI(QtWidgets.QMainWindow):
 
     def load_overdrachtslijst(self):
         import pandas as pd
-        from openpyxl import load_workbook
         import sqlite3 as sql
 
         wb = load_workbook(
@@ -601,6 +608,8 @@ class TabUI(QtWidgets.QMainWindow):
         try:
             # TODO: check all required columns?
             while "Doosnr" not in (headers := next(data)):
+            # TODO: temp
+            # while "Doosnr. " not in (headers := next(data)):
                 pass
         except StopIteration:
             # TODO: proper error here
@@ -613,10 +622,27 @@ class TabUI(QtWidgets.QMainWindow):
             "Doosnr",
             "URI Serieregister",
         )
+        # TODO: temp
+        # expected_headers = {
+        #     "Beschrijving ": "Beschrijving",
+        #     "Begin-\ndatum": "Begindatum",
+        #     "Eind-\ndatum": "Einddatum",
+        #     "Doosnr. ": "Doosnr",
+        #     None: "URI Serieregister",
+        # }
         headers = [h for h in headers if h is not None]
         for h in expected_headers:
             if h not in headers:
                 raise Exception(f"Verwachtte om de kolom '{h}' tegen te komen, maar is niet gevonden.")
+
+        # TODO: temp
+        # actual_headers = []
+
+        # for h in headers:
+        #     if h in expected_headers:
+        #         actual_headers.append(expected_headers[h])
+        #     else:
+        #         actual_headers.append(h)
 
         # Filter out empty rows
         df = pd.DataFrame(
@@ -625,9 +651,13 @@ class TabUI(QtWidgets.QMainWindow):
                 (r[:len(headers)] for r in list(data))
                 if not all(not bool(v) for v in r)
             ),
+            # TODO: temp
             columns=headers,
+            # columns=actual_headers,
         ).fillna("").astype(str).convert_dtypes()
+        wb.close()
 
+        # TODO: temp
         # df["URI Serieregister"] = "https://serieregister-ti.vlaanderen.be/id/serie/e641d8943266475594d43bd7e9d9bb08ea4893ce5e9646e39bc56911bfffc079"
         df["id"] = range(df.shape[0])
         df["series_name"] = ""
@@ -838,7 +868,7 @@ class TabUI(QtWidgets.QMainWindow):
             # NOTE: don't do other auto-mapping
             conn.execute(f"""
                 INSERT INTO "{name}" (main_id, "Analoog?", "Path in SIP", "DossierRef", "Naam", "Openingsdatum", "Sluitingsdatum", "Origineel Doosnummer")
-                SELECT id, 'ja', "Beschrijving", "Beschrijving", "Beschrijving", "Begindatum", "Einddatum", "Doosnr" || '/{self.overdrachtslijst_name}'
+                SELECT id, 'ja', "Beschrijving", "Beschrijving", "Beschrijving", "Begindatum", "Einddatum", substr('0000' || "Doosnr", -4, 4) || '/{self.overdrachtslijst_name}'
                 FROM {self.main_tab}
                 WHERE id IN ({selected_rows_str})
                   AND (series_name != '"{name}"' OR series_name IS NULL OR series_name == '');
@@ -903,6 +933,12 @@ class TabUI(QtWidgets.QMainWindow):
 
         model = SQLliteModel(name, db_name=self.db_location, series_id=series_id)
         table_view.setModel(model)
+        
+        load_bestandscontrole_button = QtWidgets.QPushButton(text="Laad bestandscontrole lijst")
+        load_bestandscontrole_button.clicked.connect(lambda _: self.load_bestandscontrole(model=model))
+        load_bestandscontrole_button.setHidden(self.state.configuration.active_role == "klant")
+        self.configuration_changed.connect(lambda: self.hide_or_show_button(load_bestandscontrole_button))
+        layout.addWidget(load_bestandscontrole_button, 1, 4)
 
         bad_rows_checkbox.stateChanged.connect(lambda checkstate: self._filter_bad_rows(checkstate, self.tabs[name]))
         model.bad_rows_changed.connect(lambda _: self._filter_bad_rows(bad_rows_checkbox.checkState().value, table_view))
@@ -1332,6 +1368,44 @@ class TabUI(QtWidgets.QMainWindow):
 
         self.edepot_available_changed.emit(True)
 
+    def load_bestandscontrole(self, model: SQLliteModel) -> None:
+        controller = self.application.bestands_controle_lijst_controller
+
+        if not controller.valid:
+            WarningDialog(
+                title="Bestandscontrole lijst is niet geldig",
+                text="De bestandscontrole lijst is niet geldig, bekijk of het pad juist staat, en/of het bestand in orde is."
+            ).exec()
+            return
+
+        values = controller.get_values(overdrachtslijst_name=self.overdrachtslijst_name)
+
+        if values is None:
+            # NOTE: a warning has already been shown to the user
+            return
+
+        col_indeces = []
+
+        for i, col in model.columns.items():
+            if col in ("Legacy locatie ID", "Legacy range", "Verpakkingstype"):
+                col_indeces.append(i)
+
+                if col == "Legacy locatie ID":
+                    new_val = values[controller.list_start_column]
+                elif col == "Legacy range":
+                    new_val = values[controller.list_end_column]
+                elif col == "Verpakkingstype":
+                    new_val = values[controller.doos_type_column]
+                
+                for r in range(0, model.row_count):
+                    model.set_value(model.index(r, i), new_value=new_val)
+
+        model.dataChanged.emit(
+            model.index(0, min(col_indeces)),
+            model.index(model.row_count, max(col_indeces))
+        )
+
+
 class ListView(QtWidgets.QWidget):
     def __init__(self, tab_ui: TabUI):
         super().__init__()
@@ -1374,6 +1448,7 @@ class ListView(QtWidgets.QWidget):
         layout.addWidget(open_button, 0, 3)
         layout.addWidget(self.upload_button, 1, 3)
         layout.addWidget(self.edepot_button, 2, 3)
+
 
 def set_main(application: Application, main: MainWindow) -> None:
     config = application.state.configuration

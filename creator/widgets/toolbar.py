@@ -1,5 +1,6 @@
 from PySide6 import QtWidgets, QtGui, QtCore
 
+from ..application import Application
 from ..windows.configuration_view import ConfigurationWidget
 
 
@@ -8,6 +9,8 @@ class Toolbar(QtWidgets.QToolBar):
 
     def __init__(self):
         super().__init__()
+
+        self.application: Application = QtWidgets.QApplication.instance()
 
         configuration_action = QtGui.QAction("Configuratie", self)
         configuration_action.triggered.connect(self.configuration_clicked)
@@ -19,6 +22,7 @@ class Toolbar(QtWidgets.QToolBar):
 
         self.configuration_view = ConfigurationWidget()
         self.configuration_view.closed.connect(self.configuration_changed.emit)
+        self.configuration_changed.connect(self.application.reset_bestandscontrole_location)
 
     def configuration_clicked(self):
         # Redo the setup to reload in case changes were made

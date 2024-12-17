@@ -10,7 +10,7 @@ class ConfigController:
     def __init__(self, path: str):
         self.configuration_path = path
 
-    def _verify_configuration(self, configuration: dict, version: ConfigurationVersion=ConfigurationVersion.V2) -> bool:
+    def _verify_configuration(self, configuration: dict, version: ConfigurationVersion=ConfigurationVersion.V3) -> bool:
         """Verifies the integrity of the configuration"""
         if "misc" not in configuration:
             return False
@@ -23,6 +23,10 @@ class ConfigController:
             if environment == "misc":
                 if not "SIP Creator opslag locatie" in values:
                     return False
+                
+                if version == ConfigurationVersion.V3:
+                    if not "Bestandscontrole lijst locatie" in values:
+                        return False
 
                 if not is_path_exists_or_creatable(
                     values["SIP Creator opslag locatie"]
@@ -31,7 +35,7 @@ class ConfigController:
 
                 if version == ConfigurationVersion.V1:
                     tabs = ("Omgevingen",)
-                elif version == ConfigurationVersion.V2:
+                elif version in (ConfigurationVersion.V2, ConfigurationVersion.V3):
                     tabs = ("Omgevingen", "Rollen", "Type SIPs")
 
                 for tab in tabs:
@@ -92,14 +96,11 @@ class ConfigController:
             except Exception:
                 return Configuration.get_default()
 
-            if not self._verify_configuration(configuration):
-                # NOTE: something in the config is bad
+            # Run in reverse order of versions to ensure we have the latest one
+            for v in (ConfigurationVersion.V3, ConfigurationVersion.V2, ConfigurationVersion.V1):
+                if self._verify_configuration(configuration, version=v):
+                    # Valid for this version
+                    return Configuration.from_json(configuration, version=v)
 
-                # Check if we're just using an older version
-                if not self._verify_configuration(configuration, version=ConfigurationVersion.V1):
-                    return Configuration.get_default()
-                
-                # Valid for version 1
-                return Configuration.from_json(configuration, version=ConfigurationVersion.V1)
-
-            return Configuration.from_json(configuration, version=ConfigurationVersion.V2)
+            # No older config is valid, return default
+            return Configuration.get_default()
