@@ -658,7 +658,7 @@ class TabUI(QtWidgets.QMainWindow):
         wb.close()
 
         # TODO: temp
-        # df["URI Serieregister"] = "https://serieregister-ti.vlaanderen.be/id/serie/e641d8943266475594d43bd7e9d9bb08ea4893ce5e9646e39bc56911bfffc079"
+        df["URI Serieregister"] = "https://serieregister-ti.vlaanderen.be/id/serie/e641d8943266475594d43bd7e9d9bb08ea4893ce5e9646e39bc56911bfffc079"
         df["id"] = range(df.shape[0])
         df["series_name"] = ""
 
@@ -1384,6 +1384,12 @@ class TabUI(QtWidgets.QMainWindow):
             # NOTE: a warning has already been shown to the user
             return
 
+        if model.row_count > 1000:
+            WarningDialog(
+                title="Trage actie",
+                text="Omdat er veel rijen moeten veranderen kan de actie tot enkele minuten duren."
+            ).exec()
+
         col_indeces = []
 
         for i, col in model.columns.items():
@@ -1397,8 +1403,14 @@ class TabUI(QtWidgets.QMainWindow):
                 elif col == "Verpakkingstype":
                     new_val = values[controller.doos_type_column]
                 
+                non_empty_val = new_val != ""
+
                 for r in range(0, model.row_count):
                     model.set_value(model.index(r, i), new_value=new_val)
+
+                    if non_empty_val:
+                        # NOTE: manually unmark, since this is waaaaay faster
+                        model._mark_cell(r, i)
 
         model.dataChanged.emit(
             model.index(0, min(col_indeces)),
