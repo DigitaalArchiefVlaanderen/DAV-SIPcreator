@@ -658,7 +658,7 @@ class TabUI(QtWidgets.QMainWindow):
         wb.close()
 
         # TODO: temp
-        df["URI Serieregister"] = "https://serieregister-ti.vlaanderen.be/id/serie/e641d8943266475594d43bd7e9d9bb08ea4893ce5e9646e39bc56911bfffc079"
+        # df["URI Serieregister"] = "https://serieregister-ti.vlaanderen.be/id/serie/e641d8943266475594d43bd7e9d9bb08ea4893ce5e9646e39bc56911bfffc079"
         df["id"] = range(df.shape[0])
         df["series_name"] = ""
 
