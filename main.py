@@ -8,9 +8,8 @@ from creator.widgets.warning_dialog import WarningDialog
 def excepthook(cls, exception, traceback):
     WarningDialog(
         title="Een fout is opgetreden",
-        text=f"{exception}\n\nSipCreator sluit nu af."
+        text=f"{exception}"
     ).exec()
-    sys.exit()
 
 
 sys.excepthook = excepthook
