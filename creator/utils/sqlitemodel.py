@@ -196,8 +196,6 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         column = self.columns[col]
 
         if role == QtCore.Qt.ItemDataRole.EditRole:
-            self.set_value(index, value)
-
             if column == "Path in SIP":
                 self.path_in_sip_check(row, col, value)
 
@@ -226,6 +224,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
 
                 self.set_value(index, new_value)
 
+            self.set_value(index, value)
             return True
 
         return False
@@ -290,12 +289,34 @@ class SQLliteModel(QtCore.QAbstractTableModel):
 
     # NOTE: Checks
     def path_in_sip_check(self, row: int, col: int, value: str) -> None:
-        if value == "":
-            self._mark_cell(row, col, Color.RED, "Path in SIP mag niet leeg zijn")
-        elif "/" in value:
-            self._mark_cell(row, col, Color.RED, "Path in SIP mag geen '/' bevatten")
-        else:
-            self._mark_cell(row, col)
+        # NOTE: since this needs to be unique, check duplicates first
+        old_value = self.raw_data[row][col]
+
+        old_duplicates = [r for r in range(self.row_count) if self.raw_data[r][col] == old_value and r != row]
+        new_duplicates = [r for r in range(self.row_count) if self.raw_data[r][col] == value and r != row]
+
+        # NOTE: check if we introduces new duplication
+        if len(new_duplicates) >= 1:
+            for r in new_duplicates + [row]:
+                self._mark_cell(r, col, Color.RED, "Path in SIP moet uniek zijn")
+
+        # NOTE: only check the row if it didn't introduce duplication (otherwise we already marked it)
+        rows_to_check = [row] if len(new_duplicates) == 0 else []
+
+        # NOTE: check if we solved some duplication
+        if len(old_duplicates) == 1 and old_value != value:
+            # NOTE: check this one value too
+            rows_to_check.extend(old_duplicates)
+
+        for r in rows_to_check:
+            val = self.raw_data[r][col]
+
+            if val == "":
+                self._mark_cell(r, col, Color.RED, "Path in SIP mag niet leeg zijn")
+            elif "/" in val:
+                self._mark_cell(r, col, Color.RED, "Path in SIP mag geen '/' bevatten")
+            else:
+                self._mark_cell(r, col)
 
     def serie_check(self, row: int, col: int, value: str) -> None:
         series_name = self.raw_data[row][list(self.columns.values()).index("series_name")]
@@ -402,7 +423,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             self._mark_cell(row, start_column)
             self._mark_cell(row, end_column)
 
-    def location_check(self, row: int, col: int, _: str) -> None:
+    def location_check(self, row: int, col: int, value: str) -> None:
         # NOTE: if all the columns have empty values, mark them all red
         original_cols = ("Origineel Doosnummer", "Legacy locatie ID", "Legacy range", "Verpakkingstype")
         column_names = list(self.columns.values())
@@ -411,13 +432,13 @@ class SQLliteModel(QtCore.QAbstractTableModel):
 
         row_values = self.raw_data[row]
 
-        if all(row_values[c] == "" for c in duplicate_col_indexes):
+        if all(row_values[c] == "" for c in duplicate_col_indexes if c != col) and value == "":
             for col_index in duplicate_col_indexes:
                 self._mark_cell(row, col_index, Color.RED, "Een locatie moet ingevuld zijn")
 
             self.layoutChanged.emit()
             return
-        elif all(row_values[c] == "" for c in duplicate_col_indexes if c != col):
+        elif all(row_values[c] == "" for c in duplicate_col_indexes if c != col) and value != "":
             # NOTE: all empty except the current one, unset them all but do not return
             for col_index in duplicate_col_indexes:
                 self._mark_cell(row, col_index)
@@ -437,9 +458,13 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         # If any has a value
         should_have_a_value = any(row_values[c] != "" for c in col_indexes)
 
-
         for c in col_indexes:
-            if should_have_a_value and row_values[c] == "":
+            val = row_values[c]
+
+            if c == col:
+                val = value
+
+            if should_have_a_value and val == "":
                 self._mark_cell(row, c, Color.RED, "De combinatie van de 4 locatie-kolommen moeten een waarde hebben")
             else:
                 self._mark_cell(row, c)
