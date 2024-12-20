@@ -299,31 +299,33 @@ class BestandsControleLijstController:
         # Try to load it again, just in case the file changed
         self._load_df()
 
+        # NOTE: if overdrachtslijst_name contains something like _klant near the end, we want to trim all that off
+        trimmed_overdrachtslijst_name = overdrachtslijst_name.split("_klant")[0]
+
         # Return values required as df
-        output = self.list_df.loc[self.list_df[self.list_name_column] == overdrachtslijst_name]
+        output = self.list_df.loc[self.list_df[self.list_name_column] == trimmed_overdrachtslijst_name]
 
         if len(output) == 0:
             WarningDialog(
                 title="Overdrachtslijst niet gevonden in bestandscontrole",
-                text=f"Overdrachtslijst '{overdrachtslijst_name}' is niet gevonden in de kolom '{self.list_name_column}' van de bestandscontrole."
+                text=f"Overdrachtslijst '{trimmed_overdrachtslijst_name}' is niet gevonden in de kolom '{self.list_name_column}' van de bestandscontrole."
             ).exec()
             return
         
         if len(output) != 1:
             WarningDialog(
                 title="Overdrachtslijst te vaak gevonden in bestandscontrole",
-                text=f"Overdrachtslijst '{overdrachtslijst_name}' is te vaak gevonden in de kolom '{self.list_name_column}' van de bestandscontrole.\n\nEr zijn {len(output)} rijen die over dezelfde overdrachtslijst gaan."
+                text=f"Overdrachtslijst '{trimmed_overdrachtslijst_name}' is te vaak gevonden in de kolom '{self.list_name_column}' van de bestandscontrole.\n\nEr zijn {len(output)} rijen die over dezelfde overdrachtslijst gaan."
             ).exec()
             return
 
         # NOTE: check if the values are present
         for col in (self.list_start_column, self.list_end_column, self.doos_type_column):
-            if output.at[output.index[0], col] == None:
+            if output.at[output.index[0], col] in (None, ""):
                 WarningDialog(
                     title="Lege waarde gevonden",
-                    text=f"De kolom '{col}' bevat een lege waarde voor overdrachtslijst '{overdrachtslijst_name}'."
+                    text=f"De kolom '{col}' bevat een lege waarde voor overdrachtslijst '{trimmed_overdrachtslijst_name}'."
                 ).exec()
-                return
 
-        return output.to_dict(orient="records")[0]
+        return output.fillna("").to_dict(orient="records")[0]
 
