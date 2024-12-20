@@ -630,7 +630,7 @@ class TabUI(QtWidgets.QMainWindow):
         #     "Doosnr. ": "Doosnr",
         #     None: "URI Serieregister",
         # }
-        headers = [h for h in headers if h is not None]
+        headers = [h.strip() for h in headers if h is not None]
         for h in expected_headers:
             if h not in headers:
                 raise Exception(f"Verwachtte om de kolom '{h}' tegen te komen, maar is niet gevonden.")
@@ -661,6 +661,11 @@ class TabUI(QtWidgets.QMainWindow):
         # df["URI Serieregister"] = "https://serieregister-ti.vlaanderen.be/id/serie/e641d8943266475594d43bd7e9d9bb08ea4893ce5e9646e39bc56911bfffc079"
         df["id"] = range(df.shape[0])
         df["series_name"] = ""
+
+        # NOTE: since Excel deals with datetimes awkwardly, make sure we only have the date part as a string here
+        # Only take the date part, if none found, keep original value
+        df["Begindatum"] = df["Begindatum"].str.extract(r"(\d{4}-\d{2}-\d{2})", expand=False).fillna(df["Begindatum"])
+        df["Einddatum"] = df["Einddatum"].str.extract(r"(\d{4}-\d{2}-\d{2})", expand=False).fillna(df["Einddatum"])
 
         # NOTE: reorder headers
         cols = df.columns.tolist()
@@ -710,12 +715,12 @@ class TabUI(QtWidgets.QMainWindow):
         model.bad_rows_changed.connect(self.set_create_button_status)
         self.main_table.setModel(model)
         
-        unassigned_only_checkbox = QtWidgets.QCheckBox(text="Toon enkel rijen zonder serie")
-        unassigned_only_checkbox.stateChanged.connect(self._filter_unassigned)
+        self.unassigned_only_checkbox = QtWidgets.QCheckBox(text="Toon enkel rijen zonder serie")
+        self.unassigned_only_checkbox.stateChanged.connect(self._filter_unassigned)
 
         layout.addWidget(btn, 0, 0)
         layout.addWidget(series_combobox, 0, 1, 1, 3)
-        layout.addWidget(unassigned_only_checkbox, 1, 0)
+        layout.addWidget(self.unassigned_only_checkbox, 1, 0)
         layout.addWidget(self.main_table, 2, 0, 1, 5)
 
         self.tab_widget.addTab(container, self.main_tab)
@@ -908,6 +913,8 @@ class TabUI(QtWidgets.QMainWindow):
             model.get_data()
             model.layoutChanged.emit()
 
+        self._filter_unassigned(self.unassigned_only_checkbox.checkState().value)
+
     def create_tab(self, name: str, series_id: str):
         from creator.widgets.tableview_widget import TableView
 
@@ -942,6 +949,7 @@ class TabUI(QtWidgets.QMainWindow):
 
         bad_rows_checkbox.stateChanged.connect(lambda checkstate: self._filter_bad_rows(checkstate, self.tabs[name]))
         model.bad_rows_changed.connect(lambda _: self._filter_bad_rows(bad_rows_checkbox.checkState().value, table_view))
+        model.layoutChanged.connect(lambda _: self._filter_bad_rows(bad_rows_checkbox.checkState().value, table_view))
         model.bad_rows_changed.connect(self.set_create_button_status)
         self.configuration_changed.connect(lambda: self._filter_bad_rows(bad_rows_checkbox.checkState().value, table_view))
 
