@@ -311,12 +311,21 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         for r in rows_to_check:
             val = self.raw_data[r][col]
 
+            if r == row:
+                val = value
+
             if val == "":
                 self._mark_cell(r, col, Color.RED, "Path in SIP mag niet leeg zijn")
             elif "/" in val:
                 self._mark_cell(r, col, Color.RED, "Path in SIP mag geen '/' bevatten")
             else:
                 self._mark_cell(r, col)
+
+        if rows_to_check:
+            self.dataChanged.emit(
+                self.index(min(rows_to_check), 0),
+                self.index(max(rows_to_check), self.col_count)
+            )
 
     def serie_check(self, row: int, col: int, value: str) -> None:
         series_name = self.raw_data[row][list(self.columns.values()).index("series_name")]
