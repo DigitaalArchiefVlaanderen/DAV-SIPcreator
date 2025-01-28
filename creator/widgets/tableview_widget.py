@@ -47,7 +47,7 @@ class TableView(QtWidgets.QTableView):
 
             self.paste_grid_value(copy_text, indexes)
 
-    def paste_grid_value(self, copy_text: str, indexes: list):
+    def paste_grid_value(self, copy_text: str, indexes: list[QtCore.QModelIndex]):
         for index in indexes:
             self.model().setData(
                 index,
@@ -55,7 +55,11 @@ class TableView(QtWidgets.QTableView):
                 QtCore.Qt.ItemDataRole.EditRole,
             )
 
-            self.model().dataChanged.emit(index, index)
+        # NOTE: update all rows (not just the cells we updated, since some of the cells might be linked)
+        self.model().dataChanged.emit(
+            self.model().index(index.row(), 0),
+            self.model().index(index.row(), self.model().columnCount())
+        )
 
     def paste_grid_content(self, copy_text: str, indexes: list):
         # NOTE: excel complicates matters, they add a trailing '\n' character
@@ -101,7 +105,11 @@ class TableView(QtWidgets.QTableView):
                     QtCore.Qt.ItemDataRole.EditRole,
                 )
 
-                self.model().dataChanged.emit(index, index)
+        # NOTE: update all rows (not just the cells we updated, since some of the cells might be linked)
+        self.model().dataChanged.emit(
+            self.model().index(min(usable_rows), 0),
+            self.model().index(max(usable_rows), self.model().columnCount())
+        )
 
     def keyPressEvent(self, event):
         if not (indexes := self.selectedIndexes()):
@@ -112,7 +120,11 @@ class TableView(QtWidgets.QTableView):
             for index in indexes:
                 self.model().setData(index, "", QtCore.Qt.ItemDataRole.EditRole)
 
-            self.model().dataChanged.emit(indexes[0], indexes[-1])
+            # NOTE: update all rows (not just the cells we updated, since some of the cells might be linked)
+            self.model().dataChanged.emit(
+                self.model().index(indexes[0].row(), 0),
+                self.model().index(indexes[-1].row(), self.model().columnCount())
+            )
 
         # COPY
         elif event.matches(QtGui.QKeySequence.Copy):
@@ -142,4 +154,8 @@ class TableView(QtWidgets.QTableView):
                 QtCore.Qt.ItemDataRole.EditRole,
             )
 
-            self.model().dataChanged.emit(index, index)
+            # NOTE: update all rows (not just the cells we updated, since some of the cells might be linked)
+            self.model().dataChanged.emit(
+                self.model().index(index.row(), 0),
+                self.model().index(index.row(), self.model().columnCount())
+            )

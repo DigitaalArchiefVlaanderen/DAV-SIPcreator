@@ -352,77 +352,74 @@ class PandasModel(QtCore.QAbstractTableModel):
         closing_col = self._data.columns.get_loc("Sluitingsdatum")
 
         # If it's an empty value at a "stuk", that's fine
-        if is_stuk and value == "":
-            self._unmark_bad_cell(row=row, col=col)
-            return True
+        if not (is_stuk and value == ""):
+            date = self._proper_date_format(value)
 
-        date = self._proper_date_format(value)
-
-        # Date needs to be in the correct format
-        if date is None:
-            self._mark_bad_cell(
-                row=row, col=col, tooltip="Datum moet in het formaat YYYY-MM-DD zijn"
-            )
-            return False
-
-        # Date needs to be valid (in past and in series range)
-        if (tooltip := self._date_invalid_check(date)) is not None:
-            self._mark_bad_cell(row=row, col=col, tooltip=tooltip)
-            return False
-
-        # Openingdate cannot be after closingdate
-        if opening_date and closing_date and opening_date > closing_date:
-            self._mark_date_cell(
-                row=row,
-                col=opening_col,
-                tooltip="Openingsdatum kan niet na de sluitingsdatum zijn",
-            )
-            self._mark_date_cell(
-                row=row,
-                col=closing_col,
-                tooltip="Sluitingsdatum kan niet voor de openingsdatum zijn",
-            )
-
-            return False
-
-        if not is_stuk:
-            # The openings and closing dates need to match the files
-            dossier = data_row
-            dossier_ref = dossier["DossierRef"].to_list()[0]
-
-            opening_dates = self._get_date_values_for_dossier_ref(
-                dossier_ref=dossier_ref, column="Openingsdatum"
-            )
-            closing_dates = self._get_date_values_for_dossier_ref(
-                dossier_ref=dossier_ref, column="Sluitingsdatum"
-            )
-
-            dossier_opening = dossier["Openingsdatum"].to_list()[0]
-            dossier_closing = dossier["Sluitingsdatum"].to_list()[0]
-
-            if (
-                col == opening_col
-                and opening_dates
-                and dossier_opening > min(opening_dates)
-            ):
-                self._mark_date_cell(
-                    row=row,
-                    col=col,
-                    tooltip="De openingsdatum van het dossier kan niet later zijn dan de openingsdatum van een stuk",
+            # Date needs to be in the correct format
+            if date is None:
+                self._mark_bad_cell(
+                    row=row, col=col, tooltip="Datum moet in het formaat YYYY-MM-DD en geldig zijn"
                 )
                 return False
 
-            elif (
-                col == closing_col
-                and closing_dates
-                and dossier_closing < max(closing_dates)
-            ):
+            # Date needs to be valid (in past and in series range)
+            if (tooltip := self._date_invalid_check(date)) is not None:
+                self._mark_bad_cell(row=row, col=col, tooltip=tooltip)
+                return False
+
+            # Openingdate cannot be after closingdate
+            if opening_date and closing_date and opening_date > closing_date:
                 self._mark_date_cell(
                     row=row,
-                    col=col,
-                    tooltip="De sluitingsdatum van het dossier kan niet vroeger zijn dan de sluitingsdatum van een stuk",
+                    col=opening_col,
+                    tooltip="Openingsdatum kan niet na de sluitingsdatum zijn",
                 )
+                self._mark_date_cell(
+                    row=row,
+                    col=closing_col,
+                    tooltip="Sluitingsdatum kan niet voor de openingsdatum zijn",
+                )
+
                 return False
+
+            if not is_stuk:
+                # The openings and closing dates need to match the files
+                dossier = data_row
+                dossier_ref = dossier["DossierRef"].to_list()[0]
+
+                opening_dates = self._get_date_values_for_dossier_ref(
+                    dossier_ref=dossier_ref, column="Openingsdatum"
+                )
+                closing_dates = self._get_date_values_for_dossier_ref(
+                    dossier_ref=dossier_ref, column="Sluitingsdatum"
+                )
+
+                dossier_opening = dossier["Openingsdatum"].to_list()[0]
+                dossier_closing = dossier["Sluitingsdatum"].to_list()[0]
+
+                if (
+                    col == opening_col
+                    and opening_dates
+                    and dossier_opening > min(opening_dates)
+                ):
+                    self._mark_date_cell(
+                        row=row,
+                        col=col,
+                        tooltip="De openingsdatum van het dossier kan niet later zijn dan de openingsdatum van een stuk",
+                    )
+                    return False
+
+                elif (
+                    col == closing_col
+                    and closing_dates
+                    and dossier_closing < max(closing_dates)
+                ):
+                    self._mark_date_cell(
+                        row=row,
+                        col=col,
+                        tooltip="De sluitingsdatum van het dossier kan niet vroeger zijn dan de sluitingsdatum van een stuk",
+                    )
+                    return False
 
         # Everything checks out
         self._unmark_bad_cell(row=row, col=col)
