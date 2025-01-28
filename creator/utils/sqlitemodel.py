@@ -337,7 +337,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
                 self._mark_cell(row, col, Color.YELLOW, tooltip="De gegeven uri is niet teruggevonden onder de huidige connectie")
                 return
 
-    def date_check(self, row: int, col: int, value: str) -> None:
+    def date_check(self, row: int, col: int, value: str, re_evaluation=False) -> None:
         # Check empty
         if value == "":
             self._mark_cell(row, col, Color.RED, "Datum mag niet leeg zijn")
@@ -422,6 +422,19 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         else:
             self._mark_cell(row, start_column)
             self._mark_cell(row, end_column)
+
+        if not re_evaluation:
+            self.date_check(
+                row,
+                col=start_column if col == end_column else end_column,
+                value=start_value if col == end_column else end_value,
+                re_evaluation=True
+            )
+
+            self.dataChanged.emit(
+                self.index(row, 0),
+                self.index(row, self.col_count)
+            )
 
     def location_check(self, row: int, col: int, value: str) -> None:
         # NOTE: if all the columns have empty values, mark them all red
