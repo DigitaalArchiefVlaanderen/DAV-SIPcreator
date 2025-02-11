@@ -48,7 +48,7 @@ class State(QtCore.QObject):
         if not self.configuration.active_environment.has_api_credentials():
             WarningDialog(
                 title="Connectie fout",
-                text=f"Je API connectie gegevens staan niet in orde voor omgeving '{self.state.configuration.active_environment.name}'",
+                text=f"Je API connectie gegevens staan niet in orde voor omgeving '{self.configuration.active_environment.name}'",
             ).exec()
             return
 
