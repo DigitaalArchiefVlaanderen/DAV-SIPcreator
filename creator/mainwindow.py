@@ -45,6 +45,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.central_widget = None
 
+        self.setWindowIcon(QtGui.QIcon("logo.ico"))
+
         # Toolbar
         self.toolbar = Toolbar()
         self.addToolBar(self.toolbar)
@@ -461,6 +463,8 @@ class TabUI(QtWidgets.QMainWindow):
 
         self.application: Application = QtWidgets.QApplication.instance()
         self.state: State = self.application.state
+
+        self.setWindowIcon(QtGui.QIcon("logo.ico"))
 
         self.can_upload = False
         self.edepot_ids = []

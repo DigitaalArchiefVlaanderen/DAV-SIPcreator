@@ -7,6 +7,8 @@ class TableView(QtWidgets.QTableView):
 
         self.setSortingEnabled(True)
 
+        self.setWindowIcon(QtGui.QIcon("logo.ico"))
+
     def copy_content(self, indexes: list):
         # Single cell copy
         if len(indexes) == 1:

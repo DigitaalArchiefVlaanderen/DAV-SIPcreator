@@ -41,6 +41,8 @@ class SIPView(QtWidgets.QMainWindow):
         self.toolbar = Toolbar()
         self.addToolBar(self.toolbar)
 
+        self.setWindowIcon(QtGui.QIcon("logo.ico"))
+
         # Show SIP info as passed down by the SIPWidget
         # Add controls to select Series, MetadataFile, do linking and generate folder structure
         # Finally add button to go to grid

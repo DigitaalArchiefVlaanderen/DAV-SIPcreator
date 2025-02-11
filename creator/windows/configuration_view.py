@@ -1,6 +1,5 @@
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtWidgets, QtCore, QtGui
 
-import os
 import json
 
 
@@ -21,6 +20,8 @@ class ConfigurationWidget(QtWidgets.QMainWindow):
 
         self.application: Application = QtWidgets.QApplication.instance()
         self.config_controller: ConfigController = self.application.config_controller
+
+        self.setWindowIcon(QtGui.QIcon("logo.ico"))
 
         self.tabs = {}
 

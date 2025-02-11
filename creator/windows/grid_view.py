@@ -1,4 +1,4 @@
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtWidgets, QtCore, QtGui
 import pandas as pd
 
 import os
@@ -32,6 +32,8 @@ class GridView(QtWidgets.QMainWindow):
         self.setWindowTitle(self.sip.name)
         self.toolbar = Toolbar()
         self.addToolBar(self.toolbar)
+
+        self.setWindowIcon(QtGui.QIcon("logo.ico"))
 
         central_widget = QtWidgets.QWidget()
         self.setCentralWidget(central_widget)
