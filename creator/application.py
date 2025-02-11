@@ -4,7 +4,7 @@ from typing import Type, Callable
 import os
 
 import pandas as pd
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtWidgets, QtCore, QtGui
 from openpyxl import load_workbook
 
 from creator.controllers.config_controller import ConfigController
@@ -70,6 +70,8 @@ class Application(QtWidgets.QApplication, QtCore.QObject):
 
     def __init__(self, mainwindow: Type[QtWidgets.QMainWindow], set_main_callback: Callable):
         super().__init__()
+
+        self.setWindowIcon(QtGui.QIcon("logo.ico"))
 
         self.db_controller = DBController("sqlite.db")
         self.config_controller = ConfigController("configuration.json")
