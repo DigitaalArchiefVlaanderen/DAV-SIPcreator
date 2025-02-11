@@ -5,6 +5,7 @@ import pandas as pd
 from openpyxl import load_workbook
 import shutil
 import zipfile
+import re
 
 from .api_controller import APIController
 from .db_controller import SIPDBController
@@ -42,8 +43,12 @@ class FileController:
         ws = wb["Details"]
 
         for i, col in enumerate(df.columns):
-            # NOTE: duplicate columns generate like <column_name > (with whitespaces)
-            col = col.rstrip()
+            # NOTE: duplicate columns generated generate with whitespaces at the end
+            # duplicate columns read generate like <col>.<n>
+            re_match = re.match(r"(.*)(\.\d+| +)$", col)
+
+            if re_match:
+                col = re_match.group(1)
 
             ws[f"{_col_index_to_xslx_col(i)}1"] = col
 
