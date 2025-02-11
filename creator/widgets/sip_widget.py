@@ -282,7 +282,7 @@ class SIPWidget(QtWidgets.QFrame):
             self.open_edepot_button.setEnabled(False)
             self.delete_button.setEnabled(False)
         elif status == SIPStatus.SIP_CREATED:
-            self.open_button.setEnabled(False)
+            self.open_button.setEnabled(True)
             self.upload_button.setEnabled(True)
             self.open_explorer_button.setEnabled(True)
             self.open_edepot_button.setEnabled(False)

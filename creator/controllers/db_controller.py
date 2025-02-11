@@ -511,7 +511,8 @@ class SIPDBController:
             return False
         
         try:
-            self.conn
+            conn = self.conn
+            conn.close()
         except:
             return False
 

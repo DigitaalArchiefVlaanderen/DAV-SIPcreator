@@ -41,6 +41,12 @@ class FileController:
         wb = load_workbook(path)
         ws = wb["Details"]
 
+        for i, col in enumerate(df.columns):
+            # NOTE: duplicate columns generate like <column_name > (with whitespaces)
+            col = col.rstrip()
+
+            ws[f"{_col_index_to_xslx_col(i)}1"] = col
+
         # NOTE: there is probably a better way to do this, did not find it
         for row_index, row_info in df.iterrows():
             for col_index, value in enumerate(row_info.values):

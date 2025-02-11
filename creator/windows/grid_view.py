@@ -27,6 +27,8 @@ class GridView(QtWidgets.QMainWindow):
         self.application: Application = QtWidgets.QApplication.instance()
         self.state = self.application.state
 
+        self.intentional_close = False
+
     def setup_ui(self):
         self.resize(800, 600)
         self.setWindowTitle(self.sip.name)
@@ -42,7 +44,7 @@ class GridView(QtWidgets.QMainWindow):
         central_widget.setLayout(grid_layout)
 
         series_label = QtWidgets.QLabel(text=self.sip.series.get_name())
-        grid_layout.addWidget(series_label, 0, 0, 1, 4)
+        grid_layout.addWidget(series_label, 0, 0, 1, 5)
 
         self.name_extension_checkbox = QtWidgets.QCheckBox(
             text="Verwijder file-extensie uit 'Naam' kolom"
@@ -62,10 +64,15 @@ class GridView(QtWidgets.QMainWindow):
         self.show_dossiers_only_checkbox.stateChanged.connect(self._dossiers_only_clicked)
         grid_layout.addWidget(self.show_dossiers_only_checkbox, 1, 2)
 
-        # TODO: add column duplication here
+        # NOTE: will be filled once we know the columns we have
+        self.column_dropdown = QtWidgets.QComboBox()
+        self.add_column_button = QtWidgets.QPushButton(text="Voeg kolom toe")
+        self.add_column_button.clicked.connect(self.add_column_button_clicked)
+        grid_layout.addWidget(self.column_dropdown, 1, 3)
+        grid_layout.addWidget(self.add_column_button, 1, 4)
 
         self.table_view = TableView()
-        grid_layout.addWidget(self.table_view, 2, 0, 1, 4)
+        grid_layout.addWidget(self.table_view, 2, 0, 1, 5)
 
         save_button = QtWidgets.QPushButton(text="Opslaan")
         save_button.clicked.connect(self.save_button_click)
@@ -74,7 +81,7 @@ class GridView(QtWidgets.QMainWindow):
         self.create_sip_button = QtWidgets.QPushButton(text="Maak SIP")
         self.create_sip_button.clicked.connect(self.create_sip_click)
         self.create_sip_button.setEnabled(False)
-        grid_layout.addWidget(self.create_sip_button, 3, 2, 1, 2)
+        grid_layout.addWidget(self.create_sip_button, 3, 2, 1, 3)
 
     # Grid filters
     def _set_grid_filter_connections(self) -> None:
@@ -259,6 +266,23 @@ class GridView(QtWidgets.QMainWindow):
         else:
             self.create_sip_button.setEnabled(False)
 
+        unique_columns = set(m for m in model.get_data().columns)
+        filtered_columns = [
+            c for c in unique_columns
+            if c not in (
+                "Path in SIP",
+                "Type",
+                "DossierRef",
+                "Analoog?",
+                "Naam",
+                "Openingsdatum",
+                "Sluitingsdatum",
+            )
+        ]
+
+        for column in filtered_columns:
+            self.column_dropdown.addItem(column)
+
         return model.get_data()
 
     def fill_table(self) -> pd.DataFrame:
@@ -288,9 +312,36 @@ class GridView(QtWidgets.QMainWindow):
         else:
             self.create_sip_button.setEnabled(False)
 
+        unique_columns = set(m for m in model.get_data().columns)
+        filtered_columns = [
+            c for c in unique_columns
+            if c not in (
+                "Path in SIP",
+                "Type",
+                "DossierRef",
+                "Analoog?",
+                "Naam",
+                "Openingsdatum",
+                "Sluitingsdatum",
+            )
+        ]
+
+        for column in filtered_columns:
+            self.column_dropdown.addItem(column)
+
         return model.get_data()
 
     # Actions
+    def add_column_button_clicked(self) -> None:
+        column = self.column_dropdown.currentText()
+
+        model: PandasModel = self.table_view.model()
+        df = model.get_data()
+
+        model.layoutAboutToBeChanged.emit()
+        df.insert(df.columns.get_loc(column) + 1, f"{column} ", None)
+        model.layoutChanged.emit()
+
     def create_sip_click(self):
         df = self.save_button_click(filter_save=True)
 
@@ -311,6 +362,7 @@ class GridView(QtWidgets.QMainWindow):
             text="De SIP is aangemaakt"
         ).exec()
 
+        self.intentional_close = True
         self.close()
 
     def save_button_click(self, filter_save=False) -> pd.DataFrame:
@@ -349,13 +401,15 @@ class GridView(QtWidgets.QMainWindow):
             ).exec()
 
     def closeEvent(self, event):
-        dialog = YesNoDialog(
-            title="Opslaan",
-            text="Gemaakte wijzigingen opslaan?"
-        )
-        dialog.exec()
+        if not self.intentional_close:
+            dialog = YesNoDialog(
+                title="Opslaan",
+                text="Gemaakte wijzigingen opslaan?"
+            )
+            dialog.exec()
 
-        if dialog.result():
-            self.save_button_click()
+            if dialog.result():
+                self.save_button_click()
 
+        self.intentional_close = False
         event.accept()

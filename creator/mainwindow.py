@@ -225,7 +225,7 @@ class DigitalWidget(QtWidgets.QWidget):
                     f"{sip.series._id}.xlsx",
                 )
 
-            if sip.status != SIPStatus.IN_PROGRESS:
+            if sip.status not in (SIPStatus.IN_PROGRESS, SIPStatus.SIP_CREATED):
                 sip_widget.open_button.setEnabled(False)
 
             if sip.status == SIPStatus.SIP_CREATED:
