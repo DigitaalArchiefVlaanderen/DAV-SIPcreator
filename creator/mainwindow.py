@@ -35,6 +35,7 @@ from .utils.state_utils.dossier import Dossier
 from .utils.state_utils.sip import SIP
 from .utils.sip_status import SIPStatus
 from .utils.sqlitemodel import SQLliteModel, Color
+from .utils.path_loader import resource_path
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -45,7 +46,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.central_widget = None
 
-        self.setWindowIcon(QtGui.QIcon("logo.ico"))
+        self.setWindowIcon(QtGui.QIcon(resource_path("logo.ico")))
 
         # Toolbar
         self.toolbar = Toolbar()
@@ -464,7 +465,7 @@ class TabUI(QtWidgets.QMainWindow):
         self.application: Application = QtWidgets.QApplication.instance()
         self.state: State = self.application.state
 
-        self.setWindowIcon(QtGui.QIcon("logo.ico"))
+        self.setWindowIcon(QtGui.QIcon(resource_path("logo.ico")))
 
         self.can_upload = False
         self.edepot_ids = []

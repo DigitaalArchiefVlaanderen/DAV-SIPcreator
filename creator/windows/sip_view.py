@@ -9,6 +9,7 @@ from ..controllers.api_controller import APIController, APIException
 from ..controllers.db_controller import SIPDBController
 from ..utils.sip_status import SIPStatus
 from ..utils.state import State
+from ..utils.path_loader import resource_path
 from ..utils.state_utils.sip import SIP, FilenameNotUniqueException
 from ..widgets.mapping_widget import TagMappingWidget
 from ..widgets.toolbar import Toolbar
@@ -41,7 +42,7 @@ class SIPView(QtWidgets.QMainWindow):
         self.toolbar = Toolbar()
         self.addToolBar(self.toolbar)
 
-        self.setWindowIcon(QtGui.QIcon("logo.ico"))
+        self.setWindowIcon(QtGui.QIcon(resource_path("logo.ico")))
 
         # Show SIP info as passed down by the SIPWidget
         # Add controls to select Series, MetadataFile, do linking and generate folder structure

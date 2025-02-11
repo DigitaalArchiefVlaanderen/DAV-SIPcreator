@@ -6,6 +6,8 @@ import json
 from ..application import Application
 from ..controllers.config_controller import ConfigController
 
+from ..utils.path_loader import resource_path
+
 from ..widgets.configuration_tab_widget import (
     MiscConfigurationTab,
     ConnectionConfigurationTab,
@@ -21,7 +23,7 @@ class ConfigurationWidget(QtWidgets.QMainWindow):
         self.application: Application = QtWidgets.QApplication.instance()
         self.config_controller: ConfigController = self.application.config_controller
 
-        self.setWindowIcon(QtGui.QIcon("logo.ico"))
+        self.setWindowIcon(QtGui.QIcon(resource_path("logo.ico")))
 
         self.tabs = {}
 

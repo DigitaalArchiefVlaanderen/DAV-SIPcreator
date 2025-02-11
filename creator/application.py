@@ -12,6 +12,7 @@ from creator.controllers.db_controller import DBController
 from creator.controllers.api_controller import APIController, APIException
 from creator.utils.sip_status import SIPStatus
 from creator.utils.state import State
+from creator.utils.path_loader import resource_path
 from creator.widgets.warning_dialog import WarningDialog
 
 
@@ -71,7 +72,7 @@ class Application(QtWidgets.QApplication, QtCore.QObject):
     def __init__(self, mainwindow: Type[QtWidgets.QMainWindow], set_main_callback: Callable):
         super().__init__()
 
-        self.setWindowIcon(QtGui.QIcon("logo.ico"))
+        self.setWindowIcon(QtGui.QIcon(resource_path("logo.ico")))
 
         self.db_controller = DBController("sqlite.db")
         self.config_controller = ConfigController("configuration.json")

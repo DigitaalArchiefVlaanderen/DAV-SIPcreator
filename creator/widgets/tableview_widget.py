@@ -1,13 +1,16 @@
 from PySide6 import QtWidgets, QtCore, QtGui
 
 
+from ..utils.path_loader import resource_path
+
+
 class TableView(QtWidgets.QTableView):
     def __init__(self):
         super().__init__()
 
         self.setSortingEnabled(True)
 
-        self.setWindowIcon(QtGui.QIcon("logo.ico"))
+        self.setWindowIcon(QtGui.QIcon(resource_path("logo.ico")))
 
     def copy_content(self, indexes: list):
         # Single cell copy

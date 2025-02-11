@@ -1,5 +1,7 @@
 from PySide6 import QtWidgets, QtCore, QtGui
 
+from ..utils.path_loader import resource_path
+
 
 class Dialog(QtWidgets.QDialog):
     def __init__(self, title: str, text: str):
@@ -8,7 +10,7 @@ class Dialog(QtWidgets.QDialog):
         self.resize(400, 300)
         self.setWindowTitle(title)
 
-        self.setWindowIcon(QtGui.QIcon("logo.ico"))
+        self.setWindowIcon(QtGui.QIcon(resource_path("logo.ico")))
 
         vertical_layout = QtWidgets.QVBoxLayout()
         self.setLayout(vertical_layout)
@@ -34,7 +36,7 @@ class YesNoDialog(QtWidgets.QDialog):
         self.resize(400, 300)
         self.setWindowTitle(title)
 
-        self.setWindowIcon(QtGui.QIcon("logo.ico"))
+        self.setWindowIcon(QtGui.QIcon(resource_path("logo.ico")))
 
         vertical_layout = QtWidgets.QVBoxLayout()
         self.setLayout(vertical_layout)
@@ -60,7 +62,7 @@ class ChoiceDialog(QtWidgets.QDialog):
         self.resize(400, 300)
         self.setWindowTitle(title)
 
-        self.setWindowIcon(QtGui.QIcon("logo.ico"))
+        self.setWindowIcon(QtGui.QIcon(resource_path("logo.ico")))
 
         vertical_layout = QtWidgets.QVBoxLayout()
         self.setLayout(vertical_layout)

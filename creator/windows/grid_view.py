@@ -10,6 +10,7 @@ from ..controllers.db_controller import SIPDBController, NotASIPDBException
 from ..utils.sip_status import SIPStatus
 from ..utils.state_utils.sip import SIP
 from ..utils.pandasmodel import PandasModel
+from ..utils.path_loader import resource_path
 from ..widgets.toolbar import Toolbar
 from ..widgets.warning_dialog import WarningDialog
 from ..widgets.dialog import YesNoDialog
@@ -35,7 +36,7 @@ class GridView(QtWidgets.QMainWindow):
         self.toolbar = Toolbar()
         self.addToolBar(self.toolbar)
 
-        self.setWindowIcon(QtGui.QIcon("logo.ico"))
+        self.setWindowIcon(QtGui.QIcon(resource_path("logo.ico")))
 
         central_widget = QtWidgets.QWidget()
         self.setCentralWidget(central_widget)
