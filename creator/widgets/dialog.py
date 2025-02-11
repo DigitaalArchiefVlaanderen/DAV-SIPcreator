@@ -1,4 +1,4 @@
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtWidgets, QtCore, QtGui
 
 
 class Dialog(QtWidgets.QDialog):
@@ -7,6 +7,8 @@ class Dialog(QtWidgets.QDialog):
 
         self.resize(400, 300)
         self.setWindowTitle(title)
+
+        self.setWindowIcon(QtGui.QIcon("logo.ico"))
 
         vertical_layout = QtWidgets.QVBoxLayout()
         self.setLayout(vertical_layout)
@@ -32,6 +34,8 @@ class YesNoDialog(QtWidgets.QDialog):
         self.resize(400, 300)
         self.setWindowTitle(title)
 
+        self.setWindowIcon(QtGui.QIcon("logo.ico"))
+
         vertical_layout = QtWidgets.QVBoxLayout()
         self.setLayout(vertical_layout)
 
@@ -55,6 +59,8 @@ class ChoiceDialog(QtWidgets.QDialog):
 
         self.resize(400, 300)
         self.setWindowTitle(title)
+
+        self.setWindowIcon(QtGui.QIcon("logo.ico"))
 
         vertical_layout = QtWidgets.QVBoxLayout()
         self.setLayout(vertical_layout)
