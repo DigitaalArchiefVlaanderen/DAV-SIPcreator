@@ -62,6 +62,8 @@ class GridView(QtWidgets.QMainWindow):
         self.show_dossiers_only_checkbox.stateChanged.connect(self._dossiers_only_clicked)
         grid_layout.addWidget(self.show_dossiers_only_checkbox, 1, 2)
 
+        # TODO: add column duplication here
+
         self.table_view = TableView()
         grid_layout.addWidget(self.table_view, 2, 0, 1, 4)
 

@@ -24,7 +24,7 @@ from .widgets.tableview_widget import TableView
 from .widgets.dossier_widget import DossierWidget
 from .widgets.sip_widget import SIPWidget
 from .widgets.toolbar import Toolbar
-from .widgets.dialog import YesNoDialog, Dialog
+from .widgets.dialog import YesNoDialog, Dialog, ChoiceDialog
 from .widgets.warning_dialog import WarningDialog
 
 from .controllers.api_controller import APIController
@@ -529,28 +529,23 @@ class TabUI(QtWidgets.QMainWindow):
 
         with sql.connect(self.db_location) as conn:
             result = conn.execute(f'''
-                SELECT uploaded, edepot_id FROM tables;
+                SELECT table_name, uploaded, edepot_id FROM tables;
             ''').fetchall()
 
-        has_uploaded = False
+        uploaded_tables = []
 
-        for uploaded, edepot_id in result:
+        for table_name, uploaded, edepot_id in result:
             if edepot_id is not None:
                 self.edepot_ids.append(edepot_id)
 
-            has_uploaded = has_uploaded or uploaded
+            if uploaded:
+                uploaded_tables.append(table_name)
 
-        if has_uploaded:
-            self.can_upload = False
-            self.can_upload_changed.emit(False)
-
-            # NOTE: this means some of the items had not been found in the edepot yet
-            if len(result) - 1 != len(self.edepot_ids):
-                self.edepot_ids = []
-                self.edepot_available_changed.emit(False)
-
+        if len(uploaded_tables) > 0:
+            if len(uploaded_tables) > len(self.edepot_ids):
                 t = threading.Thread(
-                    target=self.update_status
+                    target=self.update_status,
+                    args=uploaded_tables
                 )
                 t.start()
 
@@ -1299,6 +1294,32 @@ class TabUI(QtWidgets.QMainWindow):
         self.close()
 
     def upload_sips(self) -> None:
+        # NOTE: ask which ones to upload
+        tabs: list[tuple[str, TableView]] = []
+        
+        for tab, table_view in self.tabs.items():
+            if tab == self.main_tab:
+                continue
+
+            tabs.append((tab, table_view))
+
+        dialog = ChoiceDialog(
+            title="Uploaden",
+            text="Kies voor welke series je een SIP wilt uploaden",
+            choices=[t for t, _ in tabs],
+            default_selected=True,
+        )
+        dialog.exec()
+
+        if dialog.result():
+            tabs_to_upload = dialog.get_selected_choices()
+            tabs_to_upload = [(tab, table) for tab, table in tabs if tab in tabs_to_upload]
+
+            if len(tabs_to_upload) == 0:
+                return
+        else:
+            return
+
         env = self.state.configuration.active_environment
         if not env.has_ftps_credentials():
             WarningDialog(
@@ -1310,10 +1331,7 @@ class TabUI(QtWidgets.QMainWindow):
         storage_location = self.state.configuration.misc.save_location
         sip_storage_path = os.path.join(storage_location, FileController.SIP_STORAGE)
 
-        for series_name, table_view in self.tabs.items():
-            if series_name == self.main_tab:
-                continue
-
+        for series_name, table_view in tabs_to_upload:
             model: SQLliteModel = table_view.model()
 
             sip_location = os.path.join(sip_storage_path, f"{model.series_id}-{self.overdrachtslijst_name}.zip")
@@ -1355,7 +1373,8 @@ class TabUI(QtWidgets.QMainWindow):
                 ''')
 
         t = threading.Thread(
-            target=self.update_status
+            target=self.update_status,
+            args=[tab for tab, _ in tabs_to_upload]
         )
         t.start()
 
@@ -1365,11 +1384,14 @@ class TabUI(QtWidgets.QMainWindow):
         ).exec()
         self.can_upload_changed.emit(False)
 
-    def update_status(self) -> None:
+    def update_status(self, tabs: list[str]) -> None:
         import time
 
         for series_name, table_view in self.tabs.items():
             if series_name == self.main_tab:
+                continue
+
+            if series_name not in tabs:
                 continue
 
             model: SQLliteModel = table_view.model()
@@ -1486,12 +1508,13 @@ class ListView(QtWidgets.QWidget):
         self.edepot_button.clicked.connect(
             lambda: [os.startfile(
                 f"{self.state.configuration.active_environment.api_url}/input/processing-list/{edepot_id}"
-            ) for edepot_id in self.tab_ui.edepot_ids]
+            ) for edepot_id in self.tab_ui.edepot_ids if edepot_id is not None]
         )
         self.edepot_button.setHidden(self.state.configuration.active_role == "klant")
         self.tab_ui.configuration_changed.connect(lambda: self.edepot_button.setHidden(self.state.configuration.active_role == "klant"))
 
-        self.edepot_button.setEnabled(len(self.tab_ui.edepot_ids) == len(self.tab_ui.tabs) - 1 and len(self.tab_ui.edepot_ids) > 0)
+        self.edepot_button.setEnabled(len(self.tab_ui.edepot_ids) > 0)
+
         self.tab_ui.edepot_available_changed.connect(self.edepot_button.setEnabled)
 
         layout.addWidget(title, 0, 0, 1, 3)
