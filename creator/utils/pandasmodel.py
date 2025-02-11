@@ -539,6 +539,7 @@ class PandasModel(QtCore.QAbstractTableModel):
             closing_date_mapping > self.date_end if self.date_end is not None else None
         )
 
+        # TODO: this fails if for some reason only one of the dates is filled in in a row
         # Closing before opening
         closing_before_opening_mask = closing_date_mapping < opening_date_mapping
 

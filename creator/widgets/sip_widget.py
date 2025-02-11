@@ -7,6 +7,7 @@ import threading
 
 from ..application import Application
 
+from ..controllers.db_controller import SIPDBController, NotASIPDBException
 from ..controllers.file_controller import FileController
 
 from ..utils.state import State
@@ -41,6 +42,7 @@ class SIPWidget(QtWidgets.QFrame):
         self.sip_location = ""
 
         self.setFrameShape(QtWidgets.QFrame.Panel)
+        self.setFixedHeight(250)
 
         layout = QtWidgets.QHBoxLayout()
         self.setLayout(layout)
@@ -78,7 +80,7 @@ class SIPWidget(QtWidgets.QFrame):
 
         dossiers_scrollarea = QtWidgets.QScrollArea()
         dossiers_scrollarea.setWidgetResizable(True)
-        dossiers_scrollarea.setMinimumHeight(200)
+        dossiers_scrollarea.setMaximumHeight(180)
         dossiers_scrollarea.setMinimumWidth(100)
         dossiers_scrollarea.setStyleSheet("border: 0;")
         dossiers_widget.setFrameShape(QtWidgets.QFrame.Box)
@@ -116,12 +118,7 @@ class SIPWidget(QtWidgets.QFrame):
 
         self.open_explorer_button = QtWidgets.QPushButton(text="Bestandslocatie")
         self.open_explorer_button.clicked.connect(
-            lambda: os.startfile(
-                os.path.join(
-                    self.state.configuration.misc.save_location,
-                    FileController.SIP_STORAGE,
-                )
-            )
+            lambda: os.startfile(self.state.configuration.sip_db_location)
         )
         self.open_explorer_button.setEnabled(False)
 
@@ -149,29 +146,29 @@ class SIPWidget(QtWidgets.QFrame):
         layout.addWidget(dossiers_widget)
         layout.addWidget(controls)
 
-    def open_button_clicked(self):
-        if not self.sip.environment.has_api_credentials():
-            WarningDialog(
-                title="Connectie fout",
-                text=f"Je API connectie gegevens staan niet in orde voor omgeving '{self.sip.environment.name}'",
-            ).exec()
-            return
-
+    def open_button_clicked(self) -> None:
         self.__sip_view = SIPView(sip_widget=self)
 
-        if (
-            FileController.existing_grid_path(
-                self.application.state.configuration, self.sip
-            )
-            is not None
-        ):
-            self.import_template_df = FileController.existing_grid(
-                self.application.state.configuration, self.sip
-            )
+        db_path = os.path.join(self.state.configuration.sip_db_location, f"{self.sip.name}.db")
+        db_controller = SIPDBController(db_path)
+
+        db_exists = os.path.exists(db_path)
+        db_is_valid = db_controller.is_valid_db()
+
+        if db_exists:
+            if not db_is_valid:
+                raise NotASIPDBException(f"Database laden is gefaald.\nDe database op locatie '{db_path}' is geen SIP database of is corrupt.")
+
+            self.import_template_df = db_controller.read_data_table()
             self.__sip_view.open_grid_clicked(first_open=False)
-        else:
-            self.__sip_view.setup_ui()
-            self.__sip_view.show()
+            return
+        
+        # NOTE: can only continue if we can load the series
+        if not self.state.check_series_loaded():
+            return
+
+        self.__sip_view.setup_ui()
+        self.__sip_view.show()
 
     def upload_button_clicked(self):
         if not self.sip.environment.has_ftps_credentials():
@@ -240,14 +237,16 @@ class SIPWidget(QtWidgets.QFrame):
             return
 
         sip_location = os.path.join(
-            self.state.configuration.misc.save_location,
-            FileController.SIP_STORAGE,
+            self.state.configuration.sips_location,
             self.sip.file_name,
         )
         sidecar_location = os.path.join(
-            self.state.configuration.misc.save_location,
-            FileController.SIP_STORAGE,
+            self.state.configuration.sips_location,
             self.sip.sidecar_file_name,
+        )
+        db_location = os.path.join(
+            self.state.configuration.sip_db_location,
+            f"{self.sip.name}.db"
         )
 
         try:
@@ -257,6 +256,11 @@ class SIPWidget(QtWidgets.QFrame):
 
         try:
             os.remove(sidecar_location)
+        except FileNotFoundError:
+            pass
+
+        try:
+            os.remove(db_location)
         except FileNotFoundError:
             pass
 

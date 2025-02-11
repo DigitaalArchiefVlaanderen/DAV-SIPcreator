@@ -43,6 +43,27 @@ class Series:
             valid_to=valid_to,
         )
 
+    def to_dict(self) -> dict:
+        # NOTE: this dict mimics the basic structure the API gives (with a lot missing)
+        # Doing it this way just makes it simpler to have one expected structure
+        data = {
+            "Id": self._id,
+            "Content": {
+                "Name": self.name
+            },
+            "Status": {
+                "Status": self.status
+            },
+            "ValidityPeriod": {}
+        }
+
+        if self.valid_from is not None:
+            data["ValidityPeriod"]["From"] = self.str_from_datetime(self.valid_from)
+        if self.valid_to is not None:
+            data["ValidityPeriod"]["To"] = self.str_from_datetime(self.valid_to)
+
+        return data
+
     @staticmethod
     def from_list(series_list: list) -> list:
         return [Series.from_dict(s) for s in series_list]

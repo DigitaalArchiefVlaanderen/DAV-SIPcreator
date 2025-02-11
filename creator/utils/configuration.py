@@ -113,6 +113,13 @@ class Configuration:
     environments: List[Environment]
     misc: Misc
 
+    def create_locations(self) -> None:
+        # NOTE: creates all required folders
+        os.makedirs(self.sip_db_location, exist_ok=True)
+        os.makedirs(self.import_templates_location, exist_ok=True)
+        os.makedirs(self.overdrachtslijsten_location, exist_ok=True)
+        os.makedirs(self.sips_location, exist_ok=True) 
+
     @staticmethod
     def get_default() -> "Configuration":
         misc = Misc.get_default()
@@ -236,3 +243,19 @@ class Configuration:
         for _type, active in self.misc.type_activity.items():
             if active:
                 return _type
+
+    @property
+    def import_templates_location(self) -> str:
+        return os.path.join(self.misc.save_location, "import_templates")
+    
+    @property
+    def overdrachtslijsten_location(self) -> str:
+        return os.path.join(self.misc.save_location, "overdrachtslijsten")
+    
+    @property
+    def sips_location(self) -> str:
+        return os.path.join(self.misc.save_location, "SIPs")
+        
+    @property
+    def sip_db_location(self) -> str:
+        return os.path.join(self.misc.save_location, "SIP_dbs")

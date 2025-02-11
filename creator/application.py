@@ -61,7 +61,6 @@ class SIPStatusThread(threading.Thread):
                 continue
 
             sip.set_status(new_status)
-            # self.state.update_sip(sip, fail_reason=fail_reason)
 
             self.state.update_sip(sip)
 
@@ -79,6 +78,10 @@ class Application(QtWidgets.QApplication, QtCore.QObject):
             configuration_callback=self.config_controller.get_configuration,
             db_controller=self.db_controller,
         )
+
+        self.db_controller.set_application()
+
+        self.state.configuration.create_locations()
 
         self.sip_status_thread = SIPStatusThread(self.state)
 

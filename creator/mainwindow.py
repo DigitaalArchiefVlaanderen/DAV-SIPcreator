@@ -27,8 +27,8 @@ from .widgets.toolbar import Toolbar
 from .widgets.dialog import YesNoDialog, Dialog
 from .widgets.warning_dialog import WarningDialog
 
-from .controllers.file_controller import FileController
 from .controllers.api_controller import APIController
+from .controllers.file_controller import FileController
 
 from .utils.state import State
 from .utils.state_utils.dossier import Dossier
@@ -48,6 +48,9 @@ class MainWindow(QtWidgets.QMainWindow):
         # Toolbar
         self.toolbar = Toolbar()
         self.addToolBar(self.toolbar)
+
+        self.toolbar.configuration_changed.connect(self.state.load_series)
+        self.state.load_series()
 
     def closeEvent(self, event):
         # If the main window dies, kill the whole application
@@ -159,7 +162,7 @@ class DigitalWidget(QtWidgets.QWidget):
 
         missing_sips = []
         sips = self.application.state.sips
-        sorted_sips = sorted(sips, key=lambda s: s.status.get_priority(), reverse=True)
+        sorted_sips: list[SIP] = sorted(sips, key=lambda s: s.status.get_priority(), reverse=True)
 
         for sip in sorted_sips:
             # Check for missing sips
@@ -205,8 +208,9 @@ class DigitalWidget(QtWidgets.QWidget):
             if sip.status == SIPStatus.UPLOADING:
                 sip.set_status(SIPStatus.SIP_CREATED)
 
-            result = FileController.existing_grid(
-                self.application.state.configuration, sip
+            result = FileController.existing_sip_db(
+                self.application.state.configuration,
+                f"{sip.name}.db"
             )
 
             if result is not None:
@@ -307,10 +311,34 @@ class DigitalWidget(QtWidgets.QWidget):
                 ).exec()
 
     def create_sip_clicked(self):
-        selected_dossiers = list(self.dossiers_list_view.get_selected())
+        if not self.state.check_series_loaded():
+            return
+
+        selected_dossiers: list[DossierWidget] = list(self.dossiers_list_view.get_selected())
 
         if len(selected_dossiers) > 0:
             dossiers = [d.dossier for d in selected_dossiers]
+
+            # NOTE: make sure we don't exceed 9999 lines
+            line_count = 0
+
+            for dossier in dossiers:
+                # NOTE: +1 for the dossier itself
+                line_count += 1
+
+                # NOTE: add all the files in this dossier (recursively) to the count
+                line_count += sum(len(files) for _, _, files in os.walk(dossier.path))
+
+                # TODO: we did not check for empty files or empty dossiers here
+                # These do however get ignored once we actually try to make a SIP, so it should be filtered here
+                # We also do not check for files like thumbs.db here, which once again, should not be counted
+
+            if line_count > 9999:
+                WarningDialog(
+                    title="Te veel bestanden",
+                    text=f"Er zijn te veel bestanden in de geselecteerde dossiers.\n\nMaximum: 9999\nGevonden: {line_count}"
+                ).exec()
+                return
 
             sip = SIP(
                 environment_name=self.application.state.configuration.active_environment_name,
@@ -325,8 +353,6 @@ class DigitalWidget(QtWidgets.QWidget):
             )
 
             if success:
-                self.application.state.add_sip(sip)
-
                 # Remove the dossiers from the list
                 self.dossiers_list_view.remove_selected_clicked()
 
@@ -382,10 +408,7 @@ class MigrationWidget(QtWidgets.QWidget):
         self._layout.addWidget(file_location_button, 1, 3)
         self._layout.addWidget(self.list_view, 2, 0, 1, 4)
 
-        from creator.controllers.api_controller import APIController
-
-        # NOTE: preload the series
-        self.series = APIController.get_series(self.state.configuration)
+        self.series = self.state.series
 
     def load_items(self):
         os.makedirs(self.list_storage_path, exist_ok=True)
@@ -400,6 +423,9 @@ class MigrationWidget(QtWidgets.QWidget):
             self.list_view.add_item("overdrachtslijst_name", ListView(tab_ui))
 
     def add_overdrachtslijst_click(self):
+        if not self.state.check_series_loaded():
+            return
+
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
             caption="Selecteer Overdrachtslijst", filter="Overdrachtslijst (*.xlsx *.xlsm *.xltx *.xltm)"
         )

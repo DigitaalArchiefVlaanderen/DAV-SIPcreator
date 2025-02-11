@@ -1,6 +1,6 @@
 from PySide6 import QtWidgets, QtCore
 
-from typing import List, Callable
+from typing import List
 import uuid
 import os
 
@@ -18,9 +18,14 @@ class FilenameNotUniqueException(Exception):
 
 
 def get_next_sip_name():
-    db_controller = QtWidgets.QApplication.instance().db_controller
+    # NOTE: import is in here to avoid circular imports
+    from ...controllers.db_controller import SIPDBController
+    from ...application import Application
 
-    return f"SIP {db_controller.get_sip_count() + 1}"
+    application: Application = QtWidgets.QApplication.instance()
+    state = application.state
+
+    return f"SIP {SIPDBController.get_sip_count(state.configuration.sip_db_location) + 1}"
 
 
 class SIP(QtCore.QObject):

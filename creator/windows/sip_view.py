@@ -2,14 +2,14 @@ from PySide6 import QtWidgets, QtGui, QtCore
 
 import pandas as pd
 import json
-
-from typing import List
+import os
 
 from ..application import Application
 from ..controllers.api_controller import APIController, APIException
+from ..controllers.db_controller import SIPDBController
 from ..utils.sip_status import SIPStatus
-from ..utils.series import Series
-from ..utils.state_utils.sip import FilenameNotUniqueException
+from ..utils.state import State
+from ..utils.state_utils.sip import SIP, FilenameNotUniqueException
 from ..widgets.mapping_widget import TagMappingWidget
 from ..widgets.toolbar import Toolbar
 from ..widgets.warning_dialog import WarningDialog
@@ -21,13 +21,14 @@ from .folder_structure_view import FolderStructure
 class SIPView(QtWidgets.QMainWindow):
     def __init__(self, sip_widget):
         super().__init__()
+        # NOTE: avoid circular import
+        from ..widgets.sip_widget import SIPWidget
 
         self.application: Application = QtWidgets.QApplication.instance()
-        self.config_controller = self.application.config_controller
-        self.sip_widget = sip_widget
-        self.sip = self.sip_widget.sip
+        self.state: State = self.application.state
 
-        self.listed_series: List[Series] = []
+        self.sip_widget: SIPWidget = sip_widget
+        self.sip: SIP = self.sip_widget.sip
 
         self.folder_structure_view = None
 
@@ -61,7 +62,6 @@ class SIPView(QtWidgets.QMainWindow):
         status.setStyleSheet(self.sip_widget.sip.status.value)
         self.title.setEnabled(self.sip_widget.sip.status == SIPStatus.IN_PROGRESS)
 
-        configuration = self.config_controller.get_configuration()
         self.series_combobox = QtWidgets.QComboBox()
         self.series_combobox.setEditable(True)
         self.series_combobox.setInsertPolicy(QtWidgets.QComboBox.NoInsert)
@@ -74,16 +74,7 @@ class SIPView(QtWidgets.QMainWindow):
         self.series_combobox.setMaximumWidth(900)
 
         # Text will be set dynamically later
-        self.series_amount_label = QtWidgets.QLabel()
-
-        try:
-            self.listed_series = APIController.get_series(configuration)
-        except APIException:
-            self.listed_series = []
-
-        # We had no series to show
-        if len(self.listed_series) == 0:
-            self.deleteLater()
+        self.series_amount_label = QtWidgets.QLabel(text=str(len(self.state.series)))
 
         self.set_series_combobox_items(status="Published")
 
@@ -146,7 +137,7 @@ class SIPView(QtWidgets.QMainWindow):
             self.series_combobox.removeItem(i)
 
         self.series_combobox.addItems(
-            [s.get_name() for s in self.listed_series if s.status == status]
+            [s.get_name() for s in self.state.series if s.status == status]
         )
         self.series_amount_label.setText(f"{self.series_combobox.count()} serie(s)")
 
@@ -156,12 +147,12 @@ class SIPView(QtWidgets.QMainWindow):
         )
 
         if metadata_path != "":
-            self.sip_widget.sip.set_metadata_file_path(metadata_path)
+            self.sip.set_metadata_file_path(metadata_path)
 
-            self.metadata_path_label.setText(self.sip_widget.sip.metadata_file_path)
+            self.metadata_path_label.setText(self.sip.metadata_file_path)
 
             self.sip_widget.metadata_df = pd.read_excel(
-                self.sip_widget.sip.metadata_file_path, dtype=str
+                self.sip.metadata_file_path, dtype=str, engine="openpyxl"
             )
 
             # Only allow columns where no field is empty at all
@@ -181,13 +172,13 @@ class SIPView(QtWidgets.QMainWindow):
 
         # Only select series if given text matches an existing series
         try:
-            series = [s for s in self.listed_series if s.get_name() == series_label][0]
+            series = [s for s in self.state.series if s.get_name() == series_label][0]
         except IndexError:
             return
 
         try:
             self.import_template_location = APIController.get_import_template(
-                self.config_controller.get_configuration(),
+                self.state.configuration,
                 series_id=series._id,
             )
         except APIException:
@@ -199,11 +190,15 @@ class SIPView(QtWidgets.QMainWindow):
         self.tag_mapping_widget.add_to_import_template(
             self.sip_widget.import_template_df.columns
         )
-        self.sip_widget.sip.set_series(series)
+        self.sip.set_series(series)
 
         self.open_grid_button.setEnabled(True)
 
     def open_grid_clicked(self, first_open=True):
+        db_controller = SIPDBController(
+            os.path.join(self.state.configuration.sip_db_location, f"{self.sip.name}.db")
+        )
+
         if first_open:
             tag_mapping = self.tag_mapping_widget.get_mapping()
 
@@ -215,7 +210,7 @@ class SIPView(QtWidgets.QMainWindow):
                 return
 
             # Save the data as part of the SIPWidget
-            self.sip_widget.sip.set_tag_mapping(tag_mapping)
+            self.sip.set_tag_mapping(tag_mapping)
 
             # NOTE: this should not be needed if proper linking is provided
             self.sip_widget.import_template_location = self.import_template_location
@@ -229,7 +224,14 @@ class SIPView(QtWidgets.QMainWindow):
             if not first_open:
                 self.__grid_view.load_table()
             else:
-                self.__grid_view.fill_table()
+                df = self.__grid_view.fill_table()
+
+                # NOTE: create db here
+                db_controller.create_db(
+                    df,
+                    self.sip,
+                )
+            
         except FilenameNotUniqueException as exc:
             WarningDialog(
                 title="Overlapende naam",

@@ -132,9 +132,6 @@ update_sip_table = [
 read_all_sip = f"""
 SELECT * FROM {Tables.SIP.value}
 """
-get_sip_count = f"""
-SELECT count(*) FROM {Tables.SIP.value}
-"""
 insert_sip = f"""
 INSERT INTO {Tables.SIP.value}(id, environment_name, name, status, series_id, metadata_file_path, tag_mapping_dict, folder_mapping_list, edepot_sip_id)
 VALUES(?,?,?,?,?,?,?,?,?)

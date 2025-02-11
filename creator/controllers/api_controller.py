@@ -181,8 +181,9 @@ class APIController:
         return series
 
     @staticmethod
-    def get_import_template(configuration: Configuration, series_id: str) -> str:
-        environment = configuration.active_environment
+    def get_import_template(configuration: Configuration, series_id: str, environment: Environment=None) -> str:
+        # NOTE: we only get the environment given when it's retrieving for an existing grid
+        environment = environment or configuration.active_environment
 
         access_token = APIController._get_access_token(
             environment, reraise=True, warn=True
