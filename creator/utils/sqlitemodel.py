@@ -359,6 +359,10 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             self._mark_cell(row, col, Color.RED, "Datum moet in het formaat yyyy-mm-dd zijn, en moet een geldige datum zijn")
             return
         
+        if date > datetime.now():
+            self._mark_cell(row, col, Color.RED, "Datum mag niet in de toekomst zijn")
+            return
+
         # Check range
         van_tot = re.match(r".* \(Geldig van (.*?)( t.e.m | tot )(.*?)\)", self._table_name)
         van = re.match(r".* \(Geldig van (.*)\)", self._table_name)
