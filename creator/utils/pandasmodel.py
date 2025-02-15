@@ -335,6 +335,12 @@ class PandasModel(QtCore.QAbstractTableModel):
         if value == "" and self._data.iloc[row]["Type"] == "dossier":
             self._mark_name_cell(row=row)
             return False
+        
+        if len(value) > 255:
+            self._mark_bad_cell(
+                row=row, col=col, tooltip="Naam mag niet langer zijn dan 255 karakters"
+            )
+            return False
 
         self._unmark_bad_cell(row=row, col=col)
         return True

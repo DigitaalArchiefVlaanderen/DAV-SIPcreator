@@ -500,6 +500,10 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             self._mark_cell(row, col, Color.RED, "Naam mag niet leeg zijn")
             return
         
+        if len(value) > 255:
+            self._mark_cell(row, col, Color.RED, "Naam mag niet langer zijn dan 255 karakters")
+            return
+
         self._mark_cell(row, col)
 
     def rrn_check(self, row: int, col: int, value: str) -> str:
