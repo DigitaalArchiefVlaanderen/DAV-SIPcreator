@@ -1,6 +1,7 @@
 from PySide6 import QtGui, QtCore
 import pandas as pd
 import os
+import re
 
 from datetime import datetime
 from enum import Enum
@@ -117,7 +118,11 @@ class PandasModel(QtCore.QAbstractTableModel):
                     self._update_dossier_date_range(
                         dossier_ref=self._data.iloc[row]["DossierRef"], column=column
                     )
+            elif column == self._data.columns.get_loc("ID_Rijksregisternummer"):
+                new_value = self._rrn_check(value, row, column)
 
+                if new_value != value:
+                    return self.setData(index, new_value, role)
             if self.is_data_valid():
                 self._create_sip_button.setEnabled(True)
             else:
@@ -237,6 +242,37 @@ class PandasModel(QtCore.QAbstractTableModel):
 
         if self.date_end is not None and date > self.date_end:
             return "Datum moet binnen de serie-datumrange vallen"
+        
+    def _rrn_check(self, value: str, row: int, col: int) -> str:
+        if value == "":
+            self._unmark_bad_cell(row, col)
+            return value
+
+        # NOTE: we allow loose form matching, and will just set it correctly later
+        loose_form_match = re.match(r"^\d{11}$", value)
+        if loose_form_match:
+            value = f"{value[:2]}.{value[2:4]}.{value[4:6]}-{value[6:9]}.{value[9:]}"
+            
+        strict_form_match = re.match(r"^\d{2}\.\d{2}\.\d{2}-\d{3}\.\d{2}$", value)
+
+        if not strict_form_match:
+            self._mark_bad_cell(row, col, Color.RED, "Rijksregisternummer moet van vorm xx.xx.xx-xxx.xx zijn, of 11 cijfers na elkaar zijn")
+            return value
+        
+        # NOTE: check if the actual rrn is valid
+        calc, control = value[:-2].replace(".", "").replace("-", ""), value[-2:]
+
+        is_valid_check = lambda c: 97 - int(c) % 97 == int(control)
+
+        # NOTE: for people born after 2000, add a 2 to the calc
+        calc_before, calc_after = calc, f"2{calc}"
+
+        if not is_valid_check(calc_before) and not is_valid_check(calc_after):
+            self._mark_bad_cell(row, col, Color.RED, "Ingegeven rijksregisternummer is niet mogelijk")
+            return value
+
+        self._unmark_bad_cell(row, col)
+        return value
 
     def _get_date_values_for_dossier_ref(self, dossier_ref: str, column: str) -> list:
         files = self._data.loc[
