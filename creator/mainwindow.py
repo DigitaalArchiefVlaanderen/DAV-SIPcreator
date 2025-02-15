@@ -485,7 +485,7 @@ class TabUI(QtWidgets.QMainWindow):
         self.tabs: dict[str, TableView] = dict()
 
         self.main_tab = "Overdrachtslijst"
-        self.main_table = TableView()
+        self.main_table = TableView(editable=False)
 
         self.tab_widget = QtWidgets.QTabWidget()
 
@@ -816,7 +816,12 @@ class TabUI(QtWidgets.QMainWindow):
         conn = sql.connect(self.db_location)
 
         if mapping_ids is None:
-            selected_rows = [str(r.row()) for r in self.main_table.selectionModel().selectedRows()]
+            # NOTE: filter out hidden rows here
+            selected_rows = [
+                str(r.row())
+                for r in self.main_table.selectionModel().selectedRows()
+                if not self.main_table.isRowHidden(r.row())
+            ]
 
             if len(selected_rows) == 0:
                 return
