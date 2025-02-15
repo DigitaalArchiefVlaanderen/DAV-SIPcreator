@@ -240,7 +240,8 @@ class DigitalWidget(QtWidgets.QWidget):
                 SIPStatus.SIP_CREATED,
             ):
                 sip_widget.open_explorer_button.setEnabled(True)
-                sip_widget.delete_button.setEnabled(True)
+
+            sip_widget.delete_button.setEnabled(True)
 
             if sip.status in (SIPStatus.PROCESSING, SIPStatus.ACCEPTED, SIPStatus.REJECTED):
                 sip_widget.open_edepot_button.setEnabled(True)
@@ -478,7 +479,7 @@ class TabUI(QtWidgets.QMainWindow):
         self.path = path
         self.overdrachtslijst_name = Path(path).stem
         self.db_location = f"{self.storage_base}/{self.overdrachtslijst_name}.db"
-        self.series = series
+        self.series = series or []
 
         self._layout = QtWidgets.QGridLayout()
         self.tabs: dict[str, TableView] = dict()
@@ -713,7 +714,7 @@ class TabUI(QtWidgets.QMainWindow):
         layout = QtWidgets.QGridLayout()
         container.setLayout(layout)
 
-        listed_series = self.series
+        listed_series = self.series or []
         series_names = [s.get_name() for s in listed_series if s.status == "Published"]
         
         series_combobox = QtWidgets.QComboBox()
@@ -1255,8 +1256,10 @@ class TabUI(QtWidgets.QMainWindow):
             wb.save(temp_loc)
             wb.close()
 
-            sip_location = os.path.join(sip_storage_path, f"{model.series_id}-{self.overdrachtslijst_name}.zip")
-            md5_location = os.path.join(sip_storage_path, f"{model.series_id}-{self.overdrachtslijst_name}.xml")
+            ol_name = self.overdrachtslijst_name[:185]
+
+            sip_location = os.path.join(sip_storage_path, f"{model.series_id}-{ol_name}.zip")
+            md5_location = os.path.join(sip_storage_path, f"{model.series_id}-{ol_name}.xml")
 
             with zipfile.ZipFile(
                 sip_location, "w", compression=zipfile.ZIP_DEFLATED

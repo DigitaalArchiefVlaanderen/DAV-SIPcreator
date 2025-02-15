@@ -60,6 +60,7 @@ class SIPView(QtWidgets.QMainWindow):
         self.title.editingFinished.connect(
             lambda: self.sip_widget.sip.set_name(self.title.text())
         )
+        self.title.setMaxLength(185)
 
         status = QtWidgets.QLabel(text=self.sip_widget.sip.status.get_status_label())
         status.setStyleSheet(self.sip_widget.sip.status.value)
