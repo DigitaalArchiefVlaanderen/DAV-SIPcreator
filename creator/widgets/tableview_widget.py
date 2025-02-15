@@ -5,12 +5,17 @@ from ..utils.path_loader import resource_path
 
 
 class TableView(QtWidgets.QTableView):
-    def __init__(self):
+    def __init__(self, editable=True):
         super().__init__()
+
+        self.editable = editable
 
         self.setSortingEnabled(True)
 
         self.setWindowIcon(QtGui.QIcon(resource_path("logo.ico")))
+
+        # NOTE: seems to be the only way to access the select-all corner button
+        self.corner: QtWidgets.QPushButton = self.findChild(QtWidgets.QAbstractButton)
 
     def copy_content(self, indexes: list):
         # Single cell copy
@@ -39,6 +44,9 @@ class TableView(QtWidgets.QTableView):
         QtWidgets.QApplication.clipboard().setText(copy_text)
 
     def paste_content(self, indexes: list):
+        if not self.editable:
+            return
+
         copy_text = QtWidgets.QApplication.clipboard().text()
 
         if copy_text == "":
@@ -122,6 +130,9 @@ class TableView(QtWidgets.QTableView):
 
         # DELETE
         if event.key() == QtCore.Qt.Key_Delete:
+            if not self.editable:
+                return
+
             for index in indexes:
                 self.model().setData(index, "", QtCore.Qt.ItemDataRole.EditRole)
 
