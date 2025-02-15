@@ -413,12 +413,16 @@ class SQLliteModel(QtCore.QAbstractTableModel):
                 self._mark_cell(row, col, Color.RED, "Datum mag niet na de sluitingsdatum van de serie zijn")
                 return
 
+        if re_evaluation:
+            self._mark_cell(row, col)
+            return
+
         # Check start vs end in row
         columns = list(self.columns.values())
         start_column, end_column = columns.index("Openingsdatum"), columns.index("Sluitingsdatum")
         
-        start_value = self.raw_data[row][start_column]
-        end_value = self.raw_data[row][end_column]
+        start_value = value if col == start_column else self.raw_data[row][start_column]
+        end_value = value if col == end_column else self.raw_data[row][end_column]
 
         try:
             start_date = datetime.strptime(start_value, "%Y-%m-%d")
