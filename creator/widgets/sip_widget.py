@@ -132,7 +132,7 @@ class SIPWidget(QtWidgets.QFrame):
 
         self.delete_button = QtWidgets.QPushButton(text="Verwijder")
         self.delete_button.clicked.connect(self.delete_button_clicked)
-        self.delete_button.setEnabled(False)
+        self.delete_button.setEnabled(True)
 
         controls_layout.addWidget(self.open_button)
         controls_layout.addWidget(self.upload_button)
@@ -280,7 +280,7 @@ class SIPWidget(QtWidgets.QFrame):
             self.upload_button.setEnabled(False)
             self.open_explorer_button.setEnabled(False)
             self.open_edepot_button.setEnabled(False)
-            self.delete_button.setEnabled(False)
+            self.delete_button.setEnabled(True)
         elif status == SIPStatus.SIP_CREATED:
             self.open_button.setEnabled(True)
             self.upload_button.setEnabled(True)
