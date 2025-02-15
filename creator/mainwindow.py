@@ -1258,8 +1258,8 @@ class TabUI(QtWidgets.QMainWindow):
 
             ol_name = self.overdrachtslijst_name[:185]
 
-            sip_location = os.path.join(sip_storage_path, f"{model.series_id}-{ol_name}.zip")
-            md5_location = os.path.join(sip_storage_path, f"{model.series_id}-{ol_name}.xml")
+            sip_location = os.path.join(sip_storage_path, f"{model.series_id}-{ol_name}-SIPC.zip")
+            md5_location = os.path.join(sip_storage_path, f"{model.series_id}-{ol_name}-SIPC.xml")
 
             with zipfile.ZipFile(
                 sip_location, "w", compression=zipfile.ZIP_DEFLATED
@@ -1346,8 +1346,10 @@ class TabUI(QtWidgets.QMainWindow):
         for series_name, table_view in tabs_to_upload:
             model: SQLliteModel = table_view.model()
 
-            sip_location = os.path.join(sip_storage_path, f"{model.series_id}-{self.overdrachtslijst_name}.zip")
-            md5_location = os.path.join(sip_storage_path, f"{model.series_id}-{self.overdrachtslijst_name}.xml")
+            ol_name = self.overdrachtslijst_name[:185]
+
+            sip_location = os.path.join(sip_storage_path, f"{model.series_id}-{ol_name}-SIPC.zip")
+            md5_location = os.path.join(sip_storage_path, f"{model.series_id}-{ol_name}-SIPC.xml")
 
             if not os.path.exists(sip_location) or not os.path.exists(md5_location):
                 self.create_sips()
@@ -1361,9 +1363,9 @@ class TabUI(QtWidgets.QMainWindow):
                     session.prot_p()
 
                     with open(sip_location, "rb") as f:
-                        session.storbinary(f"STOR {model.series_id}-{self.overdrachtslijst_name}.zip", f)
+                        session.storbinary(f"STOR {model.series_id}-{ol_name}-SIPC.zip", f)
                     with open(md5_location, "rb") as f:
-                        session.storbinary(f"STOR {model.series_id}-{self.overdrachtslijst_name}.xml", f)
+                        session.storbinary(f"STOR {model.series_id}-{ol_name}-SIPC.xml", f)
             except ftplib.error_perm:
                 WarningDialog(
                     title="Connectie fout",

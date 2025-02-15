@@ -68,11 +68,11 @@ class SIP(QtCore.QObject):
 
     @property
     def file_name(self):
-        return f"{self.series._id}-{self.name}.zip"
+        return f"{self.series._id}-{self.name}-SIPC.zip"
 
     @property
     def sidecar_file_name(self):
-        return f"{self.series._id}-{self.name}.xml"
+        return f"{self.series._id}-{self.name}-SIPC.xml"
 
     @property
     def error_file_name(self):
