@@ -322,8 +322,8 @@ class DigitalWidget(QtWidgets.QWidget):
         if len(selected_dossiers) > 0:
             dossiers = [d.dossier for d in selected_dossiers]
 
-            # NOTE: make sure we don't exceed 9999 lines
-            line_count = 0
+            # NOTE: make sure we don't exceed 9999 lines (counting the heading as one)
+            line_count = 1
 
             for dossier in dossiers:
                 # NOTE: +1 for the dossier itself
@@ -1220,6 +1220,14 @@ class TabUI(QtWidgets.QMainWindow):
             ws = wb["Details"]
 
             data = model.raw_data
+
+            # NOTE: make sure we don't exceed 9999 lines (counting the heading as one)
+            if len(data) > 9999 - 1:
+                WarningDialog(
+                    title="Te veel lijnen",
+                    text=f"Er zijn te veel lijnen in de tab '{series_name}'.\n\nMaximum: 9999\nGevonden: {len(data) + 1}"
+                ).exec()
+                return
 
             # NOTE: overwrite the headers
             for col_index, col in model.columns.items():
