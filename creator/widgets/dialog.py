@@ -38,21 +38,21 @@ class YesNoDialog(QtWidgets.QDialog):
 
         self.setWindowIcon(QtGui.QIcon(resource_path("logo.ico")))
 
-        vertical_layout = QtWidgets.QVBoxLayout()
-        self.setLayout(vertical_layout)
+        grid_layout = QtWidgets.QGridLayout()
+        self.setLayout(grid_layout)
 
-        yes_button = QtWidgets.QDialogButtonBox.StandardButton.Yes
-        no_button = QtWidgets.QDialogButtonBox.StandardButton.No
+        yes_button = QtWidgets.QPushButton(text="Ja")
+        no_button = QtWidgets.QPushButton(text="Nee")
 
-        buttonBox = QtWidgets.QDialogButtonBox(yes_button | no_button)
-        buttonBox.accepted.connect(self.accept)
-        buttonBox.rejected.connect(self.reject)
+        yes_button.clicked.connect(self.accept)
+        no_button.clicked.connect(self.reject)
 
         text_label = QtWidgets.QLabel(text=text)
         text_label.setWordWrap(True)
 
-        vertical_layout.addWidget(text_label)
-        vertical_layout.addWidget(buttonBox)
+        grid_layout.addWidget(text_label, 0, 0, 3, 2)
+        grid_layout.addWidget(yes_button, 4, 0, 1, 1)
+        grid_layout.addWidget(no_button, 4, 1, 1, 1)
 
 
 class ChoiceDialog(QtWidgets.QDialog):
