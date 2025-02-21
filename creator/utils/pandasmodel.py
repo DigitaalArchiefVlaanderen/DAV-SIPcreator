@@ -543,12 +543,12 @@ class PandasModel(QtCore.QAbstractTableModel):
 
         # Date mapping
         opening_date_mapping = pd.to_datetime(
-            df.Openingsdatum,
+            df.Openingsdatum[df.Openingsdatum != ""],
             format="%Y-%m-%d",
             errors="coerce",
         )
         closing_date_mapping = pd.to_datetime(
-            df.Sluitingsdatum,
+            df.Sluitingsdatum[df.Sluitingsdatum != ""],
             format="%Y-%m-%d",
             errors="coerce",
         )
@@ -606,26 +606,38 @@ class PandasModel(QtCore.QAbstractTableModel):
                 tooltip="Sluitingsdatum mag niet leeg zijn voor dossiers",
             )
 
-        for row, _ in df.Openingsdatum[bad_opening_format_mask].items():
+        for row, is_bad in bad_opening_format_mask.items():
+            if not is_bad:
+                continue
+
             self._mark_bad_cell(
                 row=row,
                 col=opening_col,
                 tooltip="Openingsdatum moet in het formaat YYYY-MM-DD zijn",
             )
-        for row, _ in df.Sluitingsdatum[bad_closing_format_mask].items():
+        for row, is_bad in bad_closing_format_mask.items():
+            if not is_bad:
+                continue
+
             self._mark_bad_cell(
                 row=row,
                 col=closing_col,
                 tooltip="Sluitingsdatum moet in het formaat YYYY-MM-DD zijn",
             )
 
-        for row, _ in df.Openingsdatum[opening_future_mask].items():
+        for row, is_bad in opening_future_mask.items():
+            if not is_bad:
+                continue
+
             self._mark_bad_cell(
                 row=row,
                 col=opening_col,
                 tooltip="Datum mag niet in de toekomst zijn",
             )
-        for row, _ in df.Sluitingsdatum[closing_future_mask].items():
+        for row, is_bad in closing_future_mask.items():
+            if not is_bad:
+                continue
+
             self._mark_bad_cell(
                 row=row,
                 col=closing_col,
@@ -633,35 +645,50 @@ class PandasModel(QtCore.QAbstractTableModel):
             )
 
         if opening_before_start_range_mask is not None:
-            for row, _ in df.Openingsdatum[opening_before_start_range_mask].items():
+            for row, is_bad in opening_before_start_range_mask.items():
+                if not is_bad:
+                    continue
+
                 self._mark_bad_cell(
                     row=row,
                     col=opening_col,
                     tooltip="Datum moet binnen de serie-datumrange vallen",
                 )
         if opening_after_end_range_mask is not None:
-            for row, _ in df.Openingsdatum[opening_after_end_range_mask].items():
+            for row, is_bad in opening_after_end_range_mask.items():
+                if not is_bad:
+                    continue
+
                 self._mark_bad_cell(
                     row=row,
                     col=opening_col,
                     tooltip="Datum moet binnen de serie-datumrange vallen",
                 )
         if closing_before_start_range_mask is not None:
-            for row, _ in df.Sluitingsdatum[closing_before_start_range_mask].items():
+            for row, is_bad in closing_before_start_range_mask.items():
+                if not is_bad:
+                    continue
+
                 self._mark_bad_cell(
                     row=row,
                     col=closing_col,
                     tooltip="Datum moet binnen de serie-datumrange vallen",
                 )
         if closing_after_end_range_mask is not None:
-            for row, _ in df.Sluitingsdatum[closing_after_end_range_mask].items():
+            for row, is_bad in closing_after_end_range_mask.items():
+                if not is_bad:
+                    continue
+
                 self._mark_bad_cell(
                     row=row,
                     col=closing_col,
                     tooltip="Datum moet binnen de serie-datumrange vallen",
                 )
 
-        for row, _ in df.Openingsdatum[closing_before_opening_mask].items():
+        for row, is_bad in closing_before_opening_mask.items():
+            if not is_bad:
+                continue
+
             self._mark_date_cell(
                 row=row,
                 col=opening_col,
