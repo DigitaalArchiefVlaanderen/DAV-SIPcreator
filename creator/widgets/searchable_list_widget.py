@@ -4,12 +4,9 @@ from PySide6 import QtWidgets, QtCore
 
 from ..application import Application
 
-from ..utils.state_utils.dossier import Dossier
 from .dossier_widget import DossierWidget
 from .sip_widget import SIPWidget
-from .dialog import Dialog
 
-from ..utils.configuration import Environment
 from ..utils.state import State
 from ..utils.sip_status import SIPStatus
 
@@ -273,6 +270,16 @@ class SIPListWidget(SearchableListWidget):
         self.sips_status_filter.currentTextChanged.connect(self.reload_widgets)
 
         self.grid_layout.addWidget(self.sips_status_filter, 0, 0, 1, 2)
+
+    def next_sip_name(self) -> str:
+        next_sip_number = len(self.widgets)
+
+        sip_names = [sipwidget.sip_name for sipwidget in self.widgets]
+
+        while f"SIP {next_sip_number}" in sip_names:
+            next_sip_number += 1
+
+        return f"SIP {next_sip_number}"
 
     def search_widgets(self):
         widgets_to_show: List[SIPWidget] = []

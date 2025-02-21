@@ -17,17 +17,6 @@ class FilenameNotUniqueException(Exception):
         self.overlap = overlap
 
 
-def get_next_sip_name():
-    # NOTE: import is in here to avoid circular imports
-    from ...controllers.db_controller import SIPDBController
-    from ...application import Application
-
-    application: Application = QtWidgets.QApplication.instance()
-    state = application.state
-
-    return f"SIP {SIPDBController.get_sip_count(state.configuration.sip_db_location) + 1}"
-
-
 class SIP(QtCore.QObject):
     def __init__(
         self,
@@ -49,7 +38,7 @@ class SIP(QtCore.QObject):
 
         self._id = str(uuid.uuid4()) if _id is None else _id
 
-        self.name = get_next_sip_name() if name is None else name
+        self.name = name
         self.status = SIPStatus.IN_PROGRESS if status is None else status
         self.series = Series() if series is None else series
 
@@ -126,7 +115,7 @@ class SIP(QtCore.QObject):
             }
 
             file_structure = {
-                file_name: {
+                f"{dossier.dossier_label}/{_map_location_to_sip(location)}": {
                     "Path in SIP": f"{dossier.dossier_label}/{_map_location_to_sip(location)}",
                     "path": os.path.join(dossier.path, location),
                     "Type": (

@@ -344,9 +344,12 @@ class DigitalWidget(QtWidgets.QWidget):
                 ).exec()
                 return
 
+            next_sip_widget_name = self.sip_list_view.next_sip_name()
+
             sip = SIP(
                 environment_name=self.application.state.configuration.active_environment_name,
                 dossiers=dossiers,
+                name=next_sip_widget_name
             )
             sip.value_changed.connect(self.state.update_sip)
             sip_widget = SIPWidget(sip=sip)
