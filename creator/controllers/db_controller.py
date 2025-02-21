@@ -389,7 +389,7 @@ class SIPDBController:
         for file in os.listdir(path):
             db_location = os.path.join(path, file)
 
-            if path.endswith(".db"):
+            if file.endswith(".db"):
                 if SIPDBController(db_location=db_location).is_valid_db():
                     count += 1
 
