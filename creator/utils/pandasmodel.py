@@ -359,11 +359,11 @@ class PandasModel(QtCore.QAbstractTableModel):
         if (data_row, col) in self.tooltips:
             del self.tooltips[(data_row, col)]
 
-    def _mark_name_cell(self, row: int) -> None:
+    def _mark_name_cell(self, row: int, tooltip: str) -> None:
         col = self._data.columns.get_loc("Naam")
 
         self._mark_bad_cell(
-            row=row, col=col, tooltip="Een dossier moet verplicht een naam hebben"
+            row=row, col=col, tooltip=tooltip
         )
 
     def _mark_date_cell(self, row: int, col: int, tooltip: str) -> None:
@@ -373,13 +373,22 @@ class PandasModel(QtCore.QAbstractTableModel):
     def _name_data_check(self, value: str, row: int, col: int) -> bool:
         # Return True if cell was ok, otherwise return False
         if value == "" and self._data.iloc[row]["Type"] == "dossier":
-            self._mark_name_cell(row=row)
+            self._mark_name_cell(row=row, tooltip="Een dossier moet verplicht een naam hebben")
             return False
         
         if len(value) > 255:
             self._mark_bad_cell(
                 row=row, col=col, tooltip="Naam mag niet langer zijn dan 255 karakters"
             )
+            return False
+
+        if value != "" and len((rows := self._data.index[self._data.Naam == value].tolist())) > 1:
+            for r in rows:
+                self._mark_bad_cell(
+                    row=r,
+                    col=col,
+                    tooltip="Naam veld moet uniek zijn"
+                )
             return False
 
         self._unmark_bad_cell(row=row, col=col)
@@ -523,13 +532,21 @@ class PandasModel(QtCore.QAbstractTableModel):
 
     # Vectorized checks
     def _vectorized_name_data_check(self) -> None:
+        # Empty name for dossiers
         mask = self._data.loc[self._data.Type == "dossier"].Naam.apply(
             lambda n: n == ""
         )
-        bad_rows = self._data.loc[self._data.Type == "dossier"].Naam[mask]
+        empty_rows = self._data.loc[self._data.Type == "dossier"].Naam[mask]
 
-        for row, _ in bad_rows.items():
-            self._mark_name_cell(row=row)
+        for row, _ in empty_rows.items():
+            self._mark_name_cell(row=row, tooltip="Een dossier moet verplicht een naam hebben")
+
+        # Duplicate names
+        mask = self._data.loc[self._data.Naam != ""].Naam.duplicated(keep=False)
+        duplicate_rows = self._data.loc[self._data.Naam != ""].Naam[mask]
+
+        for row, _ in duplicate_rows.items():
+            self._mark_name_cell(row=row, tooltip="Naam veld moet uniek zijn")
 
     def _vectorized_date_data_check(self) -> None:
         opening_col, closing_col = self._data.columns.get_loc(
