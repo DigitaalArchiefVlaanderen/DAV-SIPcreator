@@ -203,6 +203,10 @@ class SQLliteModel(QtCore.QAbstractTableModel):
 
         row, col = index.row(), index.column()
         column = self.columns[col]
+        old_value = self.raw_data[row][col]
+
+        if value == old_value:
+            return False
 
         if role == QtCore.Qt.ItemDataRole.EditRole:
             if column == "Path in SIP":
@@ -509,6 +513,18 @@ class SQLliteModel(QtCore.QAbstractTableModel):
                 self._mark_cell(row, c)
 
     def name_check(self, row: int, col: int, value: str) -> None:
+        old_value = self.raw_data[row][col]
+
+        if old_value != "":
+            old_duplicates = [r for r in range(self.row_count) if self.raw_data[r][col] == old_value and r != row]
+
+            # NOTE: fixed some duplication
+            if len(old_duplicates) == 1:
+                self._mark_cell(
+                    row=old_duplicates[0],
+                    col=col
+                )
+
         if value == "":
             self._mark_cell(row, col, Color.RED, "Naam mag niet leeg zijn")
             return
@@ -516,6 +532,16 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         if len(value) > 255:
             self._mark_cell(row, col, Color.RED, "Naam mag niet langer zijn dan 255 karakters")
             return
+
+        # NOTE: check for new duplicates
+        new_duplicates = [r for r in range(self.row_count) if self.raw_data[r][col] == value if r != row]
+
+        # NOTE: check if we introduces new duplication
+        if len(new_duplicates) > 0:
+            for r in new_duplicates + [row]:
+                self._mark_cell(r, col, Color.RED, "Naam veld moet uniek zijn")
+
+            return False
 
         self._mark_cell(row, col)
 

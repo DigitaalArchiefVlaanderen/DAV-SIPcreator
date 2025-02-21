@@ -97,6 +97,10 @@ class PandasModel(QtCore.QAbstractTableModel):
                 return False
 
         row, column = index.row(), index.column()
+        old_value = self._data.iloc[row, column]
+
+        if old_value == value:
+            return False
 
         # Do not allow editing of warning rows
         if self.colors.get((self._data.index[row], column)) == Color.YELLOW:
@@ -107,7 +111,7 @@ class PandasModel(QtCore.QAbstractTableModel):
 
             # NOTE: "Naam"
             if column == self._data.columns.get_loc("Naam"):
-                self._name_data_check(value, row, column)
+                self._name_data_check(value, old_value, row, column)
 
             # NOTE: "Openingsdatum" and "Sluitingsdatum"
             elif column in (
@@ -370,8 +374,17 @@ class PandasModel(QtCore.QAbstractTableModel):
         self._mark_bad_cell(row=row, col=col, tooltip=tooltip)
 
     # Checks
-    def _name_data_check(self, value: str, row: int, col: int) -> bool:
+    def _name_data_check(self, value: str, old_value: str, row: int, col: int) -> bool:
         # Return True if cell was ok, otherwise return False
+        # NOTE: check for old duplicates no longer being duplicates
+        if old_value != "" and len((rows := self._data.index[self._data.Naam == old_value].tolist())) == 1:
+            # NOTE: this will only be one row, but this is okay
+            for r in rows:
+                self._unmark_bad_cell(
+                    row=r,
+                    col=col
+                )
+
         if value == "" and self._data.iloc[row]["Type"] == "dossier":
             self._mark_name_cell(row=row, tooltip="Een dossier moet verplicht een naam hebben")
             return False
@@ -382,6 +395,7 @@ class PandasModel(QtCore.QAbstractTableModel):
             )
             return False
 
+        # NOTE: check for new duplication
         if value != "" and len((rows := self._data.index[self._data.Naam == value].tolist())) > 1:
             for r in rows:
                 self._mark_bad_cell(
@@ -389,6 +403,7 @@ class PandasModel(QtCore.QAbstractTableModel):
                     col=col,
                     tooltip="Naam veld moet uniek zijn"
                 )
+
             return False
 
         self._unmark_bad_cell(row=row, col=col)
