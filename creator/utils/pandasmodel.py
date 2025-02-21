@@ -78,8 +78,8 @@ class PandasModel(QtCore.QAbstractTableModel):
             if color:
                 return color.value
 
-            # Mark first 3 columns as grey, only if no other color is assigned
-            if col < 3:
+            # Mark grey if not editable
+            if QtCore.Qt.ItemFlag.ItemIsEditable.name not in self.flags(index).name:
                 return Color.GREY.value
 
         elif role == QtCore.Qt.ItemDataRole.ToolTipRole:
@@ -91,6 +91,10 @@ class PandasModel(QtCore.QAbstractTableModel):
     def setData(self, index, value, role=QtCore.Qt.ItemDataRole.EditRole):
         if not index.isValid():
             return False
+
+        if role == QtCore.Qt.ItemDataRole.EditRole:
+            if QtCore.Qt.ItemFlag.ItemIsEditable.name not in self.flags(index).name:
+                return False
 
         row, column = index.row(), index.column()
 
@@ -142,7 +146,7 @@ class PandasModel(QtCore.QAbstractTableModel):
                 return str(self._data.index[section])
 
     def flags(self, index):
-        if index.column() < 3:
+        if index.column() < 4:
             return (
                 QtCore.Qt.ItemFlag.ItemIsSelectable | QtCore.Qt.ItemFlag.ItemIsEnabled
             )

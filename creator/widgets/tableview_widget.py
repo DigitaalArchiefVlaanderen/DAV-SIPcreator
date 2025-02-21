@@ -124,12 +124,32 @@ class TableView(QtWidgets.QTableView):
             self.model().index(max(usable_rows), self.model().columnCount())
         )
 
+    def _filter_indexes(self, *filters: tuple[str]) -> list[QtCore.QModelIndex]:
+        filtered_indexes = []
+
+        for index in self.selectedIndexes():
+            flags = self.model().flags(index).name
+
+            if all(f in flags for f in filters):
+                filtered_indexes.append(index)
+
+        return filtered_indexes
+
     def keyPressEvent(self, event):
         if not (indexes := self.selectedIndexes()):
             super().keyPressEvent(event)
 
+        # COPY
+        if event.matches(QtGui.QKeySequence.Copy):
+            indexes = self._filter_indexes("ItemIsSelectable")
+
+            if len(indexes) == 0:
+                return
+
+            self.copy_content(indexes)
+
         # DELETE
-        if event.key() == QtCore.Qt.Key_Delete:
+        elif event.key() == QtCore.Qt.Key_Delete:
             if not self.editable:
                 return
 
@@ -141,10 +161,6 @@ class TableView(QtWidgets.QTableView):
                 self.model().index(indexes[0].row(), 0),
                 self.model().index(indexes[-1].row(), self.model().columnCount())
             )
-
-        # COPY
-        elif event.matches(QtGui.QKeySequence.Copy):
-            self.copy_content(indexes)
 
         # PASTE
         elif event.matches(QtGui.QKeySequence.Paste):

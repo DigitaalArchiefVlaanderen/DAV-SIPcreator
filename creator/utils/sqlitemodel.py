@@ -182,6 +182,11 @@ class SQLliteModel(QtCore.QAbstractTableModel):
 
             if color:
                 return color.value
+            
+            # Mark grey if not editable
+            if QtCore.Qt.ItemFlag.ItemIsEditable.name not in self.flags(index).name:
+                return Color.GREY.value
+
         elif role == QtCore.Qt.ItemDataRole.ToolTipRole:
             tooltip = self.tooltips.get((_id, col))
 
@@ -191,6 +196,10 @@ class SQLliteModel(QtCore.QAbstractTableModel):
     def setData(self, index, value: str, role=QtCore.Qt.ItemDataRole.EditRole):
         if not index.isValid():
             return False
+
+        if role == QtCore.Qt.ItemDataRole.EditRole:
+            if QtCore.Qt.ItemFlag.ItemIsEditable.name not in self.flags(index).name:
+                return False
 
         row, col = index.row(), index.column()
         column = self.columns[col]
