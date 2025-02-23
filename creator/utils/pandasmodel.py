@@ -106,6 +106,8 @@ class PandasModel(QtCore.QAbstractTableModel):
         if self.colors.get((self._data.index[row], column)) == Color.YELLOW:
             return False
 
+        value = value.encode(encoding="utf-8", errors="replace").decode("utf-8")
+
         if role == QtCore.Qt.ItemDataRole.EditRole:
             self._data.iloc[row, column] = value
 
