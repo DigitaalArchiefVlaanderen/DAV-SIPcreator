@@ -51,7 +51,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         self.colors: dict[tuple[int, int], Color] = {}
         self.tooltips: dict[tuple[int, int], str] = {}
 
-        self.get_data()
+        self.get_data(check_all=True)
 
     @property
     def conn(self):
@@ -86,7 +86,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
 
             self.col_count = len(self.columns)
 
-    def get_data(self) -> list[list[str]]:
+    def get_data(self, check_all=False) -> list[list[str]]:
         self.performing_retrieval = True
 
         with self.conn as conn:
@@ -133,8 +133,12 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         self.tooltips = {}
 
         for row_index, row in enumerate(self.raw_data):
+            # NOTE: just for debugging, won't slow down the process significantly enough to affect anything, might as well leave it
+            if row_index % 100 == 0:
+                print(row_index, end="     \r")
+
             for col_index, value in enumerate(row):
-                self.setData(self.index(row_index, col_index), value)
+                self.setData(self.index(row_index, col_index), value, check_all=check_all)
 
         self.has_changed = changed_before
 
@@ -193,7 +197,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             if tooltip:
                 return tooltip
 
-    def setData(self, index, value: str, role=QtCore.Qt.ItemDataRole.EditRole):
+    def setData(self, index, value: str, role=QtCore.Qt.ItemDataRole.EditRole, check_all=False):
         if not index.isValid():
             return False
 
@@ -205,8 +209,9 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         column = self.columns[col]
         old_value = self.raw_data[row][col]
 
-        if value == old_value:
-            return False
+        if not check_all:
+            if value == old_value:
+                return False
 
         if role == QtCore.Qt.ItemDataRole.EditRole:
             if column == "Path in SIP":

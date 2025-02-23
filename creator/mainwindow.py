@@ -687,8 +687,20 @@ class TabUI(QtWidgets.QMainWindow):
         ).fillna("").astype(str).convert_dtypes()
         wb.close()
 
-        # TODO: temp
+        # TODO: remove
+        # df = pd.concat([df] * 5000, ignore_index=True)
         # df["URI Serieregister"] = "https://serieregister-ti.vlaanderen.be/id/serie/e641d8943266475594d43bd7e9d9bb08ea4893ce5e9646e39bc56911bfffc079"
+
+        if len(df) > 1000:
+            Dialog(
+                title="Grote overdrachtslijst",
+                text="Je probeert een grote overdrachtslijst te openen, dit kan een aantal minuten duren."
+            ).exec()
+
+        for uri, count in df["URI Serieregister"].value_counts().items():
+            if count > 9998:
+                raise ValueError(f"Te veel lijnen met 'URI Serieregister' gelijk aan '{uri}'.\nMaximum: 9998\nGevonden: {count}\n\nPas de overdrachtslijst aan alvorens verder te gaan.")
+
         df["id"] = range(df.shape[0])
         df["series_name"] = ""
 
@@ -818,6 +830,8 @@ class TabUI(QtWidgets.QMainWindow):
 
         conn = sql.connect(self.db_location)
 
+        amount_of_rows_to_add = 0
+
         if mapping_ids is None:
             # NOTE: filter out hidden rows here
             selected_rows = [
@@ -830,6 +844,14 @@ class TabUI(QtWidgets.QMainWindow):
                 return
 
             selected_rows_str = ", ".join(selected_rows)
+
+            amount_of_rows_to_add = len(selected_rows)
+
+            if amount_of_rows_to_add > 1000:
+                Dialog(
+                    title="Veel rijen aanpassen",
+                    text="Je bent veel rijen tegelijk aan het aanpassen, dit kan een aantal minuten duren."
+                ).exec()
         else:
             selected_rows_str = ", ".join(str(i) for i in mapping_ids)
 
@@ -859,6 +881,12 @@ class TabUI(QtWidgets.QMainWindow):
                     INSERT OR IGNORE INTO tables (table_name, "URI Serieregister")
                     VALUES ('"{name}"', '{uri}');
                 """)
+
+            # Check if we don't have to many rows already
+            result, *_ = conn.execute(f'SELECT count() FROM "{name}";').fetchone()
+            
+            if result + amount_of_rows_to_add > 9998:
+                raise ValueError(f"Te veel lijnen worden in de serie toegevoegd.\nMaximum: 9998\nGevonden: {result + amount_of_rows_to_add}")
 
             # Remove where needed
             cursor = conn.execute(f"""
@@ -907,8 +935,8 @@ class TabUI(QtWidgets.QMainWindow):
             # Insert where needed
             # NOTE: don't do other auto-mapping
             conn.execute(f"""
-                INSERT INTO "{name}" (main_id, "Analoog?", "Path in SIP", "DossierRef", "Naam", "Openingsdatum", "Sluitingsdatum", "Origineel Doosnummer")
-                SELECT id, 'ja', "Beschrijving", "Beschrijving", "Beschrijving", "Begindatum", "Einddatum", substr('0000' || "Doosnr", -4, 4) || '/{self.overdrachtslijst_name}'
+                INSERT INTO "{name}" (main_id, "Type", "Analoog?", "Path in SIP", "DossierRef", "Naam", "Openingsdatum", "Sluitingsdatum", "Origineel Doosnummer")
+                SELECT id, 'dossier', 'ja', "Beschrijving", "Beschrijving", "Beschrijving", "Begindatum", "Einddatum", substr('0000' || "Doosnr", -4, 4) || '/{self.overdrachtslijst_name}'
                 FROM {self.main_tab}
                 WHERE id IN ({selected_rows_str})
                   AND (series_name != '"{name}"' OR series_name IS NULL OR series_name == '');
