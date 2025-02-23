@@ -213,7 +213,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             if value == old_value:
                 return False
 
-        value = value.encode(encoding="utf-8", errors="replace").decode("utf-8")
+        value = str(value).encode(encoding="utf-8", errors="replace").decode("utf-8")
 
         if role == QtCore.Qt.ItemDataRole.EditRole:
             if column == "Path in SIP":
