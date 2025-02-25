@@ -202,14 +202,17 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             return False
 
         if role == QtCore.Qt.ItemDataRole.EditRole:
-            if QtCore.Qt.ItemFlag.ItemIsEditable.name not in self.flags(index).name:
+            if not self.is_main and QtCore.Qt.ItemFlag.ItemIsEditable.name not in self.flags(index).name:
                 return False
 
         row, col = index.row(), index.column()
         column = self.columns[col]
         old_value = self.raw_data[row][col]
 
-        if not check_all:
+        # Main: always do
+        # Other: only do if check_all is false
+
+        if not self.is_main and not check_all:
             if value == old_value:
                 return False
 

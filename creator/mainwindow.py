@@ -506,6 +506,7 @@ class TabUI(QtWidgets.QMainWindow):
         self.create_sips_button = QtWidgets.QPushButton(text="Maak SIPs")
         self.create_sips_button.clicked.connect(self.create_sips)
         self.create_sips_button.setHidden(self.state.configuration.active_role == "klant")
+        self.create_sips_button.setEnabled(False)
         self.configuration_changed.connect(lambda: self.hide_or_show_button(self.create_sips_button))
         self.configuration_changed.connect(self.set_create_button_status)
 
