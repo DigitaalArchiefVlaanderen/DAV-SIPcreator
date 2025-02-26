@@ -179,7 +179,7 @@ class PandasModel(QtCore.QAbstractTableModel):
         self.layoutChanged.emit()
         self.sort_triggered.emit()
 
-    def get_data(self):
+    def get_data(self) -> pd.DataFrame:
         return self._data
 
     def get_bad_rows(self) -> set:
@@ -232,6 +232,9 @@ class PandasModel(QtCore.QAbstractTableModel):
             )
 
     def _trigger_fill_data(self) -> None:
+        self.colors = dict()
+        self.tooltips = dict()
+
         self._vectorized_name_data_check()
         self._vectorized_date_data_check()
 

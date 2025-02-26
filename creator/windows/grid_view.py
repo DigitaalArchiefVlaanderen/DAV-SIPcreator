@@ -340,7 +340,18 @@ class GridView(QtWidgets.QMainWindow):
         df = model.get_data()
 
         model.layoutAboutToBeChanged.emit()
-        df.insert(df.columns.get_loc(column) + 1, f"{column} ", None)
+
+        new_column_name = column
+        spaces_added = 1
+
+        # NOTE: keep adding spaces until it is new
+        while (new_column_name := f"{new_column_name} ") in df.columns:
+            spaces_added += 1
+
+        df.insert(df.columns.get_loc(column) + spaces_added, new_column_name, None)
+
+        # NOTE: rerun all checks (not super efficient, would be better to just do it for this row, but oh well)
+        model._trigger_fill_data()
         model.layoutChanged.emit()
 
     def create_sip_click(self):
