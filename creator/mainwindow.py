@@ -1157,6 +1157,7 @@ class TabUI(QtWidgets.QMainWindow):
             conn.execute(f'DROP TABLE "_old_{table}";')
 
         model: SQLliteModel = self.tabs[table].model()
+        model.layoutAboutToBeChanged.emit()
         model.get_data()
         model.layoutChanged.emit()
 
