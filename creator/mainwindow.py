@@ -531,6 +531,9 @@ class TabUI(QtWidgets.QMainWindow):
         self.load_main_tab()
         self.load_other_tabs()
 
+        # Manually recalculate once
+        self.reload_tabs()
+
         self.set_create_button_status()
 
         with sql.connect(self.db_location) as conn:
@@ -750,7 +753,8 @@ class TabUI(QtWidgets.QMainWindow):
             lambda: 
             self.add_to_new(
                 name = series_combobox.currentText(),
-                series_id = listed_series[series_names.index(series_combobox.currentText())]._id
+                series_id = listed_series[series_names.index(series_combobox.currentText())]._id,
+                recalculate=True
             )
         )
 
@@ -768,9 +772,6 @@ class TabUI(QtWidgets.QMainWindow):
 
         self.tab_widget.addTab(container, self.main_tab)
         self.tabs[self.main_tab] = self.main_table
-
-        # NOTE: hide the id column
-        self.main_table.hideColumn(0)
 
         # NOTE: map all the URI Serieregisters
         conn = sql.connect(self.db_location)
@@ -799,7 +800,7 @@ class TabUI(QtWidgets.QMainWindow):
 
             series = match[0]
 
-            self.add_to_new(name=series.get_name(), series_id=series._id, mapping_ids=indexes)
+            self.add_to_new(name=series.get_name(), series_id=series._id, mapping_ids=indexes, recalculate=False)
 
     def load_other_tabs(self):
         conn = sql.connect(self.db_location)
@@ -821,7 +822,7 @@ class TabUI(QtWidgets.QMainWindow):
             # NOTE: remove leading and trailing quotes
             self.create_tab(name=table_name[1:-1], series_id=series._id)
 
-    def add_to_new(self, name: str, series_id: str, mapping_ids: list[int] = None):
+    def add_to_new(self, name: str, series_id: str, mapping_ids: list[int] = None, recalculate=True):
         # NOTE: only thing not allowed is quotes
         name = name.strip().replace('"', "").replace("'", "")
 
@@ -953,31 +954,21 @@ class TabUI(QtWidgets.QMainWindow):
 
             conn.commit()
         
-        # If the tab already exists, just update the data
-        if name in self.tabs:
-            model: SQLliteModel = self.tabs[name].model()
-            
-            model.get_data()
-            model.layoutChanged.emit()
-        elif mapping_ids:
+        if mapping_ids:
             # NOTE: we added this automatically, don't add the tab here
             pass
         else:
             self.create_tab(name, series_id)
 
-        # Update the graphical side for all tables involved
-        model: SQLliteModel = self.main_table.model()
-        
-        model.get_data()
-        model.layoutChanged.emit()
+        if recalculate:
+            # Update the graphical side for all tables involved
+            for table in self.tabs.values():
+                model: SQLliteModel = table.model()
 
-        for table in self.tabs.values():
-            model: SQLliteModel = table.model()
+                model.get_data()
+                model.layoutChanged.emit()
 
-            model.get_data()
-            model.layoutChanged.emit()
-
-        self._filter_unassigned(self.unassigned_only_checkbox.checkState().value)
+            self._filter_unassigned(self.unassigned_only_checkbox.checkState().value)
 
     def create_tab(self, name: str, series_id: str):
         from creator.widgets.tableview_widget import TableView
@@ -1022,22 +1013,6 @@ class TabUI(QtWidgets.QMainWindow):
 
         duplicate_trefwoord_column_button.clicked.connect(lambda _: self.add_column(name))
         duplicate_location_column_button.clicked.connect(lambda _: self.add_column(name, location_cols=True))
-
-        # NOTE: hide id and main_id
-        table_view.hideColumn(0)
-        table_view.hideColumn(1)
-
-        if self.state.configuration.active_role == "klant":
-            cols_to_skip = ("Origineel Doosnummer", "Legacy locatie ID", "Legacy range", "Verpakkingstype")
-
-            with sql.connect(self.db_location) as conn:
-                # NOTE: figure out which columns to hide (could be multiple due to duplications)
-                
-                cursor = conn.execute(f"pragma table_info(\"{name}\");")
-
-                for i, column_name, *_ in cursor.fetchall():
-                    if any(c in column_name for c in cols_to_skip):
-                        table_view.hideColumn(i)
 
     def closeEvent(self, event):
         from creator.utils.sqlitemodel import SQLliteModel
@@ -1101,6 +1076,8 @@ class TabUI(QtWidgets.QMainWindow):
                 for i, column_name, *_ in columns:
                     if any(c in column_name for c in cols_to_skip):
                         tab_view.hideColumn(i)
+
+        self._filter_unassigned(self.unassigned_only_checkbox.checkState().value)
 
     def set_create_button_status(self, *_) -> None:
         for table_view in self.tabs.values():

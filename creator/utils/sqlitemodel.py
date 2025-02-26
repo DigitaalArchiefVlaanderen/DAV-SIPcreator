@@ -51,8 +51,6 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         self.colors: dict[tuple[int, int], Color] = {}
         self.tooltips: dict[tuple[int, int], str] = {}
 
-        self.get_data(check_all=True)
-
     @property
     def conn(self):
         return sql.connect(self._db_name)
@@ -86,7 +84,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
 
             self.col_count = len(self.columns)
 
-    def get_data(self, check_all=False) -> list[list[str]]:
+    def get_data(self) -> list[list[str]]:
         self.performing_retrieval = True
 
         with self.conn as conn:
@@ -132,13 +130,14 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         self.colors = {}
         self.tooltips = {}
 
+        self.layoutAboutToBeChanged.emit()
         for row_index, row in enumerate(self.raw_data):
             # NOTE: just for debugging, won't slow down the process significantly enough to affect anything, might as well leave it
             if row_index % 100 == 0:
-                print(row_index, end="     \r")
+                print(f'{f"{self._table_name} - {row_index}":180}|', end="\r")
 
             for col_index, value in enumerate(row):
-                self.setData(self.index(row_index, col_index), value, check_all=check_all)
+                self.setData(self.index(row_index, col_index), value)
 
         self.has_changed = changed_before
 
@@ -146,6 +145,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
 
         # NOTE: since no signals were being emitted before, emit one now
         self.bad_rows_changed.emit(len(self.colors))
+        self.layoutChanged.emit()
 
     def save_data(self) -> None:
         with self.conn as conn:
@@ -197,7 +197,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             if tooltip:
                 return tooltip
 
-    def setData(self, index, value: str, role=QtCore.Qt.ItemDataRole.EditRole, check_all=False):
+    def setData(self, index, value: str, role=QtCore.Qt.ItemDataRole.EditRole):
         if not index.isValid():
             return False
 
@@ -207,14 +207,6 @@ class SQLliteModel(QtCore.QAbstractTableModel):
 
         row, col = index.row(), index.column()
         column = self.columns[col]
-        old_value = self.raw_data[row][col]
-
-        # Main: always do
-        # Other: only do if check_all is false
-
-        if not self.is_main and not check_all:
-            if value == old_value:
-                return False
 
         value = str(value).encode(encoding="utf-8", errors="replace").decode("utf-8")
 
@@ -243,9 +235,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             elif column == "Naam":
                 self.name_check(row, col, value)
             elif column == "ID_Rijksregisternummer":
-                new_value = self.rrn_check(row, col, value)
-
-                self.set_value(index, new_value)
+                value = self.rrn_check(row, col, value)
 
             self.set_value(index, value)
             return True
@@ -486,6 +476,8 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         row_values = self.raw_data[row]
 
         if all(row_values[c] == "" for c in duplicate_col_indexes if c != col) and value == "":
+            self.layoutAboutToBeChanged.emit()
+
             for col_index in duplicate_col_indexes:
                 self._mark_cell(row, col_index, Color.RED, "Een locatie moet ingevuld zijn")
 
@@ -493,8 +485,12 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             return
         elif all(row_values[c] == "" for c in duplicate_col_indexes if c != col) and value != "":
             # NOTE: all empty except the current one, unset them all but do not return
+            self.layoutAboutToBeChanged.emit()
+
             for col_index in duplicate_col_indexes:
                 self._mark_cell(row, col_index)
+            
+            self.layoutChanged.emit()
 
         actual_column_name = self.columns[col]
         suffix = ""
@@ -504,12 +500,13 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             suffix = "_" + actual_column_name.rsplit("_", 1)[-1]
 
         # If we have a value in any of the columns, they all need a value
+        # These are the 4 columns linked by the suffix number
         cols = [c + suffix for c in original_cols]
 
         col_indexes = [column_names.index(c) for c in cols]
 
-        # If any has a value
-        should_have_a_value = any(row_values[c] != "" for c in col_indexes)
+        # If any has a value, or we're enterying a value now
+        should_have_a_value = any(row_values[c] != "" for c in col_indexes if c != col) or value != ""
 
         for c in col_indexes:
             val = row_values[c]
