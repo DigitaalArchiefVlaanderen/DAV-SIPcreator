@@ -37,9 +37,6 @@ class PandasModel(QtCore.QAbstractTableModel):
 
         self.should_filter_name_column = False
 
-        # Warning rows
-        self._check_empty_rows()
-
         # NOTE: we basically take all the existing data
         # And act as if we just entered it
         # We do this so the checks will be run on the data automatically
@@ -234,6 +231,9 @@ class PandasModel(QtCore.QAbstractTableModel):
     def _trigger_fill_data(self) -> None:
         self.colors = dict()
         self.tooltips = dict()
+        
+        # Warning rows
+        self._check_empty_rows()
 
         self._vectorized_name_data_check()
         self._vectorized_date_data_check()
