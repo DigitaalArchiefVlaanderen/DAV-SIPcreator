@@ -10,6 +10,7 @@ from ..controllers.db_controller import SIPDBController, NotASIPDBException
 from ..utils.sip_status import SIPStatus
 from ..utils.state_utils.sip import SIP
 from ..utils.pandasmodel import PandasModel
+from ..utils.proxymodel import CustomSortFilterModel
 from ..utils.path_loader import resource_path
 from ..widgets.toolbar import Toolbar
 from ..widgets.warning_dialog import WarningDialog
@@ -95,63 +96,20 @@ class GridView(QtWidgets.QMainWindow):
         )
 
     def _bad_rows_clicked(self, state: QtCore.Qt.CheckState) -> None:
-        model: PandasModel = self.table_view.model()
-        data: pd.DataFrame = model.get_data()
+        model: CustomSortFilterModel = self.table_view.model(proxy=True)
 
-        checked: bool = state == QtCore.Qt.CheckState.Checked.value
-
-        if checked:
-            model.bad_rows_changed.connect(
-                lambda row, is_bad: self.table_view.setRowHidden(row, not is_bad)
-            )
+        if state == QtCore.Qt.CheckState.Checked.value:
+            model.add_filter(CustomSortFilterModel.BAD_ROWS_FILTER)
         else:
-            model.bad_rows_changed.disconnect()
-
-        bad_rows = model.get_bad_rows()
-
-        if checked:
-            # Manually do this so we can guarantee order of operations
-            self.show_dossiers_only_checkbox.setChecked(False)
-
-        for row in range(model.rowCount()):
-            data_row = data.index[row]
-
-            # Either hide or unhide every bad row (depending on state of checkbox)
-            if data_row not in bad_rows:
-                self.table_view.setRowHidden(row, checked)
+            model.remove_filter(CustomSortFilterModel.BAD_ROWS_FILTER)
 
     def _dossiers_only_clicked(self, state: QtCore.Qt.CheckState) -> None:
-        model: PandasModel = self.table_view.model()
-        data: pd.DataFrame = model.get_data()
+        model: CustomSortFilterModel = self.table_view.model(proxy=True)
 
-        checked: bool = state == QtCore.Qt.CheckState.Checked.value
-
-        dossier_rows = data[data["Type"] == "dossier"].index
-
-        if checked:
-            # Manually do this so we can guarantee order of operations
-            self.show_bad_rows_checkbox.setChecked(False)
-
-        for row in range(model.rowCount()):
-            data_row = data.index[row]
-
-            # Hide files only
-            is_file = data_row not in dossier_rows
-
-            if is_file:
-                # Either hide or unhide every file (depending on state of checkbox)
-                self.table_view.setRowHidden(row, checked)
-
-    def _rows_sorted(self) -> None:
-        # If we sort, we need to reassess what to hide, so redo it
-        if self.show_bad_rows_checkbox.isChecked():
-            model = self.table_view.model()
-            model.bad_rows_changed.disconnect()
-
-            for row in range(model.rowCount()):
-                self.table_view.setRowHidden(row, False)
-
-            self._bad_rows_clicked(QtCore.Qt.CheckState.Checked.value)
+        if state == QtCore.Qt.CheckState.Checked.value:
+            model.add_filter(CustomSortFilterModel.SHOW_DOSSIERS_FILTER)
+        else:
+            model.remove_filter(CustomSortFilterModel.SHOW_DOSSIERS_FILTER)
 
     # Loading grid
     def _fill_from_files(self, sip_folder_structure: dict):
@@ -248,18 +206,19 @@ class GridView(QtWidgets.QMainWindow):
     def load_table(self) -> pd.DataFrame:
         sip_folder_structure = self.sip.get_sip_folder_structure()
 
-        self.table_view.setModel(
-            (model := PandasModel(
-                self.sip_widget.import_template_df,
-                self.create_sip_button,
-                (
-                    self.sip.series.valid_from,
-                    self.sip.series.valid_to,
-                ),
-                sip_folder_structure=sip_folder_structure,
-            ))
+        model = PandasModel(
+            self.sip_widget.import_template_df,
+            self.create_sip_button,
+            (
+                self.sip.series.valid_from,
+                self.sip.series.valid_to,
+            ),
+            sip_folder_structure=sip_folder_structure,
         )
-        model.sort_triggered.connect(self._rows_sorted)
+
+        proxy_model = CustomSortFilterModel()
+        proxy_model.setSourceModel(model)
+        self.table_view.setModel(proxy_model)
         self._set_grid_filter_connections()
 
         if model.is_data_valid():
@@ -294,18 +253,19 @@ class GridView(QtWidgets.QMainWindow):
         if self.sip.tag_mapping:
             self._fill_mapping(sip_folder_structure)
 
-        self.table_view.setModel(
-            (model := PandasModel(
-                self.sip_widget.import_template_df,
-                self.create_sip_button,
-                (
-                    self.sip.series.valid_from,
-                    self.sip.series.valid_to,
-                ),
-                sip_folder_structure=sip_folder_structure,
-            ))
+        model = PandasModel(
+            self.sip_widget.import_template_df,
+            self.create_sip_button,
+            (
+                self.sip.series.valid_from,
+                self.sip.series.valid_to,
+            ),
+            sip_folder_structure=sip_folder_structure,
         )
-        model.sort_triggered.connect(self._rows_sorted)
+
+        proxy_model = CustomSortFilterModel()
+        proxy_model.setSourceModel(model)
+        self.table_view.setModel(proxy_model)
         self._set_grid_filter_connections()
 
         if model.is_data_valid():

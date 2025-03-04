@@ -35,7 +35,8 @@ from .utils.state import State
 from .utils.state_utils.dossier import Dossier
 from .utils.state_utils.sip import SIP
 from .utils.sip_status import SIPStatus
-from .utils.sqlitemodel import SQLliteModel, Color
+from .utils.sqlitemodel import SQLliteModel, CellColor
+from .utils.proxymodel import CustomSortFilterModel
 from .utils.path_loader import resource_path
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -736,8 +737,10 @@ class TabUI(QtWidgets.QMainWindow):
         )
 
         model = SQLliteModel(self.main_tab, db_name=self.db_location, is_main=True)
+        proxy_model = CustomSortFilterModel()
+        proxy_model.setSourceModel(model)
         model.bad_rows_changed.connect(self.set_create_button_status)
-        self.main_table.setModel(model)
+        self.main_table.setModel(proxy_model)
         
         self.unassigned_only_checkbox = QtWidgets.QCheckBox(text="Toon enkel rijen zonder serie")
         self.unassigned_only_checkbox.stateChanged.connect(self._filter_unassigned)
@@ -969,7 +972,9 @@ class TabUI(QtWidgets.QMainWindow):
         layout.addWidget(table_view, 3, 0, 1, 5)
 
         model = SQLliteModel(name, db_name=self.db_location, series_id=series_id)
-        table_view.setModel(model)
+        proxy_model = CustomSortFilterModel()
+        proxy_model.setSourceModel(model)
+        table_view.setModel(proxy_model)
         
         load_bestandscontrole_button = QtWidgets.QPushButton(text="Laad bestandscontrole lijst")
         load_bestandscontrole_button.clicked.connect(lambda _: self.load_bestandscontrole(model=model))
@@ -1026,6 +1031,7 @@ class TabUI(QtWidgets.QMainWindow):
         for table_name, tab_view in self.tabs.items():
             # Reload all the data
             model: SQLliteModel = tab_view.model()
+
             model.get_data()
 
             with sql.connect(self.db_location) as conn:
@@ -1055,7 +1061,8 @@ class TabUI(QtWidgets.QMainWindow):
     def set_create_button_status(self, *_) -> None:
         for table_view in self.tabs.values():
             model: SQLliteModel = table_view.model()
-            red_colors = [_ for c in model.colors.values() if c == Color.RED]
+
+            red_colors = [_ for c in model.colors.values() if c == CellColor.RED]
 
             if len(red_colors) > 0:
                 self.create_sips_button.setEnabled(False)
@@ -1152,25 +1159,12 @@ class TabUI(QtWidgets.QMainWindow):
             self.main_table.setRowHidden(row_index, False)
 
     def _filter_bad_rows(self, state: QtCore.Qt.CheckState, table_view: TableView) -> None:
-        model: SQLliteModel = table_view.model()
+        model: CustomSortFilterModel = table_view.model(proxy=True)
 
-        if state != QtCore.Qt.CheckState.Checked.value:
-            # NOTE: show all
-            for i in range(model.row_count):
-                table_view.showRow(i)
-
-            return
-
-        # NOTE: since sometimes columns might be hidden, we need to make sure we skip those
-        ids_to_show = set(_id for (_id, col_index) in model.colors.keys() if not table_view.isColumnHidden(col_index))
-
-        for i, row in enumerate(model.raw_data):
-            _id = int(row[0])
-
-            if _id in ids_to_show:
-                table_view.showRow(i)
-            else:
-                table_view.hideRow(i)
+        if state == QtCore.Qt.CheckState.Checked.value:
+            model.add_filter(CustomSortFilterModel.BAD_ROWS_FILTER)
+        else:
+            model.remove_filter(CustomSortFilterModel.BAD_ROWS_FILTER)
 
     def create_sips(self) -> None:
         def _col_index_to_xslx_col(col_index: int) -> str:

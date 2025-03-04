@@ -1,23 +1,17 @@
-from PySide6 import QtGui, QtCore
+from PySide6 import QtCore
 import pandas as pd
 import os
 import re
 
 from datetime import datetime
-from enum import Enum
+
+from .tablemodel import TableModel, CellColor
 
 
-class Color(Enum):
-    RED = QtGui.QBrush(QtGui.QColor(255, 0, 0))
-    YELLOW = QtGui.QBrush(QtGui.QColor(255, 255, 0))
-    GREY = QtGui.QBrush(QtGui.QColor(230, 230, 230))
-
-
-class PandasModel(QtCore.QAbstractTableModel):
+class PandasModel(TableModel):
     bad_rows_changed: QtCore.Signal = QtCore.Signal(
         *(int, bool), arguments=["row", "is_bad"]
     )
-    sort_triggered: QtCore.Signal = QtCore.Signal()
 
     def __init__(
         self,
@@ -41,6 +35,15 @@ class PandasModel(QtCore.QAbstractTableModel):
         # And act as if we just entered it
         # We do this so the checks will be run on the data automatically
         self._trigger_fill_data()
+
+    # Inherited methods
+    def row_is_dossier(self, row: int) -> bool:
+        return self._data.iloc[row]["Type"] == "dossier"
+
+    def row_is_bad(self, row: int) -> bool:
+        _id = self._data.index[row]
+
+        return any(True for (row_id, _), color in self.colors.items() if row_id == _id and color in (CellColor.RED, CellColor.YELLOW))
 
     def rowCount(self, *index):
         return self._data.shape[0]
@@ -77,7 +80,7 @@ class PandasModel(QtCore.QAbstractTableModel):
 
             # Mark grey if not editable
             if QtCore.Qt.ItemFlag.ItemIsEditable.name not in self.flags(index).name:
-                return Color.GREY.value
+                return CellColor.GREY.value
 
         elif role == QtCore.Qt.ItemDataRole.ToolTipRole:
             tooltip = self.tooltips.get((data_row, col))
@@ -100,7 +103,7 @@ class PandasModel(QtCore.QAbstractTableModel):
             return False
 
         # Do not allow editing of warning rows
-        if self.colors.get((self._data.index[row], column)) == Color.YELLOW:
+        if self.colors.get((self._data.index[row], column)) == CellColor.YELLOW:
             return False
 
         value = str(value).encode(encoding="utf-8", errors="replace").decode("utf-8")
@@ -156,7 +159,7 @@ class PandasModel(QtCore.QAbstractTableModel):
 
         if (
             self.colors.get((self._data.index[index.row()], index.column()))
-            == Color.YELLOW
+            == CellColor.YELLOW
         ):
             return (
                 QtCore.Qt.ItemFlag.ItemIsSelectable | QtCore.Qt.ItemFlag.ItemIsEnabled
@@ -168,14 +171,6 @@ class PandasModel(QtCore.QAbstractTableModel):
             | QtCore.Qt.ItemFlag.ItemIsEditable
         )
 
-    def sort(self, col, order):
-        self.layoutAboutToBeChanged.emit()
-        self._data = self._data.sort_values(
-            self._data.columns[col], ascending=order == QtCore.Qt.AscendingOrder
-        )
-        self.layoutChanged.emit()
-        self.sort_triggered.emit()
-
     def get_data(self) -> pd.DataFrame:
         return self._data
 
@@ -183,12 +178,12 @@ class PandasModel(QtCore.QAbstractTableModel):
         return set(
             row
             for (row, _), color in self.colors.items()
-            if color in (Color.RED, Color.YELLOW)
+            if color in (CellColor.RED, CellColor.YELLOW)
         )
 
     def is_data_valid(self):
         # NOTE: we are using the colors dict to see if anything is marked invalid
-        return not any(c == Color.RED for c in self.colors.values())
+        return not any(c == CellColor.RED for c in self.colors.values())
 
     # Utils
     def _check_empty_rows(self) -> None:
@@ -269,7 +264,7 @@ class PandasModel(QtCore.QAbstractTableModel):
         strict_form_match = re.match(r"^\d{2}\.\d{2}\.\d{2}-\d{3}\.\d{2}$", value)
 
         if not strict_form_match:
-            self._mark_bad_cell(row, col, Color.RED, "Rijksregisternummer moet van vorm xx.xx.xx-xxx.xx zijn, of 11 cijfers na elkaar zijn")
+            self._mark_bad_cell(row, col, CellColor.RED, "Rijksregisternummer moet van vorm xx.xx.xx-xxx.xx zijn, of 11 cijfers na elkaar zijn")
             return value
         
         # NOTE: check if the actual rrn is valid
@@ -281,7 +276,7 @@ class PandasModel(QtCore.QAbstractTableModel):
         calc_before, calc_after = calc, f"2{calc}"
 
         if not is_valid_check(calc_before) and not is_valid_check(calc_after):
-            self._mark_bad_cell(row, col, Color.RED, "Ingegeven rijksregisternummer is niet mogelijk")
+            self._mark_bad_cell(row, col, CellColor.RED, "Ingegeven rijksregisternummer is niet mogelijk")
             return value
 
         self._unmark_bad_cell(row, col)
@@ -337,7 +332,7 @@ class PandasModel(QtCore.QAbstractTableModel):
 
     # Marking and unmarking of cells
     def _mark_bad_cell(
-        self, row: int, col: int, color: Color = Color.RED, tooltip: str = None
+        self, row: int, col: int, color: CellColor = CellColor.RED, tooltip: str = None
     ) -> None:
         data_row = self._data.index[row]
 
@@ -346,11 +341,11 @@ class PandasModel(QtCore.QAbstractTableModel):
         if tooltip is not None:
             self.tooltips[(data_row, col)] = tooltip
 
-        if color == Color.RED:
+        if color == CellColor.RED:
             self.bad_rows_changed.emit(row, True)
 
     def _mark_warning_row(
-        self, row: int, color: Color = Color.YELLOW, tooltip: str = None
+        self, row: int, color: CellColor = CellColor.YELLOW, tooltip: str = None
     ) -> None:
         for c in range(self.columnCount()):
             self._mark_bad_cell(row=row, col=c, color=color, tooltip=tooltip)
@@ -744,7 +739,9 @@ class PandasModel(QtCore.QAbstractTableModel):
 
         name_column = self._data.columns.get_loc("Naam")
 
+        self.layoutAboutToBeChanged.emit()
         self.dataChanged.emit(
             self.index(0, name_column),
             self.index(self.rowCount(), name_column),
         )
+        self.layoutChanged.emit()

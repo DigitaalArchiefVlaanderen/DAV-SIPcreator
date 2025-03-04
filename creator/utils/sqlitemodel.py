@@ -1,19 +1,14 @@
 from datetime import datetime
-from enum import Enum
 import re
 
-from PySide6 import QtCore, QtGui
+from PySide6 import QtCore
 
 import sqlite3 as sql
 
-
-class Color(Enum):
-    RED = QtGui.QBrush(QtGui.QColor(255, 0, 0))
-    YELLOW = QtGui.QBrush(QtGui.QColor(255, 255, 0))
-    GREY = QtGui.QBrush(QtGui.QColor(230, 230, 230))
+from .tablemodel import TableModel, CellColor
 
 
-class SQLliteModel(QtCore.QAbstractTableModel):
+class SQLliteModel(TableModel):
     bad_rows_changed: QtCore.Signal = QtCore.Signal(
         *(int,), arguments=["bad_rows_left"]
     )
@@ -48,18 +43,38 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         self.row_count, self.col_count = -1, -1
 
         self.raw_data: list[list[str]] = []
-        self.colors: dict[tuple[int, int], Color] = {}
+        self.colors: dict[tuple[int, int], CellColor] = {}
         self.tooltips: dict[tuple[int, int], str] = {}
 
     @property
     def conn(self):
         return sql.connect(self._db_name)
 
+    # Inherited methods
+    def row_is_bad(self, row: int) -> bool:
+        # This filter should only apply for non-main tables
+        if self.is_main:
+            return True
+
+        _id = int(self.raw_data[row][0])
+
+        # Check if there is any value in the matching row where the color is red or yellow
+        return any(True for (row_id, _), color in self.colors.items() if row_id == _id and color in (CellColor.RED, CellColor.YELLOW))
+
+    def row_has_no_series(self, row: int) -> bool:
+        # This filter should only apply to the main table
+        if not self.is_main:
+            return True
+        
+        col = list(self.columns.values()).index("series_name")
+
+        return self.get_value(self.index(row, col)) in ("", None)
+
     def get_value(self, index):
         row, col = index.row(), index.column()
 
         # NOTE: quotes are not allowed for now
-        return self.raw_data[row][col].replace('"', "").replace("'", "")
+        return str(self.raw_data[row][col]).replace('"', "").replace("'", "")
     
     def set_value(self, index, new_value: str):
         self.has_changed = True
@@ -189,7 +204,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             
             # Mark grey if not editable
             if QtCore.Qt.ItemFlag.ItemIsEditable.name not in self.flags(index).name:
-                return Color.GREY.value
+                return CellColor.GREY.value
 
         elif role == QtCore.Qt.ItemDataRole.ToolTipRole:
             tooltip = self.tooltips.get((_id, col))
@@ -238,6 +253,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
                 value = self.rrn_check(row, col, value)
 
             self.set_value(index, value)
+            self.dataChanged.emit(index, index)
             return True
 
         return False
@@ -270,18 +286,8 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             | QtCore.Qt.ItemFlag.ItemIsEnabled
         )
 
-    def sort(self, col: int, order: QtCore.Qt.SortOrder) -> None:
-        self.layoutAboutToBeChanged.emit()
-
-        self.raw_data.sort(
-            key=lambda row: row[col],
-            reverse=order is QtCore.Qt.SortOrder.DescendingOrder
-        )
-
-        self.layoutChanged.emit()
-
     # NOTE: utils
-    def _mark_cell(self, row: int, col: int, color: Color = None, tooltip: str = None) -> None:        
+    def _mark_cell(self, row: int, col: int, color: CellColor = None, tooltip: str = None) -> None:        
         _id = int(self.raw_data[row][0])
 
         if not color:
@@ -311,7 +317,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         # NOTE: check if we introduces new duplication
         if len(new_duplicates) >= 1:
             for r in new_duplicates + [row]:
-                self._mark_cell(r, col, Color.RED, "Path in SIP moet uniek zijn")
+                self._mark_cell(r, col, CellColor.RED, "Path in SIP moet uniek zijn")
 
         # NOTE: only check the row if it didn't introduce duplication (otherwise we already marked it)
         rows_to_check = [row] if len(new_duplicates) == 0 else []
@@ -328,9 +334,9 @@ class SQLliteModel(QtCore.QAbstractTableModel):
                 val = value
 
             if val == "":
-                self._mark_cell(r, col, Color.RED, "Path in SIP mag niet leeg zijn")
+                self._mark_cell(r, col, CellColor.RED, "Path in SIP mag niet leeg zijn")
             elif "/" in val:
-                self._mark_cell(r, col, Color.RED, "Path in SIP mag geen '/' bevatten")
+                self._mark_cell(r, col, CellColor.RED, "Path in SIP mag geen '/' bevatten")
             else:
                 self._mark_cell(r, col)
 
@@ -345,35 +351,35 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         uri = value
 
         if series_name == "":
-            self._mark_cell(row, list(self.columns.values()).index("series_name"), Color.RED, tooltip="Een serie moet nog gelinkt worden")
+            self._mark_cell(row, list(self.columns.values()).index("series_name"), CellColor.RED, tooltip="Een serie moet nog gelinkt worden")
         else:
             self._mark_cell(row, list(self.columns.values()).index("series_name"))
             self._mark_cell(row, col)
             return
 
         if uri == "":
-            self._mark_cell(row, col, Color.RED, tooltip="Een serie moet nog gelinkt worden")
+            self._mark_cell(row, col, CellColor.RED, tooltip="Een serie moet nog gelinkt worden")
             return
         else:
             if series_name != "":
-                self._mark_cell(row, col, Color.YELLOW, tooltip="De gegeven uri is niet teruggevonden onder de huidige connectie")
+                self._mark_cell(row, col, CellColor.YELLOW, tooltip="De gegeven uri is niet teruggevonden onder de huidige connectie")
                 return
 
     def date_check(self, row: int, col: int, value: str, re_evaluation=False) -> None:
         # Check empty
         if value == "":
-            self._mark_cell(row, col, Color.RED, "Datum mag niet leeg zijn")
+            self._mark_cell(row, col, CellColor.RED, "Datum mag niet leeg zijn")
             return
 
         # Check valid date
         try:
             date = datetime.strptime(value, "%Y-%m-%d")
         except ValueError:
-            self._mark_cell(row, col, Color.RED, "Datum moet in het formaat yyyy-mm-dd zijn, en moet een geldige datum zijn")
+            self._mark_cell(row, col, CellColor.RED, "Datum moet in het formaat yyyy-mm-dd zijn, en moet een geldige datum zijn")
             return
         
         if date > datetime.now():
-            self._mark_cell(row, col, Color.RED, "Datum mag niet in de toekomst zijn")
+            self._mark_cell(row, col, CellColor.RED, "Datum mag niet in de toekomst zijn")
             return
 
         # Check range
@@ -413,7 +419,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             before = datetime.strptime(before, "%d %m %Y")
             
             if date < before:
-                self._mark_cell(row, col, Color.RED, "Datum mag niet voor de openingsdatum van de serie zijn")
+                self._mark_cell(row, col, CellColor.RED, "Datum mag niet voor de openingsdatum van de serie zijn")
                 return
 
         if after is not None and after != "...":
@@ -423,7 +429,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             after = datetime.strptime(after, "%d %m %Y")
             
             if date > after:
-                self._mark_cell(row, col, Color.RED, "Datum mag niet na de sluitingsdatum van de serie zijn")
+                self._mark_cell(row, col, CellColor.RED, "Datum mag niet na de sluitingsdatum van de serie zijn")
                 return
 
         if re_evaluation:
@@ -446,8 +452,8 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             return
 
         if start_date > end_date:
-            self._mark_cell(row, start_column, Color.RED, "Openingsdatum mag niet na sluitingsdatum vallen")
-            self._mark_cell(row, end_column, Color.RED, "Openingsdatum mag niet na sluitingsdatum vallen")
+            self._mark_cell(row, start_column, CellColor.RED, "Openingsdatum mag niet na sluitingsdatum vallen")
+            self._mark_cell(row, end_column, CellColor.RED, "Openingsdatum mag niet na sluitingsdatum vallen")
             return
         else:
             self._mark_cell(row, start_column)
@@ -479,7 +485,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
             self.layoutAboutToBeChanged.emit()
 
             for col_index in duplicate_col_indexes:
-                self._mark_cell(row, col_index, Color.RED, "Een locatie moet ingevuld zijn")
+                self._mark_cell(row, col_index, CellColor.RED, "Een locatie moet ingevuld zijn")
 
             self.layoutChanged.emit()
             return
@@ -515,7 +521,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
                 val = value
 
             if should_have_a_value and val == "":
-                self._mark_cell(row, c, Color.RED, "De combinatie van de 4 locatie-kolommen moeten een waarde hebben")
+                self._mark_cell(row, c, CellColor.RED, "De combinatie van de 4 locatie-kolommen moeten een waarde hebben")
             else:
                 self._mark_cell(row, c)
 
@@ -533,11 +539,11 @@ class SQLliteModel(QtCore.QAbstractTableModel):
                 )
 
         if value == "":
-            self._mark_cell(row, col, Color.RED, "Naam mag niet leeg zijn")
+            self._mark_cell(row, col, CellColor.RED, "Naam mag niet leeg zijn")
             return
         
         if len(value) > 255:
-            self._mark_cell(row, col, Color.RED, "Naam mag niet langer zijn dan 255 karakters")
+            self._mark_cell(row, col, CellColor.RED, "Naam mag niet langer zijn dan 255 karakters")
             return
 
         # NOTE: check for new duplicates
@@ -546,7 +552,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         # NOTE: check if we introduces new duplication
         if len(new_duplicates) > 0:
             for r in new_duplicates + [row]:
-                self._mark_cell(r, col, Color.RED, "Naam veld moet uniek zijn")
+                self._mark_cell(r, col, CellColor.RED, "Naam veld moet uniek zijn")
 
             return False
 
@@ -565,7 +571,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         strict_form_match = re.match(r"^\d{2}\.\d{2}\.\d{2}-\d{3}\.\d{2}$", value)
 
         if not strict_form_match:
-            self._mark_cell(row, col, Color.RED, "Rijksregisternummer moet van vorm xx.xx.xx-xxx.xx zijn, of 11 cijfers na elkaar zijn")
+            self._mark_cell(row, col, CellColor.RED, "Rijksregisternummer moet van vorm xx.xx.xx-xxx.xx zijn, of 11 cijfers na elkaar zijn")
             return value
         
         # NOTE: check if the actual rrn is valid
@@ -577,7 +583,7 @@ class SQLliteModel(QtCore.QAbstractTableModel):
         calc_before, calc_after = calc, f"2{calc}"
 
         if not is_valid_check(calc_before) and not is_valid_check(calc_after):
-            self._mark_cell(row, col, Color.RED, "Ingegeven rijksregisternummer is niet mogelijk")
+            self._mark_cell(row, col, CellColor.RED, "Ingegeven rijksregisternummer is niet mogelijk")
             return value
 
         self._mark_cell(row, col)
