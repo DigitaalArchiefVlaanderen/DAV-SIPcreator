@@ -47,9 +47,16 @@ class TableView(QtWidgets.QTableView):
         # Single cell cut
         if len(indexes) == 1:
             index = indexes[0]
+
+            if "ItemIsEditable" not in self.model().flags(index).name:
+                return
+
             QtWidgets.QApplication.clipboard().setText(self.model().data(index))
             self.model().setData(index=index, value="", role=QtCore.Qt.ItemDataRole.EditRole)
+            
+            self.model().layoutAboutToBeChanged.emit()
             self.model().dataChanged.emit(index, index)
+            self.model().layoutChanged.emit()
             return
 
         # Dictionary with key being the row, value being a list of columns
@@ -59,11 +66,20 @@ class TableView(QtWidgets.QTableView):
             rows[index.row()] = rows.get(index.row(), []) + [index.column()]
 
         cut_rows = []
+
         for row, columns in rows.items():
-            cut_rows.append("\t".join(
-                    [self.model().index(row, col).data() for col in columns]
-                )
-            )
+            row_data = []
+
+            for col in columns:
+                index = self.model().index(row, col)
+
+                # NOTE: this is a design choice, we want to take empty values if we do not "cut"
+                if "ItemIsEditable" not in self.model().flags(index).name:
+                    row_data.append("")
+                else:
+                    row_data.append(index.data())
+
+            cut_rows.append("\t".join(row_data))
 
         # NOTE: excel complicates matters, they add a trailing '\n' character
         # This however means we need to do the same, and expect this
@@ -72,9 +88,12 @@ class TableView(QtWidgets.QTableView):
         QtWidgets.QApplication.clipboard().setText(cut_text)
 
         # Make sure to set the values to empty
+        self.model().layoutAboutToBeChanged.emit()
         for index in indexes:
             self.model().setData(index=index, value="", role=QtCore.Qt.ItemDataRole.EditRole)
             self.model().dataChanged.emit(index, index)
+
+        self.model().layoutChanged.emit()
 
     def paste_content(self, indexes: list):
         if not self.editable:
@@ -102,10 +121,12 @@ class TableView(QtWidgets.QTableView):
             )
 
         # NOTE: update all rows (not just the cells we updated, since some of the cells might be linked)
+        self.model().layoutAboutToBeChanged.emit()
         self.model().dataChanged.emit(
             self.model().index(index.row(), 0),
             self.model().index(index.row(), self.model().columnCount())
         )
+        self.model().layoutChanged.emit()
 
     def paste_grid_content(self, copy_text: str, indexes: list):
         # NOTE: excel complicates matters, they add a trailing '\n' character
@@ -152,10 +173,12 @@ class TableView(QtWidgets.QTableView):
                 )
 
         # NOTE: update all rows (not just the cells we updated, since some of the cells might be linked)
+        self.model().layoutAboutToBeChanged.emit()
         self.model().dataChanged.emit(
             self.model().index(min(usable_rows), 0),
             self.model().index(max(usable_rows), self.model().columnCount())
         )
+        self.model().layoutChanged.emit()
 
     def _filter_indexes(self, *filters: tuple[str]) -> list[QtCore.QModelIndex]:
         filtered_indexes = []
@@ -190,21 +213,18 @@ class TableView(QtWidgets.QTableView):
                 self.model().setData(index, "", QtCore.Qt.ItemDataRole.EditRole)
 
             # NOTE: update all rows (not just the cells we updated, since some of the cells might be linked)
+            self.model().layoutAboutToBeChanged.emit()
             self.model().dataChanged.emit(
                 self.model().index(indexes[0].row(), 0),
                 self.model().index(indexes[-1].row(), self.model().columnCount())
             )
+            self.model().layoutChanged.emit()
 
         # PASTE
         elif event.matches(QtGui.QKeySequence.Paste):
             self.paste_content(indexes)
 
         elif event.matches(QtGui.QKeySequence.Cut):
-            indexes = self._filter_indexes("ItemIsSelectable")
-
-            if len(indexes) == 0:
-                return
-
             self.cut_content(indexes)
 
         # OVERFLOW
