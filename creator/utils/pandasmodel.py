@@ -575,12 +575,12 @@ class PandasModel(TableModel):
 
         # Date mapping
         opening_date_mapping = pd.to_datetime(
-            df.Openingsdatum[df.Openingsdatum != ""],
+            df[~((df.Openingsdatum == "") & (df.Sluitingsdatum == ""))].Openingsdatum,
             format="%Y-%m-%d",
             errors="coerce",
         )
         closing_date_mapping = pd.to_datetime(
-            df.Sluitingsdatum[df.Sluitingsdatum != ""],
+            df[~((df.Openingsdatum == "") & (df.Sluitingsdatum == ""))].Sluitingsdatum,
             format="%Y-%m-%d",
             errors="coerce",
         )
