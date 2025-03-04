@@ -124,10 +124,10 @@ class PandasModel(TableModel):
 
                 valid_date = self._date_data_check(value, row, column, is_stuk=is_stuk)
 
-                if valid_date and is_stuk:
-                    self._update_dossier_date_range(
-                        dossier_ref=self._data.iloc[row]["DossierRef"], column=column
-                    )
+                # if valid_date and is_stuk:
+                #     self._update_dossier_date_range(
+                #         dossier_ref=self._data.iloc[row]["DossierRef"], column=column
+                #     )
             elif column == self._data.columns.get_loc("ID_Rijksregisternummer"):
                 new_value = self._rrn_check(value, row, column)
 
@@ -320,7 +320,9 @@ class PandasModel(TableModel):
             if dossier["Openingsdatum"].to_list()[0] < new_opening:
                 return
 
-            self.setData(self.index(row, opening_col), value=new_opening)
+            index = self.index(row, opening_col)
+            self.setData(index, value=new_opening)
+            self.dataChanged.emit(index, index)
         elif column == closing_col and closing_dates:
             new_closing = max(closing_dates)
 
@@ -328,7 +330,9 @@ class PandasModel(TableModel):
             if dossier["Sluitingsdatum"].to_list()[0] > new_closing:
                 return
 
-            self.setData(self.index(row, closing_col), value=new_closing)
+            index = self.index(row, closing_col)
+            self.setData(index, value=new_closing)
+            self.dataChanged.emit(index, index)
 
     # Marking and unmarking of cells
     def _mark_bad_cell(
@@ -514,34 +518,35 @@ class PandasModel(TableModel):
                 )
 
         # Re-evaluate the dossier_dates
-        if not re_evaluation and is_stuk:
-            dossier_ref = data_row["DossierRef"].to_list()[0]
+        # if not re_evaluation and is_stuk:
+        #     dossier_ref = data_row["DossierRef"].to_list()[0]
 
-            dossier = self._data.loc[
-                (self._data["Type"] == "dossier")
-                & (self._data["DossierRef"] == dossier_ref)
-            ]
+        #     dossier = self._data.loc[
+        #         (self._data["Type"] == "dossier")
+        #         & (self._data["DossierRef"] == dossier_ref)
+        #     ]
 
-            dossier_row = dossier.index.to_list()[0]
-            dossier_opening = dossier["Openingsdatum"].to_list()[0]
-            dossier_closing = dossier["Sluitingsdatum"].to_list()[0]
+        #     dossier_row = dossier.index.to_list()[0]
+        #     dossier_opening = dossier["Openingsdatum"].to_list()[0]
+        #     dossier_closing = dossier["Sluitingsdatum"].to_list()[0]
 
-            self._update_dossier_date_range(dossier_ref=dossier_ref, column=col)
+        #     self._update_dossier_date_range(dossier_ref=dossier_ref, column=opening_col)
+        #     self._update_dossier_date_range(dossier_ref=dossier_ref, column=closing_col)
 
-            self._date_data_check(
-                value=dossier_opening,
-                row=dossier_row,
-                col=opening_col,
-                is_stuk=False,
-                re_evaluation=True,
-            )
-            self._date_data_check(
-                value=dossier_closing,
-                row=dossier_row,
-                col=closing_col,
-                is_stuk=False,
-                re_evaluation=True,
-            )
+        #     self._date_data_check(
+        #         value=dossier_opening,
+        #         row=dossier_row,
+        #         col=opening_col,
+        #         is_stuk=False,
+        #         re_evaluation=True,
+        #     )
+        #     self._date_data_check(
+        #         value=dossier_closing,
+        #         row=dossier_row,
+        #         col=closing_col,
+        #         is_stuk=False,
+        #         re_evaluation=True,
+        #     )
 
         return True
 
