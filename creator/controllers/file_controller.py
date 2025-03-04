@@ -145,8 +145,7 @@ class FileController:
 
         md5 = hashlib.md5(open(sip_location, "rb").read()).hexdigest()
 
-        side_car_info = """
-<?xml version="1.0" encoding="UTF-8"?>
+        side_car_info = """<?xml version="1.0" encoding="UTF-8"?>
 <mhs:Sidecar xmlns:mhs="https://zeticon.mediahaven.com/metadata/20.3/mhs/" version="20.3" xmlns:mh="https://zeticon.mediahaven.com/metadata/20.3/mh/">
      <mhs:Technical>
               <mh:Md5>{md5}</mh:Md5>
