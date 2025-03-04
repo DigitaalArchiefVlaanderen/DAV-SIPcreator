@@ -107,35 +107,44 @@ class SQLliteModel(TableModel):
                 [v if v is not None else "" for v in r]
                 for r in conn.execute(f"SELECT * FROM \"{self._table_name}\";").fetchall()
             ]
-
-            if self.has_changed:
-                # NOTE: treat db_data as the base, overwrite with items from current data where needed
-                new_data = db_data
-                
-                for row_index, row in enumerate(db_data):
-                    if row_index >= len(self.raw_data):
-                        break
-                    
-                    for col_index in range(len(row)):
-                        if col_index >= len(self.raw_data[row_index]):
-                            break
-
-                        # Overwrite with data we have now
-                        new_data[row_index][col_index] = self.raw_data[row_index][col_index]
-
-                self.raw_data = new_data
-            else:
-                self.raw_data = db_data
-
-            self.row_count = len(self.raw_data)
-
             cursor = conn.execute(f"pragma table_info(\"{self._table_name}\");")
 
-            self.columns = {
+            # NOTE: in case we added a new column
+            new_columns = {
                 i: column_name
                 for i, column_name, *_ in cursor.fetchall()
             }
 
+            # NOTE: we are loading db data, but we have more recent local data
+            if self.has_changed:
+                base_data = db_data
+                
+                for row_index, row in enumerate(db_data):
+                    # NOTE: we can only fill in data for rows we have
+                    if row_index >= len(self.raw_data):
+                        break
+                    
+                    for col_index in range(len(row)):
+                        # Since new columns might exist now, get the column by name
+                        # Which column is the data in (in the db)
+                        new_col_name = new_columns[col_index]
+
+                        # Which col index is that in our data?
+                        try:
+                            old_col_index = list(self.columns.keys())[list(self.columns.values()).index(new_col_name)]
+                        except ValueError:
+                            # NOTE: this means the column we are looking for, does not exist in the old data
+                            continue
+
+                        # Overwrite with data we have now
+                        base_data[row_index][col_index] = self.raw_data[row_index][old_col_index]
+
+                self.raw_data = base_data
+            else:
+                self.raw_data = db_data
+
+            self.row_count = len(self.raw_data)
+            self.columns = new_columns
             self.col_count = len(self.columns)
 
         # NOTE: for the checks, set all the cells
@@ -145,7 +154,7 @@ class SQLliteModel(TableModel):
         self.colors = {}
         self.tooltips = {}
 
-        self.layoutAboutToBeChanged.emit()
+        self.modelAboutToBeReset.emit()
         for row_index, row in enumerate(self.raw_data):
             # NOTE: just for debugging, won't slow down the process significantly enough to affect anything, might as well leave it
             if row_index % 100 == 0:
@@ -161,7 +170,7 @@ class SQLliteModel(TableModel):
 
         # NOTE: since no signals were being emitted before, emit one now
         self.bad_rows_changed.emit(len(self.colors))
-        self.layoutChanged.emit()
+        self.modelReset.emit()
 
     def save_data(self) -> None:
         with self.conn as conn:
@@ -483,21 +492,21 @@ class SQLliteModel(TableModel):
         row_values = self.raw_data[row]
 
         if all(row_values[c] == "" for c in duplicate_col_indexes if c != col) and value == "":
-            self.layoutAboutToBeChanged.emit()
+            self.modelAboutToBeReset.emit()
 
             for col_index in duplicate_col_indexes:
                 self._mark_cell(row, col_index, CellColor.RED, "Een locatie moet ingevuld zijn")
 
-            self.layoutChanged.emit()
+            self.modelReset.emit()
             return
         elif all(row_values[c] == "" for c in duplicate_col_indexes if c != col) and value != "":
             # NOTE: all empty except the current one, unset them all but do not return
-            self.layoutAboutToBeChanged.emit()
+            self.modelAboutToBeReset.emit()
 
             for col_index in duplicate_col_indexes:
                 self._mark_cell(row, col_index)
             
-            self.layoutChanged.emit()
+            self.modelReset.emit()
 
         actual_column_name = self.columns[col]
         suffix = ""
