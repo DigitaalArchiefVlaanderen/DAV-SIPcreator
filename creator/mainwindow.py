@@ -2,6 +2,7 @@ import os
 import json
 import re
 import threading
+import time
 
 import zipfile
 import hashlib
@@ -622,9 +623,6 @@ class TabUI(QtWidgets.QMainWindow):
         return True
 
     def load_overdrachtslijst(self):
-        import pandas as pd
-        import sqlite3 as sql
-
         wb = load_workbook(
             self.path,
             read_only=True,
@@ -642,8 +640,6 @@ class TabUI(QtWidgets.QMainWindow):
         try:
             # TODO: check all required columns?
             while "Doosnr" not in (headers := next(data)):
-            # TODO: temp
-            # while "Doosnr. " not in (headers := next(data)):
                 pass
         except StopIteration:
             # TODO: proper error here
@@ -656,27 +652,11 @@ class TabUI(QtWidgets.QMainWindow):
             "Doosnr",
             "URI Serieregister",
         )
-        # TODO: temp
-        # expected_headers = {
-        #     "Beschrijving ": "Beschrijving",
-        #     "Begin-\ndatum": "Begindatum",
-        #     "Eind-\ndatum": "Einddatum",
-        #     "Doosnr. ": "Doosnr",
-        #     None: "URI Serieregister",
-        # }
-        headers = [h.strip() for h in headers if h is not None]
+
+        headers = [h.strip() for h in headers if h is not None and h.strip() != ""]
         for h in expected_headers:
             if h not in headers:
                 raise Exception(f"Verwachtte om de kolom '{h}' tegen te komen, maar is niet gevonden.")
-
-        # TODO: temp
-        # actual_headers = []
-
-        # for h in headers:
-        #     if h in expected_headers:
-        #         actual_headers.append(expected_headers[h])
-        #     else:
-        #         actual_headers.append(h)
 
         # Filter out empty rows
         df = pd.DataFrame(
@@ -685,9 +665,7 @@ class TabUI(QtWidgets.QMainWindow):
                 (r[:len(headers)] for r in list(data))
                 if not all(not bool(v) for v in r)
             ),
-            # TODO: temp
             columns=headers,
-            # columns=actual_headers,
         ).fillna("").astype(str).convert_dtypes()
         wb.close()
 
@@ -724,7 +702,6 @@ class TabUI(QtWidgets.QMainWindow):
             con=con,
             index=False,
             method="multi",
-            # if_exists="append",
             chunksize=1000,
         )
 
@@ -971,8 +948,6 @@ class TabUI(QtWidgets.QMainWindow):
             self._filter_unassigned(self.unassigned_only_checkbox.checkState().value)
 
     def create_tab(self, name: str, series_id: str):
-        from creator.widgets.tableview_widget import TableView
-
         container = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         container.setLayout(layout)
@@ -1036,8 +1011,6 @@ class TabUI(QtWidgets.QMainWindow):
         event.accept()
 
     def save_tabs(self) -> None:
-        from creator.utils.sqlitemodel import SQLliteModel
-
         for table_view in self.tabs.values():
             if table_view == self.main_table:
                 continue
@@ -1414,8 +1387,6 @@ class TabUI(QtWidgets.QMainWindow):
         self.can_upload_changed.emit(False)
 
     def update_status(self, tabs: list[str]) -> None:
-        import time
-
         for series_name, table_view in self.tabs.items():
             if series_name == self.main_tab:
                 continue
