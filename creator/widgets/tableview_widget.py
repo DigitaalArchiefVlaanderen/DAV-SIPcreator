@@ -160,6 +160,7 @@ class TableView(QtWidgets.QTableView):
         ):
             return
 
+        self.model().modelAboutToBeReset.emit()
         for row, row_content in zip(usable_rows, row_contents):
             col_contents = row_content.split("\t")
 
@@ -171,13 +172,8 @@ class TableView(QtWidgets.QTableView):
                     col_content,
                     QtCore.Qt.ItemDataRole.EditRole,
                 )
+                self.model().dataChanged.emit(index, index)
 
-        # NOTE: update all rows (not just the cells we updated, since some of the cells might be linked)
-        self.model().modelAboutToBeReset.emit()
-        self.model().dataChanged.emit(
-            self.model().index(min(usable_rows), 0),
-            self.model().index(max(usable_rows), self.model().columnCount())
-        )
         self.model().modelReset.emit()
 
     def _filter_indexes(self, *filters: tuple[str]) -> list[QtCore.QModelIndex]:
