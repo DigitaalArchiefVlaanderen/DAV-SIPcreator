@@ -153,6 +153,7 @@ class SQLliteModel(TableModel):
 
             for col_index, value in enumerate(row):
                 self.setData(self.index(row_index, col_index), value)
+        print()
 
         self.has_changed = changed_before
 

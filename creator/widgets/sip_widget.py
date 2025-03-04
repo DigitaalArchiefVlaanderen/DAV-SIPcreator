@@ -226,7 +226,6 @@ class SIPWidget(QtWidgets.QFrame):
 
     def delete_button_clicked(self) -> None:
         # Deletes the SIP and it's corresponding files (md5)
-
         dialog = YesNoDialog(
             title="Verwijder files",
             text="Ben je zeker dat je de SIP en al zijn bijhorende files wilt verwijderen?\nDeze actie kan niet ongedaan gemaakt worden.",
@@ -249,6 +248,12 @@ class SIPWidget(QtWidgets.QFrame):
             f"{self.sip.name}.db"
         )
 
+        # NOTE: this is the most likely one to fail, hence we try it first
+        try:
+            os.remove(db_location)
+        except FileNotFoundError:
+            pass
+
         try:
             os.remove(sip_location)
         except FileNotFoundError:
@@ -256,11 +261,6 @@ class SIPWidget(QtWidgets.QFrame):
 
         try:
             os.remove(sidecar_location)
-        except FileNotFoundError:
-            pass
-
-        try:
-            os.remove(db_location)
         except FileNotFoundError:
             pass
 
