@@ -43,6 +43,39 @@ class TableView(QtWidgets.QTableView):
 
         QtWidgets.QApplication.clipboard().setText(copy_text)
 
+    def cut_content(self, indexes: list):
+        # Single cell cut
+        if len(indexes) == 1:
+            index = indexes[0]
+            QtWidgets.QApplication.clipboard().setText(self.model().data(index))
+            self.model().setData(index=index, value="", role=QtCore.Qt.ItemDataRole.EditRole)
+            self.model().dataChanged.emit(index, index)
+            return
+
+        # Dictionary with key being the row, value being a list of columns
+        rows = {}
+
+        for index in indexes:
+            rows[index.row()] = rows.get(index.row(), []) + [index.column()]
+
+        cut_rows = []
+        for row, columns in rows.items():
+            cut_rows.append("\t".join(
+                    [self.model().index(row, col).data() for col in columns]
+                )
+            )
+
+        # NOTE: excel complicates matters, they add a trailing '\n' character
+        # This however means we need to do the same, and expect this
+        cut_text = "\n".join(cut_rows) + "\n"
+
+        QtWidgets.QApplication.clipboard().setText(cut_text)
+
+        # Make sure to set the values to empty
+        for index in indexes:
+            self.model().setData(index=index, value="", role=QtCore.Qt.ItemDataRole.EditRole)
+            self.model().dataChanged.emit(index, index)
+
     def paste_content(self, indexes: list):
         if not self.editable:
             return
@@ -166,6 +199,14 @@ class TableView(QtWidgets.QTableView):
         elif event.matches(QtGui.QKeySequence.Paste):
             self.paste_content(indexes)
 
+        elif event.matches(QtGui.QKeySequence.Cut):
+            indexes = self._filter_indexes("ItemIsSelectable")
+
+            if len(indexes) == 0:
+                return
+
+            self.cut_content(indexes)
+
         # OVERFLOW
         else:
             super().keyPressEvent(event)
@@ -191,3 +232,16 @@ class TableView(QtWidgets.QTableView):
                 self.model().index(index.row(), 0),
                 self.model().index(index.row(), self.model().columnCount())
             )
+
+
+    # Overwrites
+    def model(self, proxy=False) -> QtCore.QAbstractTableModel:
+        model: QtCore.QAbstractTableModel = super().model()
+
+        if isinstance(model, QtCore.QSortFilterProxyModel):
+            if proxy:
+                return model
+
+            return model.sourceModel()
+        
+        return model
