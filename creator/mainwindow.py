@@ -709,6 +709,7 @@ class TabUI(QtWidgets.QMainWindow):
             method="multi",
             chunksize=1000,
         )
+        con.close()
 
     def load_main_tab(self):
         container = QtWidgets.QWidget()
@@ -762,8 +763,7 @@ class TabUI(QtWidgets.QMainWindow):
         }
 
         # NOTE: map all the URI Serieregisters
-        conn = sql.connect(self.db_location)
-        with conn:
+        with sql.connect(self.db_location) as conn:
             unique_serie_uris = [
                 uri for uri, *_ in 
                 conn.execute(f"""SELECT "URI Serieregister" FROM {self.main_tab} GROUP BY "URI Serieregister";""").fetchall()
@@ -791,9 +791,7 @@ class TabUI(QtWidgets.QMainWindow):
             self.add_to_new(name=series.get_name(), series_id=series._id, mapping_ids=indexes, recalculate=False)
 
     def load_other_tabs(self):
-        conn = sql.connect(self.db_location)
-
-        with conn:
+        with sql.connect(self.db_location) as conn:
             tables = conn.execute(f"""SELECT table_name, "URI Serieregister" FROM tables WHERE table_name != '{self.main_tab}';""")
         
         # NOTE: set all the series_names where the series_id matches one we got
