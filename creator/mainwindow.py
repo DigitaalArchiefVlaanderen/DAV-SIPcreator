@@ -577,11 +577,7 @@ class TabUI(QtWidgets.QMainWindow):
                 self.edepot_available_changed.emit(True)
 
     def create_db(self) -> bool:
-        import sqlite3 as sql
-        import os
-
         os.makedirs(self.storage_base, exist_ok=True)
-
 
         if os.path.exists(self.db_location):
             with sql.connect(self.db_location) as conn:
@@ -652,7 +648,6 @@ class TabUI(QtWidgets.QMainWindow):
             while "Doosnr" not in (headers := next(data)):
                 pass
         except StopIteration:
-            # TODO: proper error here
             raise Exception("Geen hoofdingen gevonden in de overdrachtslijst")
 
         expected_headers = (
@@ -690,7 +685,7 @@ class TabUI(QtWidgets.QMainWindow):
             ).exec()
 
         for uri, count in df["URI Serieregister"].value_counts().items():
-            if count > 9998:
+            if uri.strip() != "" and count > 9998:
                 raise ValueError(f"Te veel lijnen met 'URI Serieregister' gelijk aan '{uri}'.\nMaximum: 9998\nGevonden: {count}\n\nPas de overdrachtslijst aan alvorens verder te gaan.")
 
         df["id"] = range(df.shape[0])
@@ -737,7 +732,7 @@ class TabUI(QtWidgets.QMainWindow):
 
         btn = QtWidgets.QPushButton(text="Voeg toe")
         btn.clicked.connect(
-            lambda: 
+            lambda:
             self.add_to_new(
                 name = series_combobox.currentText(),
                 series_id = listed_series[series_names.index(series_combobox.currentText())]._id,
@@ -763,6 +758,7 @@ class TabUI(QtWidgets.QMainWindow):
         self.tabs[self.main_tab] = {
             "container": container,
             "table": self.main_table,
+            "model": model,
         }
 
         # NOTE: map all the URI Serieregisters
@@ -822,8 +818,6 @@ class TabUI(QtWidgets.QMainWindow):
         if name == "" or name == self.main_tab:
             return
 
-        conn = sql.connect(self.db_location)
-
         amount_of_rows_to_add = 0
 
         if mapping_ids is None:
@@ -841,7 +835,9 @@ class TabUI(QtWidgets.QMainWindow):
 
             amount_of_rows_to_add = len(selected_rows)
 
-            if amount_of_rows_to_add > 1000:
+            if amount_of_rows_to_add > 9998:
+                raise ValueError(f"Te veel lijnen worden in de serie toegevoegd.\nMaximum: 9998\nGevonden: {amount_of_rows_to_add}")
+            elif amount_of_rows_to_add > 1000:
                 Dialog(
                     title="Veel rijen aanpassen",
                     text="Je bent veel rijen tegelijk aan het aanpassen, dit kan een aantal minuten duren."
@@ -852,7 +848,7 @@ class TabUI(QtWidgets.QMainWindow):
         uri = f"{self.state.configuration.active_environment.get_serie_register_uri()}/{series_id}"
         tab_exists = False
 
-        with conn:
+        with sql.connect(self.db_location) as conn:
             # Check if table exists
             result = conn.execute(f'pragma table_info("{name}");').fetchall()
 
@@ -917,18 +913,23 @@ class TabUI(QtWidgets.QMainWindow):
                         WHERE table_name='{table}';
                     """)
 
-                    self.tab_widget.removeTab(list(self.tabs).index(tab))
-                    self.tabs[tab]["container"].deleteLater()
-                    del self.tabs[tab]
-                    
+                    container: QtWidgets.QWidget = self.tabs[tab]["container"]
+                    _table: TableView = self.tabs[tab]["table"]
+                    model: SQLliteModel = self.tabs[tab]["model"]
+                    model.bad_rows_changed.disconnect()
+
+                    self.tab_widget.removeTab(self.tab_widget.indexOf(container))
+                    model.deleteLater()
+                    _table.deleteLater()
+                    container.deleteLater()
+
+                    self.tabs.pop(tab)
+
                     continue
 
                 # Recalculate shape for table
-                model: SQLliteModel = self.tabs[tab]["table"].model()
+                model: SQLliteModel = self.tabs[tab]["model"]
                 model.row_count = rows
-
-                # Update the graphical side
-                model.layoutChanged.emit()
 
             # Insert where needed
             # NOTE: don't do other auto-mapping
@@ -949,7 +950,7 @@ class TabUI(QtWidgets.QMainWindow):
             """)
 
             conn.commit()
-        
+
         if mapping_ids:
             # NOTE: we added this automatically, don't add the tab here
             pass
@@ -958,8 +959,7 @@ class TabUI(QtWidgets.QMainWindow):
 
         if recalculate:
             # Update the graphical side for all tables involved
-            # NOTE: not efficient since it shows/hides tabs every time
-            self.reload_tabs()
+            self.reload_tabs(new_tab=None if tab_exists else name)
 
     def create_tab(self, name: str, series_id: str):
         container = QtWidgets.QWidget()
@@ -988,14 +988,15 @@ class TabUI(QtWidgets.QMainWindow):
         table_view.setModel(proxy_model)
         
         load_bestandscontrole_button = QtWidgets.QPushButton(text="Laad bestandscontrole lijst")
-        load_bestandscontrole_button.clicked.connect(lambda _: self.load_bestandscontrole(model=model))
+        load_bestandscontrole_button.clicked.connect(lambda: self.load_bestandscontrole(model=model))
         load_bestandscontrole_button.setHidden(self.state.configuration.active_role == "klant")
         self.configuration_changed.connect(lambda: self.hide_or_show_button(load_bestandscontrole_button))
         layout.addWidget(load_bestandscontrole_button, 1, 4)
 
         bad_rows_checkbox.stateChanged.connect(lambda checkstate: self._filter_bad_rows(checkstate, self.tabs[name]["table"]))
-        model.bad_rows_changed.connect(lambda _: self._filter_bad_rows(bad_rows_checkbox.checkState().value, table_view))
-        model.layoutChanged.connect(lambda _: self._filter_bad_rows(bad_rows_checkbox.checkState().value, table_view))
+        model.bad_rows_changed.connect(lambda: self._filter_bad_rows(bad_rows_checkbox.checkState().value, table_view))
+        model.layoutChanged.connect(lambda: self._filter_bad_rows(bad_rows_checkbox.checkState().value, table_view))
+        model.modelReset.connect(lambda: self._filter_bad_rows(bad_rows_checkbox.checkState().value, table_view))
         model.bad_rows_changed.connect(self.set_create_button_status)
         self.configuration_changed.connect(lambda: self._filter_bad_rows(bad_rows_checkbox.checkState().value, table_view))
 
@@ -1003,13 +1004,14 @@ class TabUI(QtWidgets.QMainWindow):
         self.tabs[name] = {
             "container": container,
             "table": table_view,
+            "model": model,
         }
 
-        duplicate_trefwoord_column_button.clicked.connect(lambda _: self.add_column(name))
-        duplicate_location_column_button.clicked.connect(lambda _: self.add_column(name, location_cols=True))
+        duplicate_trefwoord_column_button.clicked.connect(lambda: self.add_column(name))
+        duplicate_location_column_button.clicked.connect(lambda: self.add_column(name, location_cols=True))
 
     def closeEvent(self, event):
-        models: list[SQLliteModel] = [t["table"].model() for t in self.tabs.values()]
+        models: list[SQLliteModel] = [t["model"] for t in self.tabs.values()]
 
         # NOTE: only ask the user if data has actually changed
         if not any(m.has_changed for m in models):
@@ -1034,54 +1036,51 @@ class TabUI(QtWidgets.QMainWindow):
             if table_view == self.main_table:
                 continue
 
-            model: SQLliteModel = table_view.model()
+            model: SQLliteModel = reference["model"]
 
             model.save_data()
             model.has_changed = False
 
         self.close()
 
-    def reload_tabs(self) -> None:
+    def reload_tabs(self, new_tab: str=None) -> None:
         for table_name, reference in self.tabs.items():
             # Reload all the data
-            tab_view: TableView = reference["table"]
+            model: SQLliteModel = reference["model"]
 
-            model: SQLliteModel = tab_view.model()
-
-            model.layoutAboutToBeChanged.emit()
             model.get_data()
 
-            with sql.connect(self.db_location) as conn:
-                # NOTE: figure out which columns to hide (could be multiple due to duplications)
-                cursor = conn.execute(f"pragma table_info(\"{table_name}\");")
+            # Only do this if the tab is new, or we are reloading all tabs
+            if new_tab is None or new_tab == table_name:
+                tab_view: TableView = reference["table"]
 
-                columns = cursor.fetchall()
+                with sql.connect(self.db_location) as conn:
+                    # NOTE: figure out which columns to hide (could be multiple due to duplications)
+                    cursor = conn.execute(f"pragma table_info(\"{table_name}\");")
 
-            # Show every column
-            for i in range(len(columns)):
-                tab_view.showColumn(i)
+                    columns = cursor.fetchall()
 
-            # Hide id and main_id columns where applicable
-            for i, column_name, *_ in columns:
-                if column_name in ("id", "main_id"):
-                    tab_view.hideColumn(i)
+                # Show every column
+                for i in range(len(columns)):
+                    tab_view.showColumn(i)
 
-            if self.state.configuration.active_role == "klant":
-                cols_to_skip = ("Origineel Doosnummer", "Legacy locatie ID", "Legacy range", "Verpakkingstype")
-
+                # Hide id and main_id columns where applicable
                 for i, column_name, *_ in columns:
-                    if any(c in column_name for c in cols_to_skip):
+                    if column_name in ("id", "main_id"):
                         tab_view.hideColumn(i)
 
-            model.layoutChanged.emit()
+                if self.state.configuration.active_role == "klant":
+                    cols_to_skip = ("Origineel Doosnummer", "Legacy locatie ID", "Legacy range", "Verpakkingstype")
+
+                    for i, column_name, *_ in columns:
+                        if any(c in column_name for c in cols_to_skip):
+                            tab_view.hideColumn(i)
 
         self._filter_unassigned(self.unassigned_only_checkbox.checkState().value)
 
     def set_create_button_status(self, *_) -> None:
         for reference in self.tabs.values():
-            table_view: TableView = reference["table"]
-
-            model: SQLliteModel = table_view.model()
+            model: SQLliteModel = reference["model"]
 
             red_colors = [_ for c in model.colors.values() if c == CellColor.RED]
 
@@ -1157,10 +1156,8 @@ class TabUI(QtWidgets.QMainWindow):
 
             conn.execute(f'DROP TABLE "_old_{table}";')
 
-        model: SQLliteModel = self.tabs[table]["table"].model()
-        model.layoutAboutToBeChanged.emit()
+        model: SQLliteModel = self.tabs[table]["model"]
         model.get_data()
-        model.layoutChanged.emit()
 
     def _filter_unassigned(self, state: QtCore.Qt.CheckState) -> None:
         model: CustomSortFilterModel = self.main_table.model(proxy=True)
@@ -1205,9 +1202,7 @@ class TabUI(QtWidgets.QMainWindow):
             if series_name == self.main_tab:
                 continue
 
-            table_view: TableView = reference["table"]
-
-            model: SQLliteModel = table_view.model()
+            model: SQLliteModel = reference["model"]
             model.save_data()
 
             # Copy import_template to grid_storage
@@ -1309,7 +1304,7 @@ class TabUI(QtWidgets.QMainWindow):
             if tab == self.main_tab:
                 continue
 
-            tabs.append((tab, reference["table"]))
+            tabs.append((tab, reference["model"]))
 
         dialog = ChoiceDialog(
             title="Uploaden",
@@ -1321,7 +1316,7 @@ class TabUI(QtWidgets.QMainWindow):
 
         if dialog.result():
             tabs_to_upload = dialog.get_selected_choices()
-            tabs_to_upload = [(tab, table) for tab, table in tabs if tab in tabs_to_upload]
+            tabs_to_upload = [(tab, model) for tab, model in tabs if tab in tabs_to_upload]
 
             if len(tabs_to_upload) == 0:
                 return
@@ -1339,8 +1334,8 @@ class TabUI(QtWidgets.QMainWindow):
         storage_location = self.state.configuration.misc.save_location
         sip_storage_path = os.path.join(storage_location, FileController.SIP_STORAGE)
 
-        for series_name, table_view in tabs_to_upload:
-            model: SQLliteModel = table_view.model()
+        for series_name, model in tabs_to_upload:
+            model: SQLliteModel = model
 
             ol_name = self.overdrachtslijst_name[:185]
 
@@ -1402,9 +1397,7 @@ class TabUI(QtWidgets.QMainWindow):
             if f'"{series_name}"' not in tabs:
                 continue
 
-            table_view: TableView = reference["table"]
-
-            model: SQLliteModel = table_view.model()
+            model: SQLliteModel = reference["model"]
             edepot_id = None
             times_slept = 0
             max_time_to_sleep = 300

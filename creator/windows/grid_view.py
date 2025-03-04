@@ -299,7 +299,7 @@ class GridView(QtWidgets.QMainWindow):
         model: PandasModel = self.table_view.model()
         df = model.get_data()
 
-        model.layoutAboutToBeChanged.emit()
+        model.modelAboutToBeReset.emit()
 
         new_column_name = column
         spaces_added = 1
@@ -312,7 +312,7 @@ class GridView(QtWidgets.QMainWindow):
 
         # NOTE: rerun all checks (not super efficient, would be better to just do it for this row, but oh well)
         model._trigger_fill_data()
-        model.layoutChanged.emit()
+        model.modelReset.emit()
 
     def create_sip_click(self):
         df = self.save_button_click(filter_save=True)

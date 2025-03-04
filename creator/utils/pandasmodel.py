@@ -739,9 +739,9 @@ class PandasModel(TableModel):
 
         name_column = self._data.columns.get_loc("Naam")
 
-        self.layoutAboutToBeChanged.emit()
+        self.modelAboutToBeReset.emit()
         self.dataChanged.emit(
             self.index(0, name_column),
             self.index(self.rowCount(), name_column),
         )
-        self.layoutChanged.emit()
+        self.modelReset.emit()

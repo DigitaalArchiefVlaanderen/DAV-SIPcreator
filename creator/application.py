@@ -27,15 +27,15 @@ class SIPStatusThread(threading.Thread):
 
     def run(self):
         # On first launch, allow the application time to start up
-        time.sleep(30)
+        time.sleep(10)
 
         while True:
+            time.sleep(10)
+
             try:
                 self._check_sip_status()
             except APIException:
                 pass
-
-            time.sleep(60)
 
     def _check_sip_status(self):
         # TODO: better sql get for only uploaded sips
