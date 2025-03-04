@@ -122,12 +122,7 @@ class PandasModel(TableModel):
             ):
                 is_stuk = self._data.iloc[row]["Type"] == "stuk"
 
-                valid_date = self._date_data_check(value, row, column, is_stuk=is_stuk)
-
-                # if valid_date and is_stuk:
-                #     self._update_dossier_date_range(
-                #         dossier_ref=self._data.iloc[row]["DossierRef"], column=column
-                #     )
+                self._date_data_check(value, row, column, is_stuk=is_stuk)
             elif column == self._data.columns.get_loc("ID_Rijksregisternummer"):
                 new_value = self._rrn_check(value, row, column)
 
@@ -244,7 +239,7 @@ class PandasModel(TableModel):
             self._rrn_check(
                 value=self._data.iloc[r, rrn_col],
                 row=r,
-                col=rrn_col
+                col=rrn_col,
             )
 
     def _proper_date_format(self, date_str: str) -> datetime:
@@ -301,7 +296,6 @@ class PandasModel(TableModel):
             (self._data["Type"] == "stuk") & (self._data["DossierRef"] == dossier_ref)
         ]
 
-        # TODO: find a way to do this vectorized
         return [
             d
             for d in files[column]
@@ -309,7 +303,43 @@ class PandasModel(TableModel):
             and self._date_invalid_check(date) is None
         ]
 
-    def _update_dossier_date_range(self, dossier_ref: str, column: str) -> None:
+    def _update_dossier_date_range(self, dossier_ref: str) -> None:
+        def _opening():
+            # Only change the values if we have something useful to change it in to
+            if opening_dates:
+                new_opening = min(opening_dates)
+
+                current_value = dossier.iloc[0]["Openingsdatum"]
+                current_date = self._proper_date_format(current_value)
+
+                # If valid date
+                if current_date is not None and not self._date_invalid_check(current_date):
+                    # Only change if the openingsdate is actually lower
+                    if current_value <= new_opening:
+                        return
+
+                self._data.iloc[row, opening_col] = new_opening
+                index = self.index(row, opening_col)
+                self.dataChanged.emit(index, index)
+
+        def _closing():
+            # Only change the values if we have something useful to change it in to
+            if closing_dates:
+                new_closing = max(closing_dates)
+
+                current_value = dossier.iloc[0]["Sluitingsdatum"]
+                current_date = self._proper_date_format(current_value)
+
+                # If valid date
+                if current_date is not None and not self._date_invalid_check(current_date):
+                    # Only change if the closingdate is actually higher
+                    if current_value >= new_closing:
+                        return
+
+                self._data.iloc[row, closing_col] = new_closing
+                index = self.index(row, closing_col)
+                self.dataChanged.emit(index, index)
+
         dossier = self._data.loc[
             (self._data["Type"] == "dossier")
             & (self._data["DossierRef"] == dossier_ref)
@@ -325,28 +355,9 @@ class PandasModel(TableModel):
         row = dossier.index.to_list()[0]
         opening_col = self._data.columns.get_loc("Openingsdatum")
         closing_col = self._data.columns.get_loc("Sluitingsdatum")
-
-        # Only change the values if we have something useful to change it in to
-        if column == opening_col and opening_dates:
-            new_opening = min(opening_dates)
-
-            # Only change if the openingsdate is actually lower
-            if dossier["Openingsdatum"].to_list()[0] < new_opening:
-                return
-
-            index = self.index(row, opening_col)
-            self.setData(index, value=new_opening)
-            self.dataChanged.emit(index, index)
-        elif column == closing_col and closing_dates:
-            new_closing = max(closing_dates)
-
-            # Only change if the closingdate is actually higher
-            if dossier["Sluitingsdatum"].to_list()[0] > new_closing:
-                return
-
-            index = self.index(row, closing_col)
-            self.setData(index, value=new_closing)
-            self.dataChanged.emit(index, index)
+        
+        _opening()
+        _closing()
 
     # Marking and unmarking of cells
     def _mark_bad_cell(
@@ -531,36 +542,36 @@ class PandasModel(TableModel):
                     re_evaluation=True,
                 )
 
-        # Re-evaluate the dossier_dates
-        # if not re_evaluation and is_stuk:
-        #     dossier_ref = data_row["DossierRef"].to_list()[0]
+        # Re-evaluate the dossier_dates, only if this is already the re-evaluation, then check both for the dossier
+        if re_evaluation and is_stuk:
+            dossier_ref = self._data.iloc[row]["DossierRef"]
 
-        #     dossier = self._data.loc[
-        #         (self._data["Type"] == "dossier")
-        #         & (self._data["DossierRef"] == dossier_ref)
-        #     ]
+            # Update the values
+            self._update_dossier_date_range(dossier_ref=dossier_ref)
 
-        #     dossier_row = dossier.index.to_list()[0]
-        #     dossier_opening = dossier["Openingsdatum"].to_list()[0]
-        #     dossier_closing = dossier["Sluitingsdatum"].to_list()[0]
+            dossier = self._data.loc[
+                (self._data["Type"] == "dossier")
+                & (self._data["DossierRef"] == dossier_ref)
+            ]
 
-        #     self._update_dossier_date_range(dossier_ref=dossier_ref, column=opening_col)
-        #     self._update_dossier_date_range(dossier_ref=dossier_ref, column=closing_col)
+            dossier_row = dossier.index.to_list()[0]
+            dossier_opening = self._data.iloc[dossier_row, opening_col]
+            dossier_closing = self._data.iloc[dossier_row, closing_col]
 
-        #     self._date_data_check(
-        #         value=dossier_opening,
-        #         row=dossier_row,
-        #         col=opening_col,
-        #         is_stuk=False,
-        #         re_evaluation=True,
-        #     )
-        #     self._date_data_check(
-        #         value=dossier_closing,
-        #         row=dossier_row,
-        #         col=closing_col,
-        #         is_stuk=False,
-        #         re_evaluation=True,
-        #     )
+            self._date_data_check(
+                value=dossier_opening,
+                row=dossier_row,
+                col=opening_col,
+                is_stuk=False,
+                re_evaluation=True,
+            )
+            self._date_data_check(
+                value=dossier_closing,
+                row=dossier_row,
+                col=closing_col,
+                is_stuk=False,
+                re_evaluation=True,
+            )
 
         return True
 
