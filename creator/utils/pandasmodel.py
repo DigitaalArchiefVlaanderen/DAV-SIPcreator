@@ -233,6 +233,20 @@ class PandasModel(TableModel):
         self._vectorized_name_data_check()
         self._vectorized_date_data_check()
 
+        # NOTE: I do not want to write vectorized rrn checks
+        rrn_col = self._data.columns.get_loc("ID_Rijksregisternummer")
+        for r in range(self.rowCount()):
+            data_row = self._data.index[r]
+
+            if (data_row, rrn_col) in self.colors:
+                continue
+
+            self._rrn_check(
+                value=self._data.iloc[r, rrn_col],
+                row=r,
+                col=rrn_col
+            )
+
     def _proper_date_format(self, date_str: str) -> datetime:
         # Returns the date if valid, otherwise returns None
         # Format needs to be "%Y-%m-%d"
