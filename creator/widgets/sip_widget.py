@@ -250,6 +250,26 @@ class SIPWidget(QtWidgets.QFrame):
 
         # NOTE: this is the most likely one to fail, hence we try it first
         try:
+            import gc
+            import sqlite3 as sql
+            
+            for obj in gc.get_objects():
+                try:
+                    # Check if the object is a SQLite connection
+                    if isinstance(obj, sql.Connection):
+                        try:
+                            *_, db_path = obj.cursor().execute("PRAGMA database_list;").fetchone()
+                            print(db_path)
+
+                            if db_path == db_location:
+                                obj.close()
+                                print(f"Closed connection to {db_path}")
+                        except:
+                            # NOTE: already closed
+                            pass
+                except Exception as e:
+                    raise Exception("Error tijdens het sluiten van de database connectie")
+
             os.remove(db_location)
         except FileNotFoundError:
             pass
