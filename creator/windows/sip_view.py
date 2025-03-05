@@ -247,13 +247,13 @@ class SIPView(QtWidgets.QMainWindow):
         self.close()
 
     def folder_structure_click(self) -> None:
-        def _save_mapping(name_map_column: str, folder_structure: list) -> None:
+        def _save_mapping(path_in_sip_map_column: str, folder_structure: list) -> None:
             df = self.sip_widget.metadata_df
             folder_mapping = {
-                name: mapped_name
-                for name, mapped_name in zip(
-                    df[name_map_column],
-                    df[[*folder_structure, name_map_column]].agg("/".join, axis=1),
+                path_in_sip: mapped_name
+                for path_in_sip, mapped_name in zip(
+                    df[path_in_sip_map_column],
+                    df[[*folder_structure, path_in_sip_map_column]].fillna("").astype(str).convert_dtypes().agg("/".join, axis=1),
                 )
             }
 
@@ -273,18 +273,18 @@ class SIPView(QtWidgets.QMainWindow):
             self.folder_structure_view = FolderStructure(self.sip_widget.sip.name)
             self.folder_structure_view.setup_ui()
 
-            name_map_column = [k for k, v in tag_mapping.items() if v == "Path in SIP"][0]
+            path_in_sip_map_column = [k for k, v in tag_mapping.items() if v == "Path in SIP"][0]
             columns_without_empty_fields = [
                 c
                 for c, has_empty in dict(
                     self.sip_widget.metadata_df.eq("").any()
                 ).items()
-                if not has_empty and c != name_map_column
+                if not has_empty and c != path_in_sip_map_column
             ]
             self.folder_structure_view.add_to_metadata(columns_without_empty_fields)
             self.folder_structure_view.closed.connect(
                 lambda f: _save_mapping(
-                    name_map_column=name_map_column, folder_structure=f
+                    path_in_sip_map_column=path_in_sip_map_column, folder_structure=f
                 )
             )
 
