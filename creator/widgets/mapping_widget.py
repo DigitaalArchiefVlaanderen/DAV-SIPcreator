@@ -98,7 +98,7 @@ class TagMappingWidget(QtWidgets.QFrame):
     def add_to_import_template(self, tags: list):
         self.import_mapping.clear_tags()
         self.import_mapping.add_tags(
-            [t for t in tags if t not in ("Path in SIP", "Type", "DossierRef")]
+            [t for t in tags if t not in ("Type", "DossierRef", "Analoog?")]
         )
 
     def add_to_mapping(self, tags: list):

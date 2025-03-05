@@ -206,10 +206,10 @@ class SIPView(QtWidgets.QMainWindow):
         if first_open:
             tag_mapping = self.tag_mapping_widget.get_mapping()
 
-            if len(tag_mapping) > 1 and "Naam" not in tag_mapping.values():
+            if len(tag_mapping) > 1 and "Path in SIP" not in tag_mapping.values():
                 WarningDialog(
                     title="Mapping fout",
-                    text="Een mapping naar 'Naam' in het importsjabloon moet opgegeven worden",
+                    text="Een mapping naar 'Path in SIP' in het importsjabloon moet opgegeven worden",
                 ).exec()
                 return
 
@@ -262,10 +262,10 @@ class SIPView(QtWidgets.QMainWindow):
         tag_mapping = self.tag_mapping_widget.get_mapping()
 
         # Make sure we already know which column maps to name
-        if "Naam" not in tag_mapping.values():
+        if "Path in SIP" not in tag_mapping.values():
             WarningDialog(
                 title="Mapping fout",
-                text="Een mapping naar 'Naam' in het importsjabloon moet opgegeven worden",
+                text="Een mapping naar 'Path in SIP' in het importsjabloon moet opgegeven worden",
             ).exec()
             return
 
@@ -273,7 +273,7 @@ class SIPView(QtWidgets.QMainWindow):
             self.folder_structure_view = FolderStructure(self.sip_widget.sip.name)
             self.folder_structure_view.setup_ui()
 
-            name_map_column = [k for k, v in tag_mapping.items() if v == "Naam"][0]
+            name_map_column = [k for k, v in tag_mapping.items() if v == "Path in SIP"][0]
             columns_without_empty_fields = [
                 c
                 for c, has_empty in dict(

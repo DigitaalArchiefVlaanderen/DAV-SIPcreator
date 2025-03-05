@@ -155,8 +155,8 @@ class GridView(QtWidgets.QMainWindow):
 
     def _fill_mapping(self, sip_folder_structure: dict):
         # NOTE: this whole method is a jumble, have fun figuring it all out in it's current state
-        name_mapping_from = [
-            k for k, v in self.sip.tag_mapping.items() if v == "Naam"
+        path_in_sip_mapping_from = [
+            k for k, v in self.sip.tag_mapping.items() if v == "Path in SIP"
         ][0]
         mapping_from_cols = self.sip.tag_mapping.keys()
         mapping_to_cols = self.sip.tag_mapping.values()
@@ -166,19 +166,21 @@ class GridView(QtWidgets.QMainWindow):
         # Select only the columns we care about
         temp_df = temp_df[temp_df.columns.intersection(mapping_from_cols)]
 
+        # NOTE: No longer needed since path in sip is now unique, not name
         # Add the Path in SIP
-        temp_df["Path in SIP"] = temp_df[name_mapping_from]
-        temp_df.replace(
-            {
-                "Path in SIP": {
-                    name_from: value["Path in SIP"]
-                    for name_from, value in sip_folder_structure.items()
-                }
-            },
-            inplace=True,
-        )
+        # temp_df["_Path in SIP"] = temp_df[path_in_sip_mapping_from]
+        # temp_df.replace(
+        #     {
+        #         "_Path in SIP": {
+        #             name_from: value["Path in SIP"]
+        #             for name_from, value in sip_folder_structure.items()
+        #         }
+        #     },
+        #     inplace=True,
+        # )
 
         # Change all the from-cols to the to-cols
+        # temp_df.rename(columns={**self.sip.tag_mapping, **{"_Path in SIP": "Path in SIP"}}, inplace=True)
         temp_df.rename(columns=self.sip.tag_mapping, inplace=True)
 
         temp_df = pd.merge(
@@ -191,15 +193,17 @@ class GridView(QtWidgets.QMainWindow):
 
         # NOTE: we do this to preserve the positioning of the columns
         for col in mapping_to_cols:
-            temp_df[f"{col}_1"] = temp_df[f"{col}_2"]
+            if col != "Path in SIP":
+                temp_df[f"{col}_1"] = temp_df[f"{col}_2"]
 
-        required_columns = [
+        required_columns = ["Path in SIP"] + [
             c if c not in mapping_to_cols else f"{c}_1"
             for c in self.sip_widget.import_template_df.columns
+            if c != "Path in SIP"
         ]
         temp_df = temp_df[temp_df.columns.intersection(required_columns)]
 
-        temp_df.rename(columns={f"{v}_1": v for v in mapping_to_cols}, inplace=True)
+        temp_df.rename(columns={f"{v}_1": v for v in mapping_to_cols if v != "Path in SIP"}, inplace=True)
 
         self.sip_widget.import_template_df = temp_df
 
