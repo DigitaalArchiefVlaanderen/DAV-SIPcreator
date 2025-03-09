@@ -2,6 +2,7 @@ import threading
 import time
 from typing import Type, Callable
 import os
+import re
 
 import pandas as pd
 from PySide6 import QtWidgets, QtCore, QtGui
@@ -14,6 +15,10 @@ from creator.utils.sip_status import SIPStatus
 from creator.utils.state import State
 from creator.utils.path_loader import resource_path
 from creator.widgets.warning_dialog import WarningDialog
+
+
+def natural_keys(text: str) -> list[int|str]:
+    return [ int(c) if c.isdigit() else c for c in re.split(r'(\d+)', text) ]
 
 
 class SIPStatusThread(threading.Thread):
@@ -51,6 +56,7 @@ class SIPStatusThread(threading.Thread):
             ):
                 continue
 
+            print(f"Checking {sip.name}, status: {sip.status}")
             # Make sure we have the edepot id
             if sip.edepot_sip_id is None:
                 sip.set_edepot_sip_id(APIController.get_sip_id(sip))
@@ -61,6 +67,7 @@ class SIPStatusThread(threading.Thread):
             if new_status == sip.status:
                 continue
 
+            print(f"New status: {new_status}")
             sip.set_status(new_status)
 
             self.state.update_sip(sip)

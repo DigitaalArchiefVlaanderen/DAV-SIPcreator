@@ -15,7 +15,7 @@ import pandas as pd
 import sqlite3 as sql
 from pathlib import Path
 
-from .application import Application
+from .application import Application, natural_keys
 
 from .widgets.searchable_list_widget import (
     SearchableSelectionListView,
@@ -270,6 +270,8 @@ class DigitalWidget(QtWidgets.QWidget):
 
             if multi:
                 paths = os.listdir(dossier_path)
+
+            paths.sort(key=natural_keys)
 
             overlapping_labels = self.dossiers_list_view.get_overlapping_values(paths)
 
@@ -695,7 +697,7 @@ class TabUI(QtWidgets.QMainWindow):
 
         # TODO: remove
         # df = pd.concat([df] * 5000, ignore_index=True)
-        # df["URI Serieregister"] = "https://serieregister-ti.vlaanderen.be/id/serie/e641d8943266475594d43bd7e9d9bb08ea4893ce5e9646e39bc56911bfffc079"
+        # df.iloc[:50, df.columns.get_loc("URI Serieregister")] = "https://serieregister-ti.vlaanderen.be/id/serie/e641d8943266475594d43bd7e9d9bb08ea4893ce5e9646e39bc56911bfffc079"
 
         if len(df) > 1000:
             Dialog(
@@ -1407,6 +1409,8 @@ class TabUI(QtWidgets.QMainWindow):
         self.can_upload_changed.emit(False)
 
     def update_status(self, *tabs: Iterable[str]) -> None:
+        print(f"Starting to check for {self.overdrachtslijst_name}")
+
         for series_name, reference in self.tabs.items():
             if series_name == self.main_tab:
                 continue
@@ -1427,6 +1431,9 @@ class TabUI(QtWidgets.QMainWindow):
 
                 # NOTE: wait some time for the edepot to pick them up
                 time.sleep(10)
+
+                if edepot_id is not None:
+                    print(f"id found: {edepot_id} for {model.series_id}-{self.overdrachtslijst_name}")
 
                 times_slept += 10
 

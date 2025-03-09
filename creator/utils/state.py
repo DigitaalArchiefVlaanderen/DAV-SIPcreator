@@ -60,8 +60,7 @@ class State(QtCore.QObject):
 
     @property
     def dossiers(self) -> List[Dossier]:
-        if self._dossiers is None:
-            self._dossiers = self.db_controller.read_dossiers()
+        self._dossiers = self.db_controller.read_dossiers()
 
         return self._dossiers
 
@@ -81,8 +80,7 @@ class State(QtCore.QObject):
 
     @property
     def sips(self) -> List[SIP]:
-        if self._sips is None:
-            self._sips = self.db_controller.read_sips()
+        self._sips = self.db_controller.read_sips()
 
         return self._sips
 

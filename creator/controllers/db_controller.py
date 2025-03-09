@@ -2,6 +2,7 @@ from PySide6 import QtWidgets
 import sqlite3 as sql
 import pandas as pd
 
+import re
 import json
 import os
 from typing import List, Iterable
@@ -11,6 +12,10 @@ from ..utils.state_utils.dossier import Dossier
 from ..utils.state_utils.sip import SIP
 from ..utils.sip_status import SIPStatus
 from ..utils.series import Series
+
+
+def natural_keys_dossiers(dossier: Dossier) -> list[int|str]:
+    return [ int(c) if c.isdigit() else c for c in re.split(r'(\d+)', dossier.path) ]
 
 
 class NotASIPDBException(Exception):
@@ -94,6 +99,8 @@ class DBController:
                     # NOTE: always set it to disabled
                     dossier.disabled = True
                     dossiers.append(dossier)
+
+        dossiers.sort(key=natural_keys_dossiers)
 
         return dossiers
 
