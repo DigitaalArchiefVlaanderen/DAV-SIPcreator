@@ -1412,8 +1412,6 @@ class TabUI(QtWidgets.QMainWindow):
         self.can_upload_changed.emit(False)
 
     def update_status(self, *tabs: Iterable[str]) -> None:
-        print(f"Starting to check for {self.overdrachtslijst_name}")
-
         for series_name, reference in self.tabs.items():
             if series_name == self.main_tab:
                 continue
@@ -1423,29 +1421,18 @@ class TabUI(QtWidgets.QMainWindow):
 
             model: SQLliteModel = reference["model"]
             edepot_id = None
-            times_slept = 0
-            max_time_to_sleep = 300
 
-            while edepot_id is None and times_slept < max_time_to_sleep:
+            while edepot_id is None:
+                print(f"Starting to check for {self.overdrachtslijst_name} - {series_name}")
                 # NOTE: wait some time for the edepot to pick them up
                 time.sleep(10)
 
                 edepot_id = APIController.get_sip_id_for_name(
                     self.state.configuration.active_environment,
-                    f"{model.series_id}-{self.overdrachtslijst_name}.zip"
+                    f"{model.series_id}-{self.overdrachtslijst_name}-SIPC.zip"
                 )
 
-                if edepot_id is not None:
-                    print(f"id found: {edepot_id} for {model.series_id}-{self.overdrachtslijst_name}")
-
-                times_slept += 10
-
-            if times_slept == max_time_to_sleep:
-                Dialog(
-                    title=f"SIP niet binnen de {max_time_to_sleep // 60} minuten op het E-depot gevonden",
-                    text="De SIP was succesvol opgeladen via FTP, maat is niet binnen de tijd opgepikt door het E-depot."
-                ).exec()
-                break
+            print(f"id found: {edepot_id} for {model.series_id}-{self.overdrachtslijst_name}")
 
             with sql.connect(self.db_location) as conn:
                 conn.execute(f'''
