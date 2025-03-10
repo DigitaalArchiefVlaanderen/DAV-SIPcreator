@@ -235,7 +235,11 @@ class SQLliteModel(TableModel):
 
         value = str(value).encode(encoding="utf-8", errors="replace").decode("utf-8")
 
-        if self.is_main:
+        if role == QtCore.Qt.ItemDataRole.EditRole and self.is_main:
+            if column == "URI Serieregister":
+                # NOTE: this also checks the series_name
+                self.serie_check(row, col, value)
+
             self.set_value(index, value)
             self.dataChanged.emit(index, index)
             return True
@@ -253,9 +257,6 @@ class SQLliteModel(TableModel):
                     self.index(row, col+2),
                     value.split("/", 1)[0]
                 )
-            elif column == "URI Serieregister":
-                # NOTE: this also checks the series_name
-                self.serie_check(row, col, value)
             elif column in ("Openingsdatum", "Sluitingsdatum"):
                 self.date_check(row, col, value)
 
