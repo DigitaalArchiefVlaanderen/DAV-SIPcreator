@@ -365,6 +365,9 @@ class DigitalWidget(QtWidgets.QWidget):
             )
 
             if success:
+                # NOTE: update the state
+                self.state.add_sip(sip)
+
                 # Remove the dossiers from the list
                 self.dossiers_list_view.remove_selected_clicked()
 
@@ -1424,13 +1427,13 @@ class TabUI(QtWidgets.QMainWindow):
             max_time_to_sleep = 300
 
             while edepot_id is None and times_slept < max_time_to_sleep:
+                # NOTE: wait some time for the edepot to pick them up
+                time.sleep(10)
+
                 edepot_id = APIController.get_sip_id_for_name(
                     self.state.configuration.active_environment,
                     f"{model.series_id}-{self.overdrachtslijst_name}.zip"
                 )
-
-                # NOTE: wait some time for the edepot to pick them up
-                time.sleep(10)
 
                 if edepot_id is not None:
                     print(f"id found: {edepot_id} for {model.series_id}-{self.overdrachtslijst_name}")

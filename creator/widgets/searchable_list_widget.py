@@ -272,7 +272,7 @@ class SIPListWidget(SearchableListWidget):
         self.grid_layout.addWidget(self.sips_status_filter, 0, 0, 1, 2)
 
     def next_sip_name(self) -> str:
-        next_sip_number = max(len(self.widgets), 1)
+        next_sip_number = 1
 
         sip_names = [sipwidget["reference"].sip_name for sipwidget in self.widgets]
 

@@ -80,9 +80,13 @@ class State(QtCore.QObject):
 
     @property
     def sips(self) -> List[SIP]:
-        self._sips = self.db_controller.read_sips()
+        if self._sips is None:
+            self._sips = self.db_controller.read_sips()
 
         return self._sips
+
+    def add_sip(self, sip: SIP) -> None:
+        self.sips.append(sip)
 
     def update_sip(self, sip: SIP, fail_reason=None):
         db_path = os.path.join(
