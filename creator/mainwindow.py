@@ -1219,6 +1219,7 @@ class TabUI(QtWidgets.QMainWindow):
 
         os.makedirs(sip_storage_path, exist_ok=True)
         os.makedirs(grid_storage_path, exist_ok=True)
+        os.makedirs(sjabloon_base_path, exist_ok=True)
 
         for series_name, reference in self.tabs.items():
             if series_name == self.main_tab:
@@ -1227,10 +1228,13 @@ class TabUI(QtWidgets.QMainWindow):
             model: SQLliteModel = reference["model"]
             model.save_data()
 
+            # Download the import_template
+            import_template_loc = APIController.get_import_template(self.state.configuration, series_id=model.series_id)
+
             # Copy import_template to grid_storage
             temp_loc = os.path.join(grid_storage_path, f"temp_{model.series_id}.xlsx")
 
-            wb = load_workbook(os.path.join(sjabloon_base_path, f"{model.series_id}.xlsx"))
+            wb = load_workbook(import_template_loc)
             ws = wb["Details"]
 
             data = model.raw_data
