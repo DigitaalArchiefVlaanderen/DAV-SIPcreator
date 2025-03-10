@@ -235,6 +235,11 @@ class SQLliteModel(TableModel):
 
         value = str(value).encode(encoding="utf-8", errors="replace").decode("utf-8")
 
+        if self.is_main:
+            self.set_value(index, value)
+            self.dataChanged.emit(index, index)
+            return True
+
         if role == QtCore.Qt.ItemDataRole.EditRole:
             if column == "Path in SIP":
                 self.path_in_sip_check(row, col, value)
