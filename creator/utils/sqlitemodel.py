@@ -375,10 +375,27 @@ class SQLliteModel(TableModel):
                 self._mark_cell(row, col, CellColor.YELLOW, tooltip="De gegeven uri is niet teruggevonden onder de huidige connectie")
                 return
 
-    def date_check(self, row: int, col: int, value: str, re_evaluation=False) -> None:
+    def date_check(self, row: int, col: int, value: str, check_other_date_cell=True) -> None:
+        columns = list(self.columns.values())
+        start_column, end_column = columns.index("Openingsdatum"), columns.index("Sluitingsdatum")
+        start_value = value if col == start_column else self.raw_data[row][start_column]
+        end_value = value if col == end_column else self.raw_data[row][end_column]
+
+        def _check_other_date_cell() -> None:
+            # NOTE: only do this if we still need to
+            if check_other_date_cell:
+                self.date_check(
+                    row,
+                    col=start_column if col == end_column else end_column,
+                    value=start_value if col == end_column else end_value,
+                    check_other_date_cell=False
+                )
+
         # Check empty
         if value == "":
             self._mark_cell(row, col, CellColor.RED, "Datum mag niet leeg zijn")
+            
+            _check_other_date_cell()
             return
 
         # Check valid date
@@ -386,10 +403,16 @@ class SQLliteModel(TableModel):
             date = datetime.strptime(value, "%Y-%m-%d")
         except ValueError:
             self._mark_cell(row, col, CellColor.RED, "Datum moet in het formaat yyyy-mm-dd zijn, en moet een geldige datum zijn")
+            
+            _check_other_date_cell()
             return
-        
+
+
         if date > datetime.now():
+            # NOTE: this might have fixed or caused an issue with the other date-cell
             self._mark_cell(row, col, CellColor.RED, "Datum mag niet in de toekomst zijn")
+            
+            _check_other_date_cell()
             return
 
         # Check range
@@ -430,6 +453,8 @@ class SQLliteModel(TableModel):
             
             if date < before:
                 self._mark_cell(row, col, CellColor.RED, "Datum mag niet voor de openingsdatum van de serie zijn")
+                
+                _check_other_date_cell()
                 return
 
         if after is not None and after != "...":
@@ -440,19 +465,17 @@ class SQLliteModel(TableModel):
             
             if date > after:
                 self._mark_cell(row, col, CellColor.RED, "Datum mag niet na de sluitingsdatum van de serie zijn")
+                
+                _check_other_date_cell()
                 return
 
-        if re_evaluation:
+        # If this is the check_other_date_cell run (aka, we are in a repeat run), but we got to this point, we're good
+        # Checks from this point on would have marked both cells in the previous iteration
+        if not check_other_date_cell:
             self._mark_cell(row, col)
             return
 
         # Check start vs end in row
-        columns = list(self.columns.values())
-        start_column, end_column = columns.index("Openingsdatum"), columns.index("Sluitingsdatum")
-        
-        start_value = value if col == start_column else self.raw_data[row][start_column]
-        end_value = value if col == end_column else self.raw_data[row][end_column]
-
         try:
             start_date = datetime.strptime(start_value, "%Y-%m-%d")
             end_date = datetime.strptime(end_value, "%Y-%m-%d")
@@ -469,18 +492,12 @@ class SQLliteModel(TableModel):
             self._mark_cell(row, start_column)
             self._mark_cell(row, end_column)
 
-        if not re_evaluation:
-            self.date_check(
-                row,
-                col=start_column if col == end_column else end_column,
-                value=start_value if col == end_column else end_value,
-                re_evaluation=True
-            )
+        _check_other_date_cell()
 
-            self.dataChanged.emit(
-                self.index(row, 0),
-                self.index(row, self.col_count)
-            )
+        self.dataChanged.emit(
+            self.index(row, 0),
+            self.index(row, self.col_count)
+        )
 
     def location_check(self, row: int, col: int, value: str) -> None:
         # NOTE: if all the columns have empty values, mark them all red
