@@ -20,7 +20,7 @@ class TableView(QtWidgets.QTableView):
     def copy_content(self, indexes: list):
         # Single cell copy
         if len(indexes) == 1:
-            QtWidgets.QApplication.clipboard().setText(self.model().data(indexes[0]))
+            QtWidgets.QApplication.clipboard().setText(self.model(proxy=True).data(indexes[0]))
             return
 
         # Dictionary with key being the row, value being a list of columns
@@ -33,7 +33,7 @@ class TableView(QtWidgets.QTableView):
 
         for row, columns in rows.items():
             copy_rows.append("\t".join(
-                    [self.model().index(row, col).data() for col in columns]
+                    [self.model(proxy=True).index(row, col).data() for col in columns]
                 )
             )
 
@@ -48,15 +48,15 @@ class TableView(QtWidgets.QTableView):
         if len(indexes) == 1:
             index = indexes[0]
 
-            if "ItemIsEditable" not in self.model().flags(index).name:
+            if "ItemIsEditable" not in self.model(proxy=True).flags(index).name:
                 return
 
-            QtWidgets.QApplication.clipboard().setText(self.model().data(index))
-            self.model().setData(index=index, value="", role=QtCore.Qt.ItemDataRole.EditRole)
+            QtWidgets.QApplication.clipboard().setText(self.model(proxy=True).data(index))
+            self.model(proxy=True).setData(index=index, value="", role=QtCore.Qt.ItemDataRole.EditRole)
             
-            self.model().modelAboutToBeReset.emit()
-            self.model().dataChanged.emit(index, index)
-            self.model().modelReset.emit()
+            self.model(proxy=True).modelAboutToBeReset.emit()
+            self.model(proxy=True).dataChanged.emit(index, index)
+            self.model(proxy=True).modelReset.emit()
             return
 
         # Dictionary with key being the row, value being a list of columns
@@ -71,10 +71,10 @@ class TableView(QtWidgets.QTableView):
             row_data = []
 
             for col in columns:
-                index = self.model().index(row, col)
+                index = self.model(proxy=True).index(row, col)
 
                 # NOTE: this is a design choice, we want to take empty values if we do not "cut"
-                if "ItemIsEditable" not in self.model().flags(index).name:
+                if "ItemIsEditable" not in self.model(proxy=True).flags(index).name:
                     row_data.append("")
                 else:
                     row_data.append(index.data())
@@ -88,12 +88,12 @@ class TableView(QtWidgets.QTableView):
         QtWidgets.QApplication.clipboard().setText(cut_text)
 
         # Make sure to set the values to empty
-        self.model().modelAboutToBeReset.emit()
+        self.model(proxy=True).modelAboutToBeReset.emit()
         for index in indexes:
-            self.model().setData(index=index, value="", role=QtCore.Qt.ItemDataRole.EditRole)
-            self.model().dataChanged.emit(index, index)
+            self.model(proxy=True).setData(index=index, value="", role=QtCore.Qt.ItemDataRole.EditRole)
+            self.model(proxy=True).dataChanged.emit(index, index)
 
-        self.model().modelReset.emit()
+        self.model(proxy=True).modelReset.emit()
 
     def paste_content(self, indexes: list):
         if not self.editable:
@@ -114,19 +114,19 @@ class TableView(QtWidgets.QTableView):
 
     def paste_grid_value(self, copy_text: str, indexes: list[QtCore.QModelIndex]):
         for index in indexes:
-            self.model().setData(
+            self.model(proxy=True).setData(
                 index,
                 copy_text,
                 QtCore.Qt.ItemDataRole.EditRole,
             )
 
         # NOTE: update all rows (not just the cells we updated, since some of the cells might be linked)
-        self.model().modelAboutToBeReset.emit()
-        self.model().dataChanged.emit(
-            self.model().index(index.row(), 0),
-            self.model().index(index.row(), self.model().columnCount())
+        self.model(proxy=True).modelAboutToBeReset.emit()
+        self.model(proxy=True).dataChanged.emit(
+            self.model(proxy=True).index(index.row(), 0),
+            self.model(proxy=True).index(index.row(), self.model(proxy=True).columnCount())
         )
-        self.model().modelReset.emit()
+        self.model(proxy=True).modelReset.emit()
 
     def paste_grid_content(self, copy_text: str, indexes: list):
         # NOTE: excel complicates matters, they add a trailing '\n' character
@@ -137,7 +137,7 @@ class TableView(QtWidgets.QTableView):
         init_index = indexes[0]
 
         visible_rows = [
-            r for r in range(self.model().rowCount()) if not self.isRowHidden(r)
+            r for r in range(self.model(proxy=True).rowCount()) if not self.isRowHidden(r)
         ]
 
         # Find the index of the row we have selected in our visible rows
@@ -156,31 +156,31 @@ class TableView(QtWidgets.QTableView):
             return
         elif (
             init_index.column() + len(row_contents[0].split("\t"))
-            > self.model().columnCount()
+            > self.model(proxy=True).columnCount()
         ):
             return
 
-        self.model().modelAboutToBeReset.emit()
+        self.model(proxy=True).modelAboutToBeReset.emit()
         for row, row_content in zip(usable_rows, row_contents):
             col_contents = row_content.split("\t")
 
             for col, col_content in enumerate(col_contents):
-                index = self.model().index(row, init_index.column() + col)
+                index = self.model(proxy=True).index(row, init_index.column() + col)
 
-                self.model().setData(
+                self.model(proxy=True).setData(
                     index,
                     col_content,
                     QtCore.Qt.ItemDataRole.EditRole,
                 )
-                self.model().dataChanged.emit(index, index)
+                self.model(proxy=True).dataChanged.emit(index, index)
 
-        self.model().modelReset.emit()
+        self.model(proxy=True).modelReset.emit()
 
     def _filter_indexes(self, *filters: tuple[str]) -> list[QtCore.QModelIndex]:
         filtered_indexes = []
 
         for index in self.selectedIndexes():
-            flags = self.model().flags(index).name
+            flags = self.model(proxy=True).flags(index).name
 
             if all(f in flags for f in filters):
                 filtered_indexes.append(index)
@@ -206,15 +206,15 @@ class TableView(QtWidgets.QTableView):
                 return
 
             for index in indexes:
-                self.model().setData(index, "", QtCore.Qt.ItemDataRole.EditRole)
+                self.model(proxy=True).setData(index, "", QtCore.Qt.ItemDataRole.EditRole)
 
             # NOTE: update all rows (not just the cells we updated, since some of the cells might be linked)
-            self.model().modelAboutToBeReset.emit()
-            self.model().dataChanged.emit(
-                self.model().index(indexes[0].row(), 0),
-                self.model().index(indexes[-1].row(), self.model().columnCount())
+            self.model(proxy=True).modelAboutToBeReset.emit()
+            self.model(proxy=True).dataChanged.emit(
+                self.model(proxy=True).index(indexes[0].row(), 0),
+                self.model(proxy=True).index(indexes[-1].row(), self.model(proxy=True).columnCount())
             )
-            self.model().modelReset.emit()
+            self.model(proxy=True).modelReset.emit()
 
         # PASTE
         elif event.matches(QtGui.QKeySequence.Paste):
@@ -230,23 +230,23 @@ class TableView(QtWidgets.QTableView):
     def commitData(self, editor):
         super().commitData(editor)
 
-        value = self.model().data(self.currentIndex(), QtCore.Qt.EditRole)
+        value = self.model(proxy=True).data(self.currentIndex(), QtCore.Qt.EditRole)
 
         # Single cell
         if len(self.selectedIndexes()) == 1:
             return
 
         for index in self.selectedIndexes():
-            self.model().setData(
+            self.model(proxy=True).setData(
                 index,
                 value,
                 QtCore.Qt.ItemDataRole.EditRole,
             )
 
             # NOTE: update all rows (not just the cells we updated, since some of the cells might be linked)
-            self.model().dataChanged.emit(
-                self.model().index(index.row(), 0),
-                self.model().index(index.row(), self.model().columnCount())
+            self.model(proxy=True).dataChanged.emit(
+                self.model(proxy=True).index(index.row(), 0),
+                self.model(proxy=True).index(index.row(), self.model(proxy=True).columnCount())
             )
 
 
