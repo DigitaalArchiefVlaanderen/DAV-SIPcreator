@@ -122,7 +122,7 @@ class PandasModel(TableModel):
             ):
                 is_stuk = self._data.iloc[row]["Type"] == "stuk"
 
-                self._date_data_check(value, row, column, is_stuk=is_stuk)
+                self._date_data_check(row=row, is_stuk=is_stuk)
             elif column == self._data.columns.get_loc("ID_Rijksregisternummer"):
                 new_value = self._rrn_check(value, row, column)
 
@@ -251,6 +251,9 @@ class PandasModel(TableModel):
             pass
 
     def _date_invalid_check(self, date: datetime) -> str:
+        if date is None:
+            return
+
         if date > datetime.now() and date.year != 9999:
             return "Datum mag niet in de toekomst zijn"
 
@@ -291,7 +294,7 @@ class PandasModel(TableModel):
         self._unmark_bad_cell(row, col)
         return value
 
-    def _get_date_values_for_dossier_ref(self, dossier_ref: str, column: str) -> list:
+    def _get_date_values_for_dossier_ref(self, dossier_ref: str, column: str) -> list[str]:
         files = self._data.loc[
             (self._data["Type"] == "stuk") & (self._data["DossierRef"] == dossier_ref)
         ]
@@ -438,142 +441,146 @@ class PandasModel(TableModel):
         self._unmark_bad_cell(row=row, col=col)
         return True
 
+    def _individual_date_cell_checks(self, row: int, col: int, is_stuk: bool, value: str, date: datetime, tooltip: str) -> bool:
+        # Returns if the value was ok or not
+        if is_stuk and (value == "" or value is None):
+            self._unmark_bad_cell(
+                row=row,
+                col=col
+            )
+            return True
+        
+        if date is None:
+            self._mark_bad_cell(
+                row=row,
+                col=col,
+                tooltip="Datum moet in het formaat YYYY-MM-DD en geldig zijn"
+            )
+            return False
+        
+        if tooltip is not None:
+            self._mark_bad_cell(
+                row=row,
+                col=col,
+                tooltip=tooltip
+            )
+            return False
+        
+        self._unmark_bad_cell(
+            row=row,
+            col=col
+        )
+        return True
+
     def _date_data_check(
-        self, value: str, row: int, col: int, is_stuk: bool, re_evaluation=False
-    ) -> bool:
-        # Return True if cell was ok, otherwise return False
+        self, row: int, is_stuk: bool
+    ) -> None:
         data_row = self._data.iloc[[row]]
+        dossier_ref = data_row["DossierRef"].to_list()[0]
 
-        opening_date = data_row["Openingsdatum"].to_list()[0]
-        closing_date = data_row["Sluitingsdatum"].to_list()[0]
-
+        # NOTE: if we have multiple, we only take the first (not optimal but fine)
+        dossier_data_row = self._data.loc[
+            (self._data["Type"] == "dossier")
+            & (self._data["DossierRef"] == dossier_ref)
+        ]
+        dossier_row = dossier_data_row.index.to_list()[0]
+        
         opening_col = self._data.columns.get_loc("Openingsdatum")
         closing_col = self._data.columns.get_loc("Sluitingsdatum")
 
-        # If it's an empty value at a "stuk", that's fine
-        if not (is_stuk and value == ""):
-            date = self._proper_date_format(value)
+        opening_date_value = data_row["Openingsdatum"].to_list()[0]
+        closing_date_value = data_row["Sluitingsdatum"].to_list()[0]
 
-            # Date needs to be in the correct format
-            if date is None:
+        opening_date, closing_date = self._proper_date_format(opening_date_value), self._proper_date_format(closing_date_value)
+        opening_tooltip, closing_tooltip = self._date_invalid_check(opening_date), self._date_invalid_check(closing_date)
+        
+        # NOTE: we start by individually checking opening, then closing
+        is_opening_value_ok = self._individual_date_cell_checks(
+            row=row,
+            col=opening_col,
+            is_stuk=is_stuk,
+            value=opening_date_value,
+            date=opening_date,
+            tooltip=opening_tooltip
+        )
+        is_closing_value_ok = self._individual_date_cell_checks(
+            row=row,
+            col=closing_col,
+            is_stuk=is_stuk,
+            value=closing_date,
+            date=closing_date,
+            tooltip=closing_tooltip
+        )
+
+        # NOTE: do this check first, so bad order can still be displayed properly if needed
+        # Check if the order is correct
+        if opening_date is not None and closing_date is not None and opening_date > closing_date:
+            if is_opening_value_ok:
                 self._mark_bad_cell(
-                    row=row, col=col, tooltip="Datum moet in het formaat YYYY-MM-DD en geldig zijn"
-                )
-                return False
-
-            # Date needs to be valid (in past and in series range)
-            if (tooltip := self._date_invalid_check(date)) is not None:
-                self._mark_bad_cell(row=row, col=col, tooltip=tooltip)
-                return False
-
-            # Openingdate cannot be after closingdate
-            if opening_date and closing_date and opening_date > closing_date:
-                self._mark_date_cell(
                     row=row,
                     col=opening_col,
-                    tooltip="Openingsdatum kan niet na de sluitingsdatum zijn",
+                    tooltip="Openingsdatum kan niet na de sluitingsdatum zijn"
                 )
-                self._mark_date_cell(
+            if is_closing_value_ok:
+                self._mark_bad_cell(
                     row=row,
                     col=closing_col,
-                    tooltip="Sluitingsdatum kan niet voor de openingsdatum zijn",
+                    tooltip="Sluitingsdatum kan niet voor de openingsdatum zijn"
                 )
+            return
+        
+        # If we found an issue already, stop here
+        if not is_opening_value_ok or not is_closing_value_ok:
+            return
 
-                return False
+        # Dossier specific checks
+        opening_date_values = self._get_date_values_for_dossier_ref(dossier_ref=dossier_ref, column="Openingsdatum")
+        closing_date_values = self._get_date_values_for_dossier_ref(dossier_ref=dossier_ref, column="Sluitingsdatum")
 
-            if not is_stuk:
-                # The openings and closing dates need to match the files
-                dossier = data_row
-                dossier_ref = dossier["DossierRef"].to_list()[0]
+        min_opening_date_value = None if not opening_date_values else min(opening_date_values)
+        max_closing_date_value = None if not closing_date_values else max(closing_date_values)
 
-                opening_dates = self._get_date_values_for_dossier_ref(
-                    dossier_ref=dossier_ref, column="Openingsdatum"
-                )
-                closing_dates = self._get_date_values_for_dossier_ref(
-                    dossier_ref=dossier_ref, column="Sluitingsdatum"
-                )
-
-                dossier_opening = dossier["Openingsdatum"].to_list()[0]
-                dossier_closing = dossier["Sluitingsdatum"].to_list()[0]
-
-                if (
-                    col == opening_col
-                    and opening_dates
-                    and dossier_opening > min(opening_dates)
-                ):
-                    self._mark_date_cell(
-                        row=row,
-                        col=col,
-                        tooltip="De openingsdatum van het dossier kan niet later zijn dan de openingsdatum van een stuk",
-                    )
-                    return False
-
-                elif (
-                    col == closing_col
-                    and closing_dates
-                    and dossier_closing < max(closing_dates)
-                ):
-                    self._mark_date_cell(
-                        row=row,
-                        col=col,
-                        tooltip="De sluitingsdatum van het dossier kan niet vroeger zijn dan de sluitingsdatum van een stuk",
-                    )
-                    return False
-
-        # Everything checks out
-        self._unmark_bad_cell(row=row, col=col)
-
-        # Re-evaluate if we are unmarking a cell, to make sure the linked cell is proparly adressed
-        if not re_evaluation:
-            if col == opening_col:
-                self._date_data_check(
-                    value=closing_date,
-                    row=row,
-                    col=closing_col,
-                    is_stuk=is_stuk,
-                    re_evaluation=True,
-                )
-            elif col == closing_col:
-                self._date_data_check(
-                    value=opening_date,
-                    row=row,
+        if not is_stuk:
+            # NOTE: if we have no values to compare to, that's also okay
+            # Check if the values are still ok given the values we just entered for this dossier
+            if opening_date_values and opening_date_value > min_opening_date_value:
+                self._mark_bad_cell(
+                    row=dossier_row,
                     col=opening_col,
-                    is_stuk=is_stuk,
-                    re_evaluation=True,
+                    tooltip="De openingsdatum van het dossier kan niet later zijn dan de openingsdatum van een stuk"
+                )
+            if closing_date_values and closing_date_value < max_closing_date_value:
+                self._mark_bad_cell(
+                    row=dossier_row,
+                    col=closing_col,
+                    tooltip="De sluitingsdatum van het dossier kan niet vroeger zijn dan de sluitingsdatum van een stuk"
                 )
 
-        # Re-evaluate the dossier_dates, only if this is already the re-evaluation, then check both for the dossier
-        if re_evaluation and is_stuk:
-            dossier_ref = self._data.iloc[row]["DossierRef"]
+            return
+        
+        # Stuk specific actions (update values of dossier if needed)
+        if opening_date_values:
+            dossier_opening_date_value = dossier_data_row["Openingsdatum"].to_list()[0]
 
-            # Update the values
-            self._update_dossier_date_range(dossier_ref=dossier_ref)
+            if dossier_opening_date_value > min_opening_date_value:
+                self.setData(
+                    self.index(
+                        dossier_row,
+                        opening_col,
+                    ),
+                    value=min_opening_date_value
+                )
+        if closing_date_values:
+            dossier_closing_date_value = dossier_data_row["Sluitingsdatum"].to_list()[0]
 
-            dossier = self._data.loc[
-                (self._data["Type"] == "dossier")
-                & (self._data["DossierRef"] == dossier_ref)
-            ]
-
-            dossier_row = dossier.index.to_list()[0]
-            dossier_opening = self._data.iloc[dossier_row, opening_col]
-            dossier_closing = self._data.iloc[dossier_row, closing_col]
-
-            self._date_data_check(
-                value=dossier_opening,
-                row=dossier_row,
-                col=opening_col,
-                is_stuk=False,
-                re_evaluation=True,
-            )
-            self._date_data_check(
-                value=dossier_closing,
-                row=dossier_row,
-                col=closing_col,
-                is_stuk=False,
-                re_evaluation=True,
-            )
-
-        return True
+            if dossier_closing_date_value < max_closing_date_value:
+                self.setData(
+                    self.index(
+                        dossier_row,
+                        closing_col
+                    ),
+                    value=max_closing_date_value
+                )
 
     # Vectorized checks
     def _vectorized_name_data_check(self) -> None:
