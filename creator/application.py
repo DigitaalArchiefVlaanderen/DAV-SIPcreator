@@ -312,8 +312,8 @@ class BestandsControleLijstController:
         # Try to load it again, just in case the file changed
         self._load_df()
 
-        # NOTE: if overdrachtslijst_name contains something like _klant near the end, we want to trim all that off
-        trimmed_overdrachtslijst_name = overdrachtslijst_name.split("_klant")[0]
+        # NOTE: if overdrachtslijst_name contains something like _klant near the end (capitals are allowed), we want to trim all that off
+        trimmed_overdrachtslijst_name = re.split(r"(?i)_klant", overdrachtslijst_name)[0]
 
         # Return values required as df
         output = self.list_df.loc[self.list_df[self.list_name_column] == trimmed_overdrachtslijst_name]
