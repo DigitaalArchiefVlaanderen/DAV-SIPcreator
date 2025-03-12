@@ -701,6 +701,8 @@ class TabUI(QtWidgets.QMainWindow):
         # TODO: remove
         # df = pd.concat([df] * 5000, ignore_index=True)
         # df.iloc[:50, df.columns.get_loc("URI Serieregister")] = "https://serieregister-ti.vlaanderen.be/id/serie/e641d8943266475594d43bd7e9d9bb08ea4893ce5e9646e39bc56911bfffc079"
+        # df.iloc[:50, df.columns.get_loc("URI Serieregister")] = "https://serieregister-ti.vlaanderen.be/id/serie/41253bf973024b0c8cd30dadd0aee4ac81b0a64161c14a17aa73e2ee27b5e85a"
+        # df.iloc[:50, df.columns.get_loc("URI Serieregister")] = "None"
 
         if len(df) > 1000:
             Dialog(
@@ -714,6 +716,7 @@ class TabUI(QtWidgets.QMainWindow):
 
         df["id"] = range(df.shape[0])
         df["series_name"] = ""
+        # df.iloc[:50, df.columns.get_loc("series_name")] = "None"
 
         # NOTE: since Excel deals with datetimes awkwardly, make sure we only have the date part as a string here
         # Only take the date part, if none found, keep original value
@@ -765,7 +768,8 @@ class TabUI(QtWidgets.QMainWindow):
             )
         )
 
-        model = SQLliteModel(self.main_tab, db_name=self.db_location, is_main=True)
+        uri_pre = self.state.configuration.active_environment.get_serie_register_uri()
+        model = SQLliteModel(self.main_tab, db_name=self.db_location, is_main=True, all_series_uris=[f"{uri_pre}/{s._id}" for s in self.series])
         proxy_model = CustomSortFilterModel()
         proxy_model.setSourceModel(model)
         model.bad_rows_changed.connect(self.set_create_button_status)
@@ -802,8 +806,6 @@ class TabUI(QtWidgets.QMainWindow):
                 ]
 
         # NOTE: set all the series_names where the series_id matches one we got
-        uri_pre = self.state.configuration.active_environment.get_serie_register_uri()
-
         for uri, indexes in uri_index_maps.items():
             match = [s for s in self.series if s._id == uri.split(uri_pre + "/")[-1]]
 
@@ -916,42 +918,46 @@ class TabUI(QtWidgets.QMainWindow):
                 # NOTE: table already contains ""-marks
                 tab = table[1:-1]
 
-                conn.execute(f"""
-                    DELETE FROM {table}
-                    WHERE main_id={main_id};
-                """)
-
-                rows = conn.execute(f"""
-                    SELECT count() FROM {table};
-                """).fetchone()[0]
-
-                if rows == 0:
+                # NOTE: table could be non-existent if series_name was somehow filled in accidentally
+                try:
                     conn.execute(f"""
-                        DROP TABLE {table};
+                        DELETE FROM {table}
+                        WHERE main_id={main_id};
                     """)
                     
-                    conn.execute(f"""
-                        DELETE FROM tables
-                        WHERE table_name='{table}';
-                    """)
+                    rows = conn.execute(f"""
+                        SELECT count() FROM {table};
+                    """).fetchone()[0]
 
-                    container: QtWidgets.QWidget = self.tabs[tab]["container"]
-                    _table: TableView = self.tabs[tab]["table"]
+                    if rows == 0:
+                        conn.execute(f"""
+                            DROP TABLE {table};
+                        """)
+                        
+                        conn.execute(f"""
+                            DELETE FROM tables
+                            WHERE table_name='{table}';
+                        """)
+
+                        container: QtWidgets.QWidget = self.tabs[tab]["container"]
+                        _table: TableView = self.tabs[tab]["table"]
+                        model: SQLliteModel = self.tabs[tab]["model"]
+                        model.bad_rows_changed.disconnect()
+
+                        self.tab_widget.removeTab(self.tab_widget.indexOf(container))
+                        model.deleteLater()
+                        _table.deleteLater()
+                        container.deleteLater()
+
+                        self.tabs.pop(tab)
+
+                        continue
+
+                    # Recalculate shape for table
                     model: SQLliteModel = self.tabs[tab]["model"]
-                    model.bad_rows_changed.disconnect()
-
-                    self.tab_widget.removeTab(self.tab_widget.indexOf(container))
-                    model.deleteLater()
-                    _table.deleteLater()
-                    container.deleteLater()
-
-                    self.tabs.pop(tab)
-
-                    continue
-
-                # Recalculate shape for table
-                model: SQLliteModel = self.tabs[tab]["model"]
-                model.row_count = rows
+                    model.row_count = rows
+                except:
+                    pass
 
             # Insert where needed
             # NOTE: don't do other auto-mapping

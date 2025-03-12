@@ -19,6 +19,7 @@ class SQLliteModel(TableModel):
         db_name: str,
         is_main: bool=False,
         series_id: str=None,
+        all_series_uris: list[str]=None
     ):
         super().__init__()
         self._table_name = table_name
@@ -26,6 +27,7 @@ class SQLliteModel(TableModel):
         self.series_id = series_id
 
         self.is_main = is_main
+        self.all_series_uris = all_series_uris
 
         # NOTE: keep track of if a change in the data has occurred
         self.has_changed = False
@@ -65,10 +67,16 @@ class SQLliteModel(TableModel):
         # This filter should only apply to the main table
         if not self.is_main:
             return True
-        
-        col = list(self.columns.values()).index("series_name")
 
-        return self.get_value(self.index(row, col)) in ("", None)
+        uri_col = list(self.columns.values()).index("URI Serieregister")
+
+        if self.get_value(self.index(row, uri_col)) not in self.all_series_uris:
+            return True
+
+        series_name_col = list(self.columns.values()).index("series_name")
+
+        if self.get_value(self.index(row, series_name_col)) in ("", None):
+            return True
 
     def get_value(self, index):
         row, col = index.row(), index.column()
@@ -366,20 +374,23 @@ class SQLliteModel(TableModel):
         series_name = self.raw_data[row][list(self.columns.values()).index("series_name")]
         uri = value
 
-        if series_name == "":
-            self._mark_cell(row, list(self.columns.values()).index("series_name"), CellColor.RED, tooltip="Een serie moet nog gelinkt worden")
-        else:
-            self._mark_cell(row, list(self.columns.values()).index("series_name"))
-            self._mark_cell(row, col)
-            return
-
         if uri == "":
             self._mark_cell(row, col, CellColor.RED, tooltip="Een serie moet nog gelinkt worden")
-            return
+            self._mark_cell(row, list(self.columns.values()).index("series_name"), CellColor.RED, tooltip="Een serie moet nog gelinkt worden")
+        elif uri not in self.all_series_uris:
+            self._mark_cell(row, col, CellColor.YELLOW, tooltip="De gegeven uri is niet teruggevonden onder de huidige connectie")
+            self._mark_cell(row, list(self.columns.values()).index("series_name"), CellColor.RED, tooltip="Een serie moet nog gelinkt worden")
         else:
-            if series_name != "":
-                self._mark_cell(row, col, CellColor.YELLOW, tooltip="De gegeven uri is niet teruggevonden onder de huidige connectie")
-                return
+            # NOTE: uri found in list
+            if series_name == "":
+                self._mark_cell(row, list(self.columns.values()).index("series_name"), CellColor.RED, tooltip="Serie ophalen is misgelopen")
+            else:
+                self._mark_cell(
+                    row=row, col=col
+                )
+                self._mark_cell(
+                    row=row, col=list(self.columns.values()).index("series_name")
+                )
 
     def date_check(self, row: int, col: int, value: str, check_other_date_cell=True) -> None:
         columns = list(self.columns.values())
