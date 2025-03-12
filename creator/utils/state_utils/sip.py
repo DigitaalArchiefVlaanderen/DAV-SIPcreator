@@ -102,6 +102,7 @@ class SIP(QtCore.QObject):
             dossier_structure = {
                 (path_in_sip := _map_location_to_sip(dossier.dossier_label)): {
                     "Path in SIP": path_in_sip,
+                    "original Path in SIP": dossier.dossier_label,
                     "path": dossier.path,
                     "Type": "dossier",
                     "DossierRef": path_in_sip.split("/")[0],
@@ -114,6 +115,7 @@ class SIP(QtCore.QObject):
             file_structure = {
                 (path_in_sip := _map_location_to_sip(f'{dossier.dossier_label}/{location}')): {
                     "Path in SIP": path_in_sip,
+                    "original Path in SIP": f'{dossier.dossier_label}/{location}',
                     "path": (real_path := os.path.join(dossier.path, location)),
                     "Type": (
                         # Set specific bad-type to filter on later

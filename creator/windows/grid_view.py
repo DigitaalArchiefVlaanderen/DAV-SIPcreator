@@ -155,29 +155,16 @@ class GridView(QtWidgets.QMainWindow):
 
     def _fill_mapping(self, sip_folder_structure: dict):
         # NOTE: this whole method is a jumble, have fun figuring it all out in it's current state
-        path_in_sip_mapping_from = [
-            k for k, v in self.sip.tag_mapping.items() if v == "Path in SIP"
-        ][0]
         mapping_from_cols = self.sip.tag_mapping.keys()
         mapping_to_cols = self.sip.tag_mapping.values()
 
         temp_df = self.sip_widget.metadata_df.copy(deep=True)
 
+        # NOTE: make sure the Path in SIP reflects the actual value (from folder_mapping)
+        temp_df["Path in SIP"] = temp_df["Path in SIP"].replace({v["original Path in SIP"]: k for k, v in sip_folder_structure.items()})
+
         # Select only the columns we care about
         temp_df = temp_df[temp_df.columns.intersection(mapping_from_cols)]
-
-        # NOTE: No longer needed since path in sip is now unique, not name
-        # Add the Path in SIP
-        # temp_df["_Path in SIP"] = temp_df[path_in_sip_mapping_from]
-        # temp_df.replace(
-        #     {
-        #         "_Path in SIP": {
-        #             name_from: value["Path in SIP"]
-        #             for name_from, value in sip_folder_structure.items()
-        #         }
-        #     },
-        #     inplace=True,
-        # )
 
         # Change all the from-cols to the to-cols
         # temp_df.rename(columns={**self.sip.tag_mapping, **{"_Path in SIP": "Path in SIP"}}, inplace=True)
