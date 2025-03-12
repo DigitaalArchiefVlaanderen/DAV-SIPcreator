@@ -122,15 +122,21 @@ class DBController:
             conn.commit()
 
     def insert_dossiers(self, dossiers: List[Dossier]):
-        with self.conn as conn:
-            for dossier in dossiers:
-                if self.find_dossier(dossier.path) is not None:
-                    conn.execute(tables.enable_dossier, (dossier.path,))
-                    continue
+        # NOTE: do this in steps of 100 dossiers at a time
+        i = 0
 
-                conn.execute(tables.insert_dossier, (dossier.path,))
+        while i < len(dossiers):
+            with self.conn as conn:
+                for dossier in dossiers[i:i+100]:
+                    if self.find_dossier(dossier.path) is not None:
+                        conn.execute(tables.enable_dossier, (dossier.path,))
+                        continue
 
-            conn.commit()
+                    conn.execute(tables.insert_dossier, (dossier.path,))
+
+                conn.commit()
+
+            i += 100
 
     def disable_dossier(self, dossier: Dossier):
         with self.conn as conn:
