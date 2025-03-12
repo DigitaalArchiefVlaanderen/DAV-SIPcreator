@@ -1,6 +1,7 @@
 from PySide6 import QtWidgets, QtGui, QtCore
 
 import pandas as pd
+import numpy as np
 import json
 import os
 
@@ -249,6 +250,16 @@ class SIPView(QtWidgets.QMainWindow):
     def folder_structure_click(self) -> None:
         def _save_mapping(path_in_sip_map_column: str, folder_structure: list) -> None:
             df = self.sip_widget.metadata_df
+
+            df_sub = df[[*folder_structure, path_in_sip_map_column]].apply(lambda x: x.str.strip())
+
+            if np.any(df_sub.isna()) or np.any(df_sub == ""):
+                WarningDialog(
+                    title="Mappenstructuur mapping fout",
+                    text="Alle kolommen die gebruikt worden voor de mappenstructuur moeten verplicht een waarde hebben.",
+                ).exec()
+                return
+
             folder_mapping = {
                 path_in_sip: mapped_name
                 for path_in_sip, mapped_name in zip(
