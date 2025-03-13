@@ -268,9 +268,9 @@ class SIPView(QtWidgets.QMainWindow):
             df["__file"] = df[path_in_sip_map_column].apply(lambda x: "" if len(x.rsplit("/", 1)) == 1 else x.rsplit("/", 1)[1])
 
             folder_mapping = {
-                path_in_sip: mapped_name if _type == "stuk" else path_in_sip
-                for _type, path_in_sip, mapped_name in zip(
-                    df["Type"],
+                # NOTE: only do aggregate mapping if it's a stuk (with an extension)
+                path_in_sip: mapped_name if os.path.splitext(path_in_sip)[1] != "" else path_in_sip
+                for path_in_sip, mapped_name in zip(
                     df[path_in_sip_map_column],
                     df[["__folder", *folder_structure, "__file"]].fillna("").astype(str).convert_dtypes().agg("/".join, axis=1),
                 )
