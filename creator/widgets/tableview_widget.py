@@ -52,7 +52,7 @@ class TableView(QtWidgets.QTableView):
                 return
 
             QtWidgets.QApplication.clipboard().setText(self.model(proxy=True).data(index))
-            self.model(proxy=True).setData(index=index, value="", role=QtCore.Qt.ItemDataRole.EditRole)
+            self.model(proxy=True).setData(index, "", role=QtCore.Qt.ItemDataRole.EditRole)
             
             self.model(proxy=True).modelAboutToBeReset.emit()
             self.model(proxy=True).dataChanged.emit(index, index)
@@ -90,7 +90,7 @@ class TableView(QtWidgets.QTableView):
         # Make sure to set the values to empty
         self.model(proxy=True).modelAboutToBeReset.emit()
         for index in indexes:
-            self.model(proxy=True).setData(index=index, value="", role=QtCore.Qt.ItemDataRole.EditRole)
+            self.model(proxy=True).setData(index, "", role=QtCore.Qt.ItemDataRole.EditRole)
             self.model(proxy=True).dataChanged.emit(index, index)
 
         self.model(proxy=True).modelReset.emit()

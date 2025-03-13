@@ -507,7 +507,7 @@ class PandasModel(TableModel):
             row=row,
             col=closing_col,
             is_stuk=is_stuk,
-            value=closing_date,
+            value=closing_date_value,
             date=closing_date,
             tooltip=closing_tooltip
         )
@@ -568,7 +568,7 @@ class PandasModel(TableModel):
                         dossier_row,
                         opening_col,
                     ),
-                    value=min_opening_date_value
+                    min_opening_date_value
                 )
         if closing_date_values:
             dossier_closing_date_value = dossier_data_row["Sluitingsdatum"].to_list()[0]
@@ -579,7 +579,7 @@ class PandasModel(TableModel):
                         dossier_row,
                         closing_col
                     ),
-                    value=max_closing_date_value
+                    max_closing_date_value
                 )
 
     # Vectorized checks
