@@ -260,13 +260,23 @@ class SIPView(QtWidgets.QMainWindow):
                 ).exec()
                 return
 
+            # Kamerplanten/groot/monstera.docx
+            # jaar -> dor of niet dor
+            # Kamerplanten/groot/**2022/dor**/monstera.docx
+
+            df["__folder"] = df[path_in_sip_map_column].apply(lambda x: x.rsplit("/", 1)[0])
+            df["__file"] = df[path_in_sip_map_column].apply(lambda x: "" if len(x.rsplit("/", 1)) == 1 else x.rsplit("/", 1)[1])
+
             folder_mapping = {
-                path_in_sip: mapped_name
-                for path_in_sip, mapped_name in zip(
+                path_in_sip: mapped_name if _type == "stuk" else path_in_sip
+                for _type, path_in_sip, mapped_name in zip(
+                    df["Type"],
                     df[path_in_sip_map_column],
-                    df[[*folder_structure, path_in_sip_map_column]].fillna("").astype(str).convert_dtypes().agg("/".join, axis=1),
+                    df[["__folder", *folder_structure, "__file"]].fillna("").astype(str).convert_dtypes().agg("/".join, axis=1),
                 )
             }
+
+            df.drop(["__folder", "__file"], axis=1)
 
             self.sip_widget.sip.folder_mapping = folder_mapping
 
