@@ -71,6 +71,7 @@ class ConfigurationWidget(QtWidgets.QMainWindow):
             type_changed = True
 
         self._write_configuration(configuration)
+        self.config_controller.get_configuration().create_locations()
 
         if type_changed:
             self.application.type_changed.emit()
