@@ -251,7 +251,8 @@ class SIPView(QtWidgets.QMainWindow):
         def _save_mapping(path_in_sip_map_column: str, folder_structure: list) -> None:
             df = self.sip_widget.metadata_df
 
-            df_sub = df[[*folder_structure, path_in_sip_map_column]].apply(lambda x: x.str.strip())
+            # NOTE: only check for files (anything with an extension)
+            df_sub = df[df[path_in_sip_map_column].str.contains(r"\.[a-zA-Z0-9]+$", regex=True, na=False)][[*folder_structure]].apply(lambda x: x.str.strip())
 
             if np.any(df_sub.isna()) or np.any(df_sub == ""):
                 WarningDialog(
@@ -268,12 +269,13 @@ class SIPView(QtWidgets.QMainWindow):
             df["__file"] = df[path_in_sip_map_column].apply(lambda x: "" if len(x.rsplit("/", 1)) == 1 else x.rsplit("/", 1)[1])
 
             folder_mapping = {
-                # NOTE: only do aggregate mapping if it's a stuk (with an extension)
-                path_in_sip: mapped_name if os.path.splitext(path_in_sip)[1] != "" else path_in_sip
+                path_in_sip: mapped_name
                 for path_in_sip, mapped_name in zip(
                     df[path_in_sip_map_column],
                     df[["__folder", *folder_structure, "__file"]].fillna("").astype(str).convert_dtypes().agg("/".join, axis=1),
                 )
+                # NOTE: only do aggregate mapping if it's a stuk (with an extension)
+                if os.path.splitext(path_in_sip)[1] != ""
             }
 
             df.drop(["__folder", "__file"], axis=1)
