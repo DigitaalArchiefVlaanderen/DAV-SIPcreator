@@ -560,6 +560,7 @@ class TabUI(QtWidgets.QMainWindow):
                     except Exception as e:
                         raise Exception("Error tijdens het sluiten van de database connectie")
 
+                # TODO: still sometimes claims the file is open somewehere
                 os.remove(self.db_location)
                 raise
         
@@ -734,7 +735,7 @@ class TabUI(QtWidgets.QMainWindow):
             con=con,
             index=False,
             method="multi",
-            chunksize=1000,
+            chunksize=100,
         )
         con.close()
 
@@ -873,6 +874,10 @@ class TabUI(QtWidgets.QMainWindow):
         tab_exists = False
 
         with sql.connect(self.db_location) as conn:
+            # Get main table columns for later
+            result = conn.execute(f'pragma table_info({self.main_tab});').fetchall()
+            main_table_columns = [col for _id, col, _type, *_ in result]
+
             # Check if table exists
             result = conn.execute(f'pragma table_info("{name}");').fetchall()
 
@@ -880,7 +885,56 @@ class TabUI(QtWidgets.QMainWindow):
             if not result:
                 import_sjabloon = APIController.get_import_template(self.state.configuration, series_id=series_id)
 
-                columns = pd.read_excel(import_sjabloon, dtype=str, engine="openpyxl").columns
+                columns = pd.read_excel(import_sjabloon, dtype=str, engine="openpyxl").columns.to_list()
+
+                # NOTE: if the main table contains duplicate columns of existing ones, we want to take those along
+                is_duplicate_column = lambda c: len(c.split("_", 1)) == 2 and c.split("_", 1)[0] in columns
+                duplicate_main_columns_mapping = {
+                    c: c.split("_")[0]
+                    for c in main_table_columns if is_duplicate_column(c)
+                }
+
+                # NOTE: add the duplicate columns in the right spot
+                new_columns = []
+
+                for column in columns:
+                    new_columns.append(column)
+
+                    # NOTE: Since the order of these is a bit more restricted, we need to have more logic for it
+                    if column in ("Origineel Doosnummer", "Legacy locatie ID", "Legacy range"):
+                        continue
+                    elif column == "Verpakkingstype":
+                        # NOTE: now add all the duplicate location-columns in order
+                        duplicates = {
+                            "Origineel Doosnummer": [],
+                            "Legacy locatie ID": [],
+                            "Legacy range": [],
+                            "Verpakkingstype": [],
+                        }
+
+                        for duplicate_location_column, original_column in duplicate_main_columns_mapping.items():
+                            if original_column in duplicates:
+                                duplicates[original_column].append(duplicate_location_column)
+
+                        # NOTE: in case they were not sorted properly in the metadata, we do it now
+                        duplicates["Origineel Doosnummer"] = sorted(duplicates["Origineel Doosnummer"], key=natural_keys)
+                        duplicates["Legacy locatie ID"] = sorted(duplicates["Legacy locatie ID"], key=natural_keys)
+                        duplicates["Legacy range"] = sorted(duplicates["Legacy range"], key=natural_keys)
+                        duplicates["Verpakkingstype"] = sorted(duplicates["Verpakkingstype"], key=natural_keys)
+
+                        # NOTE: zip will automatically take the shortest list
+                        for loc_col_1, loc_col_2, loc_col_3, loc_col_4 in zip(*duplicates.values()):
+                            new_columns.append(loc_col_1)
+                            new_columns.append(loc_col_2)
+                            new_columns.append(loc_col_3)
+                            new_columns.append(loc_col_4)
+
+                        continue
+
+                    for duplicate_column in [dc for dc, c in duplicate_main_columns_mapping.items() if c == column]:
+                        new_columns.append(duplicate_column)
+
+                columns = new_columns
 
                 conn.execute(f"""
                 CREATE TABLE IF NOT EXISTS "{name}" (
@@ -898,6 +952,7 @@ class TabUI(QtWidgets.QMainWindow):
                 """)
             else:
                 tab_exists = True
+                columns = [col for _id, col, _type, *_ in result]
 
             # Check if we don't have to many rows already
             result, *_ = conn.execute(f'SELECT count() FROM "{name}";').fetchone()
@@ -960,12 +1015,30 @@ class TabUI(QtWidgets.QMainWindow):
                     pass
 
             # Insert where needed
-            # NOTE: don't do other auto-mapping
+            # NOTE: map names that are a 1-to-1 match
+            fixed_mapping = {
+                'main_id': 'id',
+                'Type': 'dossier',
+                'Analoog?': 'ja',
+                'Path in SIP': '"Beschrijving"',
+                'Naam': '"Beschrijving"',
+                'Openingsdatum': '"Begindatum"',
+                'Sluitingsdatum': '"Einddatum"',
+                'Origineel Doosnummer': f'substr(\'0000\' || "Doosnr", -4, 4) || \'/{self.overdrachtslijst_name}\''
+            }
+
+            matching_columns = set(columns) & set(main_table_columns)
+            matching_cols_str = ', '.join([f'"{c}"' for c in matching_columns if c != "id"])
+
+            # NOTE: values from dynamic mapping are more important, since it's user input
+            fixed_mapping_cols_str = ', '.join([f'"{c}"' for c in fixed_mapping if c not in matching_columns])
+            fixed_mapping_value_str = ', '.join([v for c, v in fixed_mapping.items() if c not in matching_columns])
+
             conn.execute(f"""
-                INSERT INTO "{name}" (main_id, "Type", "Analoog?", "Path in SIP", "DossierRef", "Naam", "Openingsdatum", "Sluitingsdatum", "Origineel Doosnummer")
-                SELECT id, 'dossier', 'ja', "Beschrijving", "Beschrijving", "Beschrijving", "Begindatum", "Einddatum", substr('0000' || "Doosnr", -4, 4) || '/{self.overdrachtslijst_name}'
+                INSERT INTO "{name}" ({fixed_mapping_cols_str}, {matching_cols_str})
+                SELECT {fixed_mapping_value_str}, {matching_cols_str}
                 FROM {self.main_tab}
-                WHERE id IN ({selected_rows_str})
+                WHERE id in ({selected_rows_str})
                   AND (series_name != '"{name}"' OR series_name IS NULL OR series_name == '');
             """)
             
