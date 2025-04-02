@@ -102,6 +102,7 @@ class Misc:
             type_activity=dict(
                 digitaal=True,
                 migratie=False,
+                onroerend_erfgoed=False,
             ),
             save_location=os.path.join(os.getcwd(), "SIP_Creator"),
             bestandscontrole_lijst_location=""
@@ -154,14 +155,28 @@ class Configuration:
                         bestandscontrole_lijst_location="",
                     )
                 elif version == ConfigurationVersion.V2:
+                    types = v["Type SIPs"]
+                    types["onroerend_erfgoed"] = False
+
                     misc = Misc(
                         environments_activity=v["Omgevingen"],
                         role_activity=v["Rollen"],
-                        type_activity=v["Type SIPs"],
+                        type_activity=types,
                         save_location=v["SIP Creator opslag locatie"],
                         bestandscontrole_lijst_location="",
                     )
                 elif version == ConfigurationVersion.V3:
+                    types = v["Type SIPs"]
+                    types["onroerend_erfgoed"] = False
+
+                    misc = Misc(
+                        environments_activity=v["Omgevingen"],
+                        role_activity=v["Rollen"],
+                        type_activity=types,
+                        save_location=v["SIP Creator opslag locatie"],
+                        bestandscontrole_lijst_location=v["Bestandscontrole lijst locatie"],
+                    )
+                elif version == ConfigurationVersion.V4:
                     misc = Misc(
                         environments_activity=v["Omgevingen"],
                         role_activity=v["Rollen"],
@@ -186,34 +201,6 @@ class Configuration:
                 )
 
         return Configuration(environments=environments, misc=misc)
-
-
-    def to_json(self) -> dict:
-        json = {}
-
-        for env in self.environments:
-            json[env.name] = {
-                "API": {
-                    "url": env.api_url,
-                    "username": env.api_username,
-                    "password": env.api_password,
-                    "client_id": env.api_client_id,
-                    "client_secret": env.api_client_secret,
-                },
-                "FTPS": {
-                    "url": env.ftps_url,
-                    "username": env.ftps_username,
-                    "password": env.ftps_password,
-                    "port": env.ftps_port,
-                },
-            }
-
-        json["misc"] = {
-            "Omgevingen": self.misc.environments_activity,
-            "Rollen": self.misc.role_activity,
-            "SIP Creator opslag locatie": self.misc.save_location,
-            "Bestandscontrole lijst locatie": self.misc.bestandscontrole_lijst_location,
-        }
 
     def get_environment(self, name: str) -> Environment:
         for env in self.environments:

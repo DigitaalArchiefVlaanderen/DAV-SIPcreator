@@ -6,6 +6,7 @@ from PySide6 import QtCore
 import sqlite3 as sql
 
 from .tablemodel import TableModel, CellColor
+from .state import State
 
 
 class SQLliteModel(TableModel):
@@ -17,6 +18,7 @@ class SQLliteModel(TableModel):
         self,
         table_name: str,
         db_name: str,
+        state: State,
         is_main: bool=False,
         series_id: str=None,
         all_series_uris: list[str]=None
@@ -25,6 +27,8 @@ class SQLliteModel(TableModel):
         self._table_name = table_name
         self._db_name = db_name
         self.series_id = series_id
+
+        self.state = state
 
         self.is_main = is_main
         self.all_series_uris = all_series_uris
@@ -359,7 +363,7 @@ class SQLliteModel(TableModel):
 
             if val == "":
                 self._mark_cell(r, col, CellColor.RED, "Path in SIP mag niet leeg zijn")
-            elif "/" in val:
+            elif "/" in val and self.state.configuration.active_type != "onroerend_erfgoed":
                 self._mark_cell(r, col, CellColor.RED, "Path in SIP mag geen '/' bevatten")
             else:
                 self._mark_cell(r, col)

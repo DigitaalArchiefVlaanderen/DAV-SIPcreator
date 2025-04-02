@@ -770,7 +770,13 @@ class TabUI(QtWidgets.QMainWindow):
         )
 
         uri_pre = self.state.configuration.active_environment.get_serie_register_uri()
-        model = SQLliteModel(self.main_tab, db_name=self.db_location, is_main=True, all_series_uris=[f"{uri_pre}/{s._id}" for s in self.series])
+        model = SQLliteModel(
+            self.main_tab,
+            state=self.state,
+            db_name=self.db_location,
+            is_main=True,
+            all_series_uris=[f"{uri_pre}/{s._id}" for s in self.series]
+        )
         proxy_model = CustomSortFilterModel()
         proxy_model.setSourceModel(model)
         model.bad_rows_changed.connect(self.set_create_button_status)
@@ -1083,7 +1089,12 @@ class TabUI(QtWidgets.QMainWindow):
         layout.addWidget(bad_rows_checkbox, 2, 0)
         layout.addWidget(table_view, 3, 0, 1, 5)
 
-        model = SQLliteModel(name, db_name=self.db_location, series_id=series_id)
+        model = SQLliteModel(
+            name,
+            state=self.state,
+            db_name=self.db_location,
+            series_id=series_id
+        )
         proxy_model = CustomSortFilterModel()
         proxy_model.setSourceModel(model)
         table_view.setModel(proxy_model)
@@ -1636,6 +1647,7 @@ def set_main(application: Application, main: MainWindow) -> None:
         main.central_widget = DigitalWidget(main)
         main.setWindowTitle("SIP Creator digitaal")
     else:
+        # NOTE: this is both migration and onroerend_erfgoed
         main.central_widget = MigrationWidget(main)
         main.setWindowTitle("SIP Creator migratie")
 
