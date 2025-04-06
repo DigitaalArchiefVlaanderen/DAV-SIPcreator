@@ -29,6 +29,8 @@ class PandasModel(TableModel):
         self.colors = dict()
         self.tooltips = dict()
 
+        self.columns_to_disable: list[int] = [i for i, c in enumerate(self._data.columns) if c in ("Path in SIP", "Type", "DossierRef", "Analoog?")]
+
         self.should_filter_name_column = False
 
         # NOTE: we basically take all the existing data
@@ -147,7 +149,7 @@ class PandasModel(TableModel):
                 return str(self._data.index[section])
 
     def flags(self, index):
-        if index.column() < 4:
+        if index.column() in self.columns_to_disable:
             return (
                 QtCore.Qt.ItemFlag.ItemIsSelectable | QtCore.Qt.ItemFlag.ItemIsEnabled
             )
