@@ -73,9 +73,6 @@ class SQLliteModel(TableModel):
 
         _id = int(self.raw_data[row][0])
 
-        # NOTE: this should only apply to the columns we can see currently
-        is_klant = self.state.configuration.active_role == "klant"
-
         for (row_id, col), color in self.colors.items():
             if row_id != _id:
                 continue
