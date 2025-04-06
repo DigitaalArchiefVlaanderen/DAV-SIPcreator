@@ -33,6 +33,8 @@ class SQLliteModel(TableModel):
         self.is_main = is_main
         self.all_series_uris = all_series_uris
 
+        self.hidden_column_indexes: set[int] = set()
+
         # NOTE: keep track of if a change in the data has occurred
         self.has_changed = False
 
@@ -56,6 +58,13 @@ class SQLliteModel(TableModel):
     def conn(self):
         return sql.connect(self._db_name)
 
+    def mark_column_as_hidden(self, column_index: int, hidden: bool=True):
+        if hidden:
+            self.hidden_column_indexes.add(column_index)
+        else:
+            if column_index in self.hidden_column_indexes:
+                self.hidden_column_indexes.remove(column_index)
+
     # Inherited methods
     def row_is_bad(self, row: int) -> bool:
         # This filter should only apply for non-main tables
@@ -64,8 +73,22 @@ class SQLliteModel(TableModel):
 
         _id = int(self.raw_data[row][0])
 
+        # NOTE: this should only apply to the columns we can see currently
+        is_klant = self.state.configuration.active_role == "klant"
+
+        for (row_id, col), color in self.colors.items():
+            if row_id != _id:
+                continue
+            
+            if col in self.hidden_column_indexes:
+                # Don't consider hidden columns
+                continue
+
+            if color in (CellColor.RED, CellColor.YELLOW):
+                return True
+
         # Check if there is any value in the matching row where the color is red or yellow
-        return any(True for (row_id, _), color in self.colors.items() if row_id == _id and color in (CellColor.RED, CellColor.YELLOW))
+        # return any(True for (row_id, _), color in self.colors.items() if row_id == _id and color in (CellColor.RED, CellColor.YELLOW))
 
     def row_has_no_series(self, row: int) -> bool:
         # This filter should only apply to the main table

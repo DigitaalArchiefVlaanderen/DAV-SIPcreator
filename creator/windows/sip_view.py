@@ -157,8 +157,8 @@ class SIPView(QtWidgets.QMainWindow):
             self.metadata_path_label.setText(self.sip.metadata_file_path)
 
             self.sip_widget.metadata_df = pd.read_excel(
-                self.sip.metadata_file_path, dtype=str, engine="openpyxl"
-            )
+                self.sip.metadata_file_path, engine="openpyxl"
+            ).astype(str)
 
             # Only allow columns where no field is empty at all
             columns_without_empty_fields = [
@@ -207,7 +207,7 @@ class SIPView(QtWidgets.QMainWindow):
         if first_open:
             tag_mapping = self.tag_mapping_widget.get_mapping()
 
-            if len(tag_mapping) > 1 and "Path in SIP" not in tag_mapping.values():
+            if len(tag_mapping) > 0 and "Path in SIP" not in tag_mapping.values():
                 WarningDialog(
                     title="Mapping fout",
                     text="Een mapping naar 'Path in SIP' in het importsjabloon moet opgegeven worden",

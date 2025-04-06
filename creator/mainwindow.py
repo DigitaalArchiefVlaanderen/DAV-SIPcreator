@@ -202,8 +202,8 @@ class DigitalWidget(QtWidgets.QWidget):
             try:
                 if sip.metadata_file_path != "":
                     sip_widget.metadata_df = pd.read_excel(
-                        sip.metadata_file_path, dtype=str
-                    )
+                        sip.metadata_file_path, engine="openpyxl"
+                    ).astype(str)
             except Exception:
                 missing_sips.append(sip.name)
                 continue
@@ -1024,8 +1024,8 @@ class TabUI(QtWidgets.QMainWindow):
             # NOTE: map names that are a 1-to-1 match
             fixed_mapping = {
                 'main_id': 'id',
-                'Type': 'dossier',
-                'Analoog?': 'ja',
+                # 'Type': 'dossier',
+                'Analoog?': '\'ja\'',
                 'Path in SIP': '"Beschrijving"',
                 'Naam': '"Beschrijving"',
                 'Openingsdatum': '"Begindatum"',
@@ -1175,11 +1175,13 @@ class TabUI(QtWidgets.QMainWindow):
                 # Show every column
                 for i in range(len(columns)):
                     tab_view.showColumn(i)
+                    model.mark_column_as_hidden(i, hidden=False)
 
                 # Hide id and main_id columns where applicable
                 for i, column_name, *_ in columns:
                     if column_name in ("id", "main_id"):
                         tab_view.hideColumn(i)
+                        model.mark_column_as_hidden(i)
 
                 if self.state.configuration.active_role == "klant":
                     cols_to_skip = ("Origineel Doosnummer", "Legacy locatie ID", "Legacy range", "Verpakkingstype")
@@ -1187,6 +1189,7 @@ class TabUI(QtWidgets.QMainWindow):
                     for i, column_name, *_ in columns:
                         if any(c in column_name for c in cols_to_skip):
                             tab_view.hideColumn(i)
+                            model.mark_column_as_hidden(i)
 
         self._filter_unassigned(self.unassigned_only_checkbox.checkState().value)
 
