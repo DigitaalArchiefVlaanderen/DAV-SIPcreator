@@ -158,7 +158,7 @@ class SIPView(QtWidgets.QMainWindow):
 
             self.sip_widget.metadata_df = pd.read_excel(
                 self.sip.metadata_file_path, engine="openpyxl"
-            ).astype(str)
+            ).astype(str).fillna("")
 
             # Only allow columns where no field is empty at all
             columns_without_empty_fields = [
@@ -191,7 +191,7 @@ class SIPView(QtWidgets.QMainWindow):
 
         self.sip_widget.import_template_df = pd.read_excel(
             self.import_template_location, engine="openpyxl", dtype=str
-        )
+        ).fillna("")
         self.tag_mapping_widget.add_to_import_template(
             self.sip_widget.import_template_df.columns
         )
@@ -236,7 +236,6 @@ class SIPView(QtWidgets.QMainWindow):
                     df,
                     self.sip,
                 )
-            
         except FilenameNotUniqueException as exc:
             WarningDialog(
                 title="Overlapende naam",

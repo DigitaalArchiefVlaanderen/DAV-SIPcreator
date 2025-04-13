@@ -203,7 +203,7 @@ class DigitalWidget(QtWidgets.QWidget):
                 if sip.metadata_file_path != "":
                     sip_widget.metadata_df = pd.read_excel(
                         sip.metadata_file_path, engine="openpyxl"
-                    ).astype(str)
+                    ).astype(str).fillna("")
             except Exception:
                 missing_sips.append(sip.name)
                 continue
