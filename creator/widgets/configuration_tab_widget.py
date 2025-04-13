@@ -46,7 +46,7 @@ class ConnectionConfigurationTab(QtWidgets.QWidget):
     def get_tab_info(self):
         return {
             connection_type: {
-                key: text_field.toPlainText() for key, text_field in values.items()
+                key: text_field.toPlainText().strip(" \n") for key, text_field in values.items()
             }
             for connection_type, values in self.tab_links.items()
         }
@@ -142,7 +142,7 @@ class MiscConfigurationTab(QtWidgets.QWidget):
                     for button in self.type_selection_group.buttons()
                 },
             },
-            **{key: text_field.text() for key, text_field in self.tab_links.items()},
+            **{key: text_field.text().strip(" \n") for key, text_field in self.tab_links.items()},
         }
 
     def change_location_clicked(self):
