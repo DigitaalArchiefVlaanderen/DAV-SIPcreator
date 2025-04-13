@@ -21,6 +21,9 @@ class CustomSortFilterModel(QtCore.QSortFilterProxyModel):
 
         self.filters = []
 
+    def reset_sorting(self) -> None:
+        self.sort(-1)
+
     def add_filter(self, _filter: str=None) -> None:
         # Adds the filter to use
         if _filter not in CustomSortFilterModel._ALL_FILTERS:

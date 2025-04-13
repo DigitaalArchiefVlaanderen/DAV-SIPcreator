@@ -46,7 +46,9 @@ class GridView(QtWidgets.QMainWindow):
         central_widget.setLayout(grid_layout)
 
         series_label = QtWidgets.QLabel(text=self.sip.series.get_name())
-        grid_layout.addWidget(series_label, 0, 0, 1, 5)
+        self.default_sorting_button = QtWidgets.QPushButton(text="Reset sortering")
+        grid_layout.addWidget(series_label, 0, 0, 1, 4)
+        grid_layout.addWidget(self.default_sorting_button, 0, 4, 1, 1)
 
         self.name_extension_checkbox = QtWidgets.QCheckBox(
             text="Verwijder file-extensie uit 'Naam' kolom"
@@ -210,6 +212,7 @@ class GridView(QtWidgets.QMainWindow):
         proxy_model = CustomSortFilterModel()
         proxy_model.setSourceModel(model)
         self.table_view.setModel(proxy_model)
+        self.default_sorting_button.clicked.connect(proxy_model.reset_sorting)
         self._set_grid_filter_connections()
 
         if model.is_data_valid():
@@ -257,6 +260,7 @@ class GridView(QtWidgets.QMainWindow):
         proxy_model = CustomSortFilterModel()
         proxy_model.setSourceModel(model)
         self.table_view.setModel(proxy_model)
+        self.default_sorting_button.clicked.connect(proxy_model.reset_sorting)
         self._set_grid_filter_connections()
 
         if model.is_data_valid():

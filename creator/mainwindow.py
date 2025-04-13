@@ -784,10 +784,14 @@ class TabUI(QtWidgets.QMainWindow):
         
         self.unassigned_only_checkbox = QtWidgets.QCheckBox(text="Toon enkel rijen zonder serie")
         self.unassigned_only_checkbox.stateChanged.connect(self._filter_unassigned)
+        
+        default_sorting_button = QtWidgets.QPushButton(text="Reset sortering")
+        default_sorting_button.clicked.connect(proxy_model.reset_sorting)
 
         layout.addWidget(btn, 0, 0)
         layout.addWidget(series_combobox, 0, 1, 1, 3)
         layout.addWidget(self.unassigned_only_checkbox, 1, 0)
+        layout.addWidget(default_sorting_button, 1, 4)
         layout.addWidget(self.main_table, 2, 0, 1, 5)
 
         self.tab_widget.addTab(container, self.main_tab)
@@ -1039,15 +1043,21 @@ class TabUI(QtWidgets.QMainWindow):
             if "Naam" not in matching_columns and "Beschrijving" in matching_columns:
                 matching_columns.remove("Beschrijving")
 
-            matching_cols_str = ', '.join([f'"{c}"' for c in matching_columns if c != "id"])
+            matching_cols = [f'"{c}"' for c in matching_columns if c != "id"]
 
             # NOTE: values from dynamic mapping are more important, since it's user input
-            fixed_mapping_cols_str = ', '.join([f'"{c}"' for c in fixed_mapping if c not in matching_columns])
-            fixed_mapping_value_str = ', '.join([v for c, v in fixed_mapping.items() if c not in matching_columns])
+            fixed_mapping_cols = [f'"{c}"' for c in fixed_mapping if c not in matching_columns]
+            fixed_mapping_values = [v for c, v in fixed_mapping.items() if c not in matching_columns]
+
+            mapping_cols = matching_cols + fixed_mapping_cols
+            mapping_values = matching_cols + fixed_mapping_values
+
+            cols_str = ", ".join(mapping_cols)
+            values_str = ", ".join(mapping_values)
 
             conn.execute(f"""
-                INSERT INTO "{name}" ({fixed_mapping_cols_str}, {matching_cols_str})
-                SELECT {fixed_mapping_value_str}, {matching_cols_str}
+                INSERT INTO "{name}" ({cols_str})
+                SELECT {values_str}
                 FROM {self.main_tab}
                 WHERE id in ({selected_rows_str})
                   AND (series_name != '"{name}"' OR series_name IS NULL OR series_name == '');
@@ -1087,11 +1097,13 @@ class TabUI(QtWidgets.QMainWindow):
 
         table_view = TableView()
         bad_rows_checkbox = QtWidgets.QCheckBox(text="Toon enkel rijen met fouten")
+        default_sorting_button = QtWidgets.QPushButton(text="Reset sortering")
 
         layout.addWidget(series_label, 0, 0, 1, 2)
         layout.addWidget(duplicate_trefwoord_column_button, 1, 0)
         layout.addWidget(duplicate_location_column_button, 1, 1)
         layout.addWidget(bad_rows_checkbox, 2, 0)
+        layout.addWidget(default_sorting_button, 2, 4)
         layout.addWidget(table_view, 3, 0, 1, 5)
 
         model = SQLliteModel(
@@ -1104,6 +1116,8 @@ class TabUI(QtWidgets.QMainWindow):
         proxy_model.setSourceModel(model)
         table_view.setModel(proxy_model)
         
+        default_sorting_button.clicked.connect(proxy_model.reset_sorting)
+
         load_bestandscontrole_button = QtWidgets.QPushButton(text="Laad bestandscontrole lijst")
         load_bestandscontrole_button.clicked.connect(lambda: self.load_bestandscontrole(model=model))
         load_bestandscontrole_button.setHidden(self.state.configuration.active_role == "klant")
