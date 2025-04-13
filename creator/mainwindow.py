@@ -1034,6 +1034,11 @@ class TabUI(QtWidgets.QMainWindow):
             }
 
             matching_columns = set(columns) & set(main_table_columns)
+
+            # NOTE: only map "Beschrijving" if we are already mapping "Naam" manually
+            if "Naam" not in matching_columns and "Beschrijving" in matching_columns:
+                matching_columns.remove("Beschrijving")
+
             matching_cols_str = ', '.join([f'"{c}"' for c in matching_columns if c != "id"])
 
             # NOTE: values from dynamic mapping are more important, since it's user input
