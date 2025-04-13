@@ -673,7 +673,23 @@ class TabUI(QtWidgets.QMainWindow):
             while "Doosnr" not in (headers := next(data)):
                 pass
         except StopIteration:
+            wb.close()
             raise Exception("Geen hoofdingen gevonden in de overdrachtslijst")
+
+        set_headers = set(headers)
+        duplicate_headers = []
+
+        for h in set_headers:
+            if headers.count(h) > 1:
+                duplicate_headers.append(h)
+
+        if len(duplicate_headers) > 0:
+            WarningDialog(
+                title="Duplicate hoofdingen niet toegestaan",
+                text=f"Duplicate hoofdingen zijn niet toegestaan.\n\nDuplicaten gevonden:\n{'\n'.join((f'- {h}' for h in duplicate_headers))}"
+            ).exec()
+            wb.close()
+            raise Exception("Duplicate hoofdingen gevonden")
 
         expected_headers = (
             "Beschrijving",
@@ -686,6 +702,7 @@ class TabUI(QtWidgets.QMainWindow):
         headers = [h.strip() for h in headers if h is not None and h.strip() != ""]
         for h in expected_headers:
             if h not in headers:
+                wb.close()
                 raise Exception(f"Verwachtte om de kolom '{h}' tegen te komen, maar is niet gevonden.")
 
         # Filter out empty rows
@@ -730,14 +747,17 @@ class TabUI(QtWidgets.QMainWindow):
         df = df[cols]
 
         con = sql.connect(self.db_location)
-        df.to_sql(
-            name=self.main_tab,
-            con=con,
-            index=False,
-            method="multi",
-            chunksize=100,
-        )
-        con.close()
+
+        try:
+            df.to_sql(
+                name=self.main_tab,
+                con=con,
+                index=False,
+                method="multi",
+                chunksize=100,
+            )
+        finally:
+            con.close()
 
     def load_main_tab(self):
         container = QtWidgets.QWidget()
