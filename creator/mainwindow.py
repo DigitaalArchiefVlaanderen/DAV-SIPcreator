@@ -30,6 +30,7 @@ from .widgets.dialog import YesNoDialog, Dialog, ChoiceDialog
 from .widgets.warning_dialog import WarningDialog
 
 from .controllers.api_controller import APIController
+from .controllers.excel_controller import ExcelController
 from .controllers.file_controller import FileController
 
 from .utils.state import State
@@ -201,9 +202,7 @@ class DigitalWidget(QtWidgets.QWidget):
 
             try:
                 if sip.metadata_file_path != "":
-                    sip_widget.metadata_df = pd.read_excel(
-                        sip.metadata_file_path, engine="openpyxl"
-                    ).astype(str).fillna("")
+                    sip_widget.metadata_df = ExcelController.read_excel(sip.metadata_file_path)
             except Exception:
                 missing_sips.append(sip.name)
                 continue
