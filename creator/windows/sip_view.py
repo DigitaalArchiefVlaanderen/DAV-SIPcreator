@@ -159,13 +159,13 @@ class SIPView(QtWidgets.QMainWindow):
 
             self.sip_widget.metadata_df = ExcelController.read_excel(self.sip.metadata_file_path)
 
-            # Only allow columns where no field is empty at all
+            # Only allow columns where not all fields are empty
             columns_without_empty_fields = [
                 c
-                for c, has_empty in dict(
-                    self.sip_widget.metadata_df.eq("").any()
+                for c, all_empty in dict(
+                    self.sip_widget.metadata_df.eq("").all()
                 ).items()
-                if not has_empty
+                if not all_empty
             ]
 
             self.tag_mapping_widget.add_to_metadata(columns_without_empty_fields)
