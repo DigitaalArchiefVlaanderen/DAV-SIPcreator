@@ -690,10 +690,42 @@ class TabUI(QtWidgets.QMainWindow):
                 wb.close()
                 raise Exception(f"Verwachtte om de kolom '{h}' tegen te komen, maar is niet gevonden.")
 
+        # NOTE: if the headers are part of the location columns, we will allow duplication by giving them unique names
+        location_cols = ("Origineel Doosnummer", "Legacy locatie ID", "Legacy range", "Verpakkingstype")
+        duplicate_num = 0  # Number to be added to the column name
+        new_headers = []
+        i = 0
+
+        while i < len(headers):
+            header = headers[i]
+
+            if header not in location_cols:
+                # NOTE: not a location column
+                new_headers.append(header)
+                i += 1
+                continue
+        
+            # NOTE: they need to be in order
+            for position in range(4):
+                if headers[i+position] != location_cols[position]:
+                    # Not in order
+                    WarningDialog(
+                        title="Onduidelijke locatiekolommen",
+                        text=f"Een onduidelijke locatiekolom was gevonden '{header}' op positie {i+position+1}.\nLocatie kolommen komen altijd in groepen van 4, in een vaste volgorde (Origineel Doosnummer, Legacy locatie ID, Legacy range, Verpakkingstype).\nDit komt niet overeen met wat er gevonden werd in de overdrachtslijst."
+                    ).exec()
+                    wb.close()
+                    raise Exception("Onduidelijke locatiekolommen")
+                
+                # In order so far
+                new_headers.append(f"{headers[i+position]}{f'_{duplicate_num}' if duplicate_num > 0 else ''}")
+            
+            duplicate_num += 1
+            i += 4
+
         duplicate_headers = []
 
         for h in set_headers:
-            if headers.count(h) > 1:
+            if new_headers.count(h) > 1:
                 duplicate_headers.append(h)
 
         if len(duplicate_headers) > 0:
@@ -708,10 +740,10 @@ class TabUI(QtWidgets.QMainWindow):
         df = pd.DataFrame(
             (
                 r for r in 
-                (r[:len(headers)] for r in list(data))
+                (r[:len(new_headers)] for r in list(data))
                 if not all(not bool(v) for v in r)
             ),
-            columns=headers,
+            columns=new_headers,
         ).fillna("").astype(str).convert_dtypes()
         wb.close()
 
@@ -1278,6 +1310,7 @@ class TabUI(QtWidgets.QMainWindow):
             new_column_name, previous_column_name = find_next(old_columns, "Origineel Doosnummer" if location_cols else "Trefwoorden_vrij")
             
             if location_cols:
+                # We need to make sure we select the last one in the set
                 previous_column_name = previous_column_name.replace("Origineel Doosnummer", "Verpakkingstype")
 
             # Create the new definitions
