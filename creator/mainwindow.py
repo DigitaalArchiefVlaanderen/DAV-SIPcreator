@@ -676,20 +676,6 @@ class TabUI(QtWidgets.QMainWindow):
             raise Exception("Geen hoofdingen gevonden in de overdrachtslijst")
 
         set_headers = set(headers)
-        duplicate_headers = []
-
-        for h in set_headers:
-            if headers.count(h) > 1:
-                duplicate_headers.append(h)
-
-        if len(duplicate_headers) > 0:
-            WarningDialog(
-                title="Duplicate hoofdingen niet toegestaan",
-                text=f"Duplicate hoofdingen zijn niet toegestaan.\n\nDuplicaten gevonden:\n{'\n'.join((f'- {h}' for h in duplicate_headers))}"
-            ).exec()
-            wb.close()
-            raise Exception("Duplicate hoofdingen gevonden")
-
         expected_headers = (
             "Beschrijving",
             "Begindatum",
@@ -703,6 +689,20 @@ class TabUI(QtWidgets.QMainWindow):
             if h not in headers:
                 wb.close()
                 raise Exception(f"Verwachtte om de kolom '{h}' tegen te komen, maar is niet gevonden.")
+
+        duplicate_headers = []
+
+        for h in set_headers:
+            if headers.count(h) > 1:
+                duplicate_headers.append(h)
+
+        if len(duplicate_headers) > 0:
+            WarningDialog(
+                title="Duplicate hoofdingen niet toegestaan",
+                text=f"Duplicate hoofdingen zijn niet toegestaan.\n\nDuplicaten gevonden:\n{'\n'.join((f'- {h}' for h in duplicate_headers))}"
+            ).exec()
+            wb.close()
+            raise Exception("Duplicate hoofdingen gevonden")
 
         # Filter out empty rows
         df = pd.DataFrame(
