@@ -818,6 +818,7 @@ class TabUI(QtWidgets.QMainWindow):
             "container": container,
             "table": self.main_table,
             "model": model,
+            "proxy": proxy_model,
         }
 
         # NOTE: map all the URI Serieregisters
@@ -875,11 +876,12 @@ class TabUI(QtWidgets.QMainWindow):
         amount_of_rows_to_add = 0
 
         if mapping_ids is None:
+            proxy: CustomSortFilterModel = self.tabs[self.main_tab]["proxy"]
+
             # NOTE: filter out hidden rows here
             selected_rows = [
-                str(r.row())
+                str(proxy.mapToSource(r).row())
                 for r in self.main_table.selectionModel().selectedRows()
-                if not self.main_table.isRowHidden(r.row())
             ]
 
             if len(selected_rows) == 0:
@@ -1155,6 +1157,7 @@ class TabUI(QtWidgets.QMainWindow):
             "container": container,
             "table": table_view,
             "model": model,
+            "proxy": proxy_model,
         }
 
         duplicate_trefwoord_column_button.clicked.connect(lambda: self.add_column(name))
