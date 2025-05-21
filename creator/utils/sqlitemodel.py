@@ -71,7 +71,7 @@ class SQLliteModel(TableModel):
         if self.is_main:
             return True
 
-        _id = int(self.raw_data[row][0])
+        _id = self.get_id(row)
 
         for (row_id, col), color in self.colors.items():
             if row_id != _id:
@@ -226,12 +226,15 @@ class SQLliteModel(TableModel):
     def columnCount(self, *index):
         return self.col_count
 
+    def get_id(self, row: int) -> int:
+        return int(self.raw_data[row][0])
+
     def data(self, index, role=QtCore.Qt.ItemDataRole.DisplayRole):
         if not index.isValid():
             return
 
         row, col = index.row(), index.column()
-        _id = int(self.raw_data[row][0])
+        _id = self.get_id(row)
 
         if (
             role == QtCore.Qt.ItemDataRole.DisplayRole
@@ -336,7 +339,7 @@ class SQLliteModel(TableModel):
 
     # NOTE: utils
     def _mark_cell(self, row: int, col: int, color: CellColor = None, tooltip: str = None) -> None:        
-        _id = int(self.raw_data[row][0])
+        _id = self.get_id(row)
 
         if not color:
             # Unmark
