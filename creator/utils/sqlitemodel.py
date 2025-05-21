@@ -397,6 +397,17 @@ class SQLliteModel(TableModel):
                 self.index(max(rows_to_check), self.col_count)
             )
 
+        # If we go from dossier to stuk or otherwise, rerun the check for name
+        if "/" in old_value and "/" not in value or "/" not in old_value and "/" in value:
+            name_col = list(self.columns.values()).index("Naam")
+
+            self.name_check(
+                row,
+                name_col,
+                value=self.raw_data[row][name_col],
+                is_dossier="/" not in value
+            )
+
     def serie_check(self, row: int, col: int, value: str) -> None:
         series_name = self.raw_data[row][list(self.columns.values()).index("series_name")]
         uri = value
@@ -596,11 +607,16 @@ class SQLliteModel(TableModel):
             else:
                 self._mark_cell(row, c)
 
-    def name_check(self, row: int, col: int, value: str) -> None:
-        old_value = self.raw_data[row][col]
+    def name_check(self, row: int, col: int, value: str, is_dossier: bool=None) -> None:
+        """
+            Checks name field for a given row.
 
-        if old_value != "":
-            old_duplicates = [r for r in range(self.row_count) if self.raw_data[r][col] == old_value and r != row]
+            If "is_dossier" is True, we do not check the actual value.
+            This is mainly added since we need to recheck the name field if the path-in-sip changed to now be a dossier.
+            The flag then gives the correct value of the field, rather than the code still reading an old value.
+        """
+        def _unmark_fixed_duplicates(type_col: int, old_value: str) -> None:
+            old_duplicates = [r for r in range(self.row_count) if self.raw_data[r][type_col] =="dossier" and self.raw_data[r][col] == old_value and r != row]
 
             # NOTE: fixed some duplication
             if len(old_duplicates) == 1:
@@ -609,23 +625,55 @@ class SQLliteModel(TableModel):
                     col=col
                 )
 
-        if value == "":
-            self._mark_cell(row, col, CellColor.RED, "Naam mag niet leeg zijn")
-            return
+        def _check_and_mark_new_duplicates(type_col: int) -> bool:
+            # NOTE: check for new duplicates
+            new_duplicates = [r for r in range(self.row_count) if self.raw_data[r][type_col] =="dossier" and self.raw_data[r][col] == value and r != row]
+
+            # NOTE: check if we introduces new duplication
+            if len(new_duplicates) > 0:
+                for r in new_duplicates + [row]:
+                    self._mark_cell(r, col, CellColor.RED, "Naam veld moet uniek zijn")
+
+                return True
+
+            return False
+
+        type_col = list(self.columns.values()).index("Type")
         
         if len(value) > 255:
             self._mark_cell(row, col, CellColor.RED, "Naam mag niet langer zijn dan 255 karakters")
             return
 
-        # NOTE: check for new duplicates
-        new_duplicates = [r for r in range(self.row_count) if self.raw_data[r][col] == value if r != row]
+        # NOTE: duplicate check and empty value check should only apply to dossiers
+        # If flag is set to true, act as if the row is a dossier
+        if is_dossier is True:
+            pass
 
-        # NOTE: check if we introduces new duplication
-        if len(new_duplicates) > 0:
-            for r in new_duplicates + [row]:
-                self._mark_cell(r, col, CellColor.RED, "Naam veld moet uniek zijn")
+        # If flag is set to false, act as if the row is a stuk
+        elif is_dossier is False:
+            self._mark_cell(row, col)
 
-            return False
+            # We also need to recheck the impacted rows (dossier rows where the value is <value>, in case we just solved some duplication)
+            # Bit of code duplication never hurt anybody (I hope)
+            _unmark_fixed_duplicates(type_col=type_col, old_value=value)
+            return
+
+        # No flag set
+        elif self.raw_data[row][type_col] == "stuk":
+            self._mark_cell(row, col)
+            return
+
+        if value == "":
+            self._mark_cell(row, col, CellColor.RED, "Naam mag niet leeg zijn")
+            return
+
+        old_value = self.raw_data[row][col]
+
+        if old_value != "":
+            _unmark_fixed_duplicates(type_col=type_col, old_value=old_value)
+
+        if _check_and_mark_new_duplicates(type_col=type_col):
+            return
 
         self._mark_cell(row, col)
 
