@@ -1087,7 +1087,12 @@ class TabUI(QtWidgets.QMainWindow):
                 'Naam': '"Beschrijving"',
                 'Openingsdatum': '"Begindatum"',
                 'Sluitingsdatum': '"Einddatum"',
-                'Origineel Doosnummer': f'substr(\'0000\' || "Doosnr", -4, 4) || \'/{self.overdrachtslijst_name}\''
+                'Origineel Doosnummer': f'''
+                    CASE WHEN "Doosnr" = '' OR "Doosnr" GLOB '[0-9][0-9][0-9][0-9]' OR "Doosnr" GLOB '[0-9][0-9][0-9]' OR "Doosnr" GLOB '[0-9][0-9]' OR "Doosnr" GLOB '[0-9]'
+                        THEN substr(\'0000\' || "Doosnr", -4, 4) || \'/{self.overdrachtslijst_name}\'
+                        ELSE "Doosnr"
+                    END
+                '''
             }
 
             matching_columns = set(columns) & set(main_table_columns)
