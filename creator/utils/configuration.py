@@ -130,6 +130,7 @@ class Configuration:
         ti.api_url = "https://digitaalarchief-ti.vlaanderen.be"
         ti.ftps_url = "ingest.digitaalarchief-ti.vlaanderen.be"
 
+        prod.api_url = "https://digitaalarchief.vlaanderen.be"
         prod.ftps_url = "ingest.digitaalarchief.vlaanderen.be"
 
         return Configuration(
