@@ -411,7 +411,7 @@ class PandasModel(TableModel):
     def _name_data_check(self, value: str, old_value: str, row: int, col: int) -> bool:
         # Return True if cell was ok, otherwise return False
         # NOTE: check for old duplicates no longer being duplicates
-        if old_value != "" and len((rows := self._data.index[self._data.Naam == old_value].tolist())) == 1:
+        if old_value != "" and len((rows := self._data.index[(self._data.Type == "dossier") & (self._data.Naam == old_value)].tolist())) == 1:
             # NOTE: this will only be one row, but this is okay
             for r in rows:
                 self._unmark_bad_cell(
@@ -430,7 +430,7 @@ class PandasModel(TableModel):
             return False
 
         # NOTE: check for new duplication
-        if value != "" and len((rows := self._data.index[self._data.Naam == value].tolist())) > 1:
+        if value != "" and len((rows := self._data.index[(self._data.Type == "dossier") & (self._data.Naam == value)].tolist())) > 1:
             for r in rows:
                 self._mark_bad_cell(
                     row=r,
@@ -596,8 +596,8 @@ class PandasModel(TableModel):
             self._mark_name_cell(row=row, tooltip="Een dossier moet verplicht een naam hebben")
 
         # Duplicate names
-        mask = self._data.loc[self._data.Naam != ""].Naam.duplicated(keep=False)
-        duplicate_rows = self._data.loc[self._data.Naam != ""].Naam[mask]
+        mask = self._data.loc[(self._data.Type == "dossier") & (self._data.Naam != "")].Naam.duplicated(keep=False)
+        duplicate_rows = self._data.loc[(self._data.Type == "dossier") & (self._data.Naam != "")].Naam[mask]
 
         for row, _ in duplicate_rows.items():
             self._mark_name_cell(row=row, tooltip="Naam veld moet uniek zijn")
