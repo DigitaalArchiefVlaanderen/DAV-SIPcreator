@@ -1089,7 +1089,7 @@ class TabUI(QtWidgets.QMainWindow):
                 'Sluitingsdatum': '"Einddatum"',
                 'Origineel Doosnummer': f'''
                     CASE WHEN "Doosnr" = '' OR "Doosnr" GLOB '[0-9][0-9][0-9][0-9]' OR "Doosnr" GLOB '[0-9][0-9][0-9]' OR "Doosnr" GLOB '[0-9][0-9]' OR "Doosnr" GLOB '[0-9]'
-                        THEN substr(\'0000\' || "Doosnr", -4, 4) || \'/{self.overdrachtslijst_name}\'
+                        THEN substr(\'0000\' || "Doosnr", -4, 4) || \'/{self.overdrachtslijst_name.replace("'", "''")}\'
                         ELSE "Doosnr"
                     END
                 '''
@@ -1105,7 +1105,13 @@ class TabUI(QtWidgets.QMainWindow):
 
             # NOTE: values from dynamic mapping are more important, since it's user input
             fixed_mapping_cols = [f'"{c}"' for c in fixed_mapping if c not in matching_columns]
-            fixed_mapping_values = [v for c, v in fixed_mapping.items() if c not in matching_columns]
+            fixed_mapping_values = [
+                # NOTE: we might need to escape single quotes
+                # v.replace("'", "''") if c != "Origineel Doosnummer" else v
+                v
+                for c, v in fixed_mapping.items()
+                if c not in matching_columns
+            ]
 
             mapping_cols = matching_cols + fixed_mapping_cols
             mapping_values = matching_cols + fixed_mapping_values
