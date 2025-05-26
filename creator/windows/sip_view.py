@@ -293,13 +293,15 @@ class SIPView(QtWidgets.QMainWindow):
             self.folder_structure_view.setup_ui()
 
             path_in_sip_map_column = [k for k, v in tag_mapping.items() if v == "Path in SIP"][0]
+            # Only allow columns where not all fields are empty
             columns_without_empty_fields = [
                 c
-                for c, has_empty in dict(
-                    self.sip_widget.metadata_df.eq("").any()
+                for c, all_empty in dict(
+                    self.sip_widget.metadata_df.eq("").all()
                 ).items()
-                if not has_empty and c != path_in_sip_map_column
+                if not all_empty and c != path_in_sip_map_column
             ]
+
             self.folder_structure_view.add_to_metadata(columns_without_empty_fields)
             self.folder_structure_view.closed.connect(
                 lambda f: _save_mapping(

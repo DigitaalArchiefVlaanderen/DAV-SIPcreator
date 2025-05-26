@@ -16,7 +16,7 @@ class FolderStructure(QtWidgets.QMainWindow):
 
     def setup_ui(self) -> None:
         self.resize(800, 600)
-        self.setWindowTitle("Mappen structuur")
+        self.setWindowTitle("Mappenstructuur")
 
         central_widget = QtWidgets.QWidget()
         self.setCentralWidget(central_widget)
