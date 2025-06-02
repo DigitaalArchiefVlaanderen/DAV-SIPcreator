@@ -16,4 +16,4 @@ class ExcelController:
         for col in date_cols:
             df2[col] = df[col]
 
-        return df.fillna("")
+        return df2.fillna("")
