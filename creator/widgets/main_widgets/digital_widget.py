@@ -1,5 +1,6 @@
 import os
 import json
+import re
 
 from PySide6 import QtWidgets
 
@@ -271,6 +272,18 @@ class DigitalWidget(MainWidget):
 
         selected_dossiers: list[DossierWidget] = list(self.dossiers_list_view.get_selected())
 
+        ignored_regexes = [
+            r"^~.*",
+            r"^.+\.te?mp$",
+            r"^Thumbs\.db$",
+            r"^Desktop\.ini$",
+            r"^\.DS_Store$",
+            r"^\._*+$",
+            r"^\.Spotlight-V100$",
+            r"^\.Trashes$",
+            r"^\.fseventsd$"
+        ]
+
         if len(selected_dossiers) > 0:
             dossiers = [d.dossier for d in selected_dossiers]
 
@@ -282,11 +295,19 @@ class DigitalWidget(MainWidget):
                 line_count += 1
 
                 # NOTE: add all the files in this dossier (recursively) to the count
-                line_count += sum(len(files) for _, _, files in os.walk(dossier.path))
+                for root, _, files in os.walk(dossier.path):
+                    for file in files:
+                        path = os.path.join(root, file)
 
-                # TODO: we did not check for empty files or empty dossiers here
-                # These do however get ignored once we actually try to make a SIP, so it should be filtered here
-                # We also do not check for files like thumbs.db here, which once again, should not be counted
+                        # NOTE: skip all empty files/folders
+                        if not os.path.isfile(path) or os.path.getsize(path) == 0:
+                            continue
+
+                        # NOTE: skip all the regex matches to ignored files
+                        if any(re.match(p, file) is not None for p in ignored_regexes):
+                            continue
+                        
+                        line_count += 1
 
             if line_count > 9999:
                 WarningDialog(

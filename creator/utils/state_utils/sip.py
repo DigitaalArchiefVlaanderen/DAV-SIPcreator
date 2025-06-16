@@ -3,6 +3,7 @@ from PySide6 import QtWidgets, QtCore
 from typing import List
 import uuid
 import os
+import re
 
 from .dossier import Dossier
 from ..series import Series
@@ -96,6 +97,18 @@ class SIP(QtCore.QObject):
             # Get the mapping, otherwise return default
             return self.folder_mapping.get(location, location)
 
+        ignored_regexes = [
+            r"^~.*",
+            r"^.+\.te?mp$",
+            r"^Thumbs\.db$",
+            r"^Desktop\.ini$",
+            r"^\.DS_Store$",
+            r"^\._*+$",
+            r"^\.Spotlight-V100$",
+            r"^\.Trashes$",
+            r"^\.fseventsd$"
+        ]
+
         sip_structure = {}
 
         for dossier in self.dossiers:
@@ -142,6 +155,7 @@ class SIP(QtCore.QObject):
                 for file_name, location in _get_dossier_folder_structure(
                     dossier.path, dossier.path
                 ).items()
+                if not any(re.match(p, file_name) is not None for p in ignored_regexes)
             }
 
             if all(f["Type"] == "geen" for f in file_structure.values()):
