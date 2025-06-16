@@ -1,9 +1,13 @@
 # NOTE: quite a lot of code duplication here with windows.grid_view
 # Probably a cleaner way of handling both cases at the same time
 import os
+import zipfile
+import hashlib
+from openpyxl import load_workbook
+import sqlite3 as sql
+from copy import deepcopy
 
 from PySide6 import QtWidgets, QtCore, QtGui
-import sqlite3 as sql
 
 from creator.application import Application
 
@@ -20,42 +24,6 @@ from creator.utils.path_loader import resource_path
 from creator.utils.analoog.list_item import ListItem
 from creator.utils.table.list_table_model import ListTableModel
 from creator.utils.proxymodel import CustomSortFilterModel
-
-
-import os
-import re
-import threading
-import time
-from typing import Iterable
-
-import zipfile
-import hashlib
-import ftplib
-import socket
-from openpyxl import load_workbook
-from PySide6 import QtWidgets, QtCore, QtGui
-import pandas as pd
-import sqlite3 as sql
-from pathlib import Path
-
-from creator.application import Application, natural_keys
-
-from creator.widgets.main_widgets.main_widget import MainWidget
-from creator.widgets.searchable_list_widget import SearchableListWidget
-from creator.widgets.tableview_widget import TableView
-from creator.widgets.toolbar import Toolbar
-from creator.widgets.dialog import YesNoDialog, Dialog, ChoiceDialog
-from creator.widgets.warning_dialog import WarningDialog
-
-from creator.controllers.api_controller import APIController
-from creator.controllers.file_controller import FileController
-
-from creator.utils.state import State
-from creator.utils.sqlitemodel import SQLliteModel, CellColor
-from creator.utils.proxymodel import CustomSortFilterModel
-from creator.utils.path_loader import resource_path
-
-from creator.windows.mainwindow import MainWindow
 
 
 class AnaloogGridView(QtWidgets.QMainWindow):
@@ -187,7 +155,7 @@ class AnaloogGridView(QtWidgets.QMainWindow):
         try:
             ws = wb["Details"]
 
-            data = self.model.raw_data
+            data = deepcopy(self.model.raw_data)
 
             # Check for empty lines and drop them
             rows_to_drop = [
@@ -273,7 +241,7 @@ class AnaloogGridView(QtWidgets.QMainWindow):
                 text="SIPS zijn aangemaakt voor de overdrachtslijst."
             ).exec()
 
-            self.close()
+        self.close()
 
     def closeEvent(self, event):
         if not self.saved:

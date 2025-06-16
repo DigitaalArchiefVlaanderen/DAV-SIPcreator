@@ -178,7 +178,7 @@ class ListTableModel(TableModel):
                 )
                 self.set_value(
                     self.index(row, col+3),
-                    "j"
+                    "ja"
                 )
             else:
                 # NOTE: clear Type, DossierRef and 'Analoog?'
@@ -199,7 +199,7 @@ class ListTableModel(TableModel):
             self.date_check(row, col, value)
 
             self.dataChanged.emit(self.index(row, col-1), self.index(row, col+1))
-        elif any(c in column for c in ("Origineel Doosnummer", "Legacy locatie ID", "Legacy range", "Verpakkingstype")):
+        elif column in ("ID beschrijving", "ID verpakking"):
             self.location_check(row, col, value)
         elif column == "Naam":
             self.name_check(row, col, value)
@@ -233,7 +233,7 @@ class ListTableModel(TableModel):
 
     def flags(self, index):
         if not index.isValid():
-            return
+            return QtCore.Qt.ItemFlag.NoItemFlags
 
         if self.columns[index.column()] in ("Type", "DossierRef", "Analoog?"):
             return (
@@ -389,59 +389,6 @@ class ListTableModel(TableModel):
             self.index(row, self.columnCount())
         )
 
-    def location_check(self, row: int, col: int, value: str) -> None:
-        # NOTE: if all the columns have empty values, mark them all red
-        original_cols = ("Origineel Doosnummer", "Legacy locatie ID", "Legacy range", "Verpakkingstype")
-        column_names = list(self.columns.values())
-        all_duplicate_cols = [c for c in self.columns.values() if any(oc in c for oc in original_cols)]
-        duplicate_col_indexes = [column_names.index(c) for c in all_duplicate_cols]
-
-        row_values = self.raw_data[row]
-
-        if all(row_values[c] == "" for c in duplicate_col_indexes if c != col) and value == "":
-            self.modelAboutToBeReset.emit()
-
-            for col_index in duplicate_col_indexes:
-                self._mark_cell(row, col_index, CellColor.RED, "Een locatie moet ingevuld zijn")
-
-            self.modelReset.emit()
-            return
-        elif all(row_values[c] == "" for c in duplicate_col_indexes if c != col) and value != "":
-            # NOTE: all empty except the current one, unset them all but do not return
-            self.modelAboutToBeReset.emit()
-
-            for col_index in duplicate_col_indexes:
-                self._mark_cell(row, col_index)
-            
-            self.modelReset.emit()
-
-        actual_column_name = self.columns[col]
-        suffix = ""
-
-        # Check if it is a duplicated column
-        if "_" in actual_column_name:
-            suffix = "_" + actual_column_name.rsplit("_", 1)[-1]
-
-        # If we have a value in any of the columns, they all need a value
-        # These are the 4 columns linked by the suffix number
-        cols = [c + suffix for c in original_cols]
-
-        col_indexes = [column_names.index(c) for c in cols]
-
-        # If any has a value, or we're enterying a value now
-        should_have_a_value = any(row_values[c] != "" for c in col_indexes if c != col) or value != ""
-
-        for c in col_indexes:
-            val = row_values[c]
-
-            if c == col:
-                val = value
-
-            if should_have_a_value and val == "":
-                self._mark_cell(row, c, CellColor.RED, "De combinatie van de 4 locatie-kolommen moeten een waarde hebben")
-            else:
-                self._mark_cell(row, c)
-
     def name_check(self, row: int, col: int, value: str) -> None:
         old_value = self.raw_data[row][col]
 
@@ -474,6 +421,14 @@ class ListTableModel(TableModel):
             return False
 
         self._mark_cell(row, col)
+
+    def location_check(self, row: int, col: int, value: str) -> None:
+        column = self.columns[col]
+
+        if value == "":
+            self._mark_cell(row, col, CellColor.RED, tooltip=f"{column} moet een waarde hebben")
+        else:
+            self._mark_cell(row, col)
 
     def rrn_check(self, row: int, col: int, value: str) -> str:
         if value == "":

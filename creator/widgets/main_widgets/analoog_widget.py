@@ -173,11 +173,7 @@ class AnaloogWidget(MainWidget):
             # 5: Close the creation view and open the grid view
             grid_creation_view.close()
 
-            grid_view = AnaloogGridView(
-                list_item=list_item
-            )
-            grid_view.setup_ui()
-            grid_view.show()
+            list_item_widget.open_button_clicked()
         
         self.state.check_series_loaded()
 
