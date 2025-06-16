@@ -602,6 +602,12 @@ class PandasModel(TableModel):
         for row, _ in duplicate_rows.items():
             self._mark_name_cell(row=row, tooltip="Naam veld moet uniek zijn")
 
+        # Max length 255
+        long_rows = self._data[self._data.Naam.str.len() > 255].Naam
+
+        for row, _ in long_rows.items():
+            self._mark_name_cell(row=row, tooltip="Naam mag niet langer zijn dan 255 karakters")
+
     def _vectorized_date_data_check(self) -> None:
         opening_col, closing_col = self._data.columns.get_loc(
             "Openingsdatum"
