@@ -4,19 +4,22 @@ import pandas as pd
 import os
 from datetime import datetime
 
-from ..application import Application
-from ..controllers.file_controller import FileController
-from ..controllers.db_controller import SIPDBController, NotASIPDBException
-from ..utils.sip_status import SIPStatus
-from ..utils.state_utils.sip import SIP
-from ..utils.pandasmodel import PandasModel
-from ..utils.proxymodel import CustomSortFilterModel
-from ..utils.path_loader import resource_path
-from ..widgets.toolbar import Toolbar
-from ..widgets.warning_dialog import WarningDialog
-from ..widgets.dialog import YesNoDialog
-from ..widgets.dialog import Dialog
-from ..widgets.tableview_widget import TableView
+from creator.application import Application
+
+from creator.controllers.file_controller import FileController
+from creator.controllers.db_controller import SIPDBController, NotASIPDBException
+
+from creator.utils.sip_status import SIPStatus
+from creator.utils.state_utils.sip import SIP
+from creator.utils.pandasmodel import PandasModel
+from creator.utils.proxymodel import CustomSortFilterModel
+from creator.utils.path_loader import resource_path
+
+from creator.widgets.toolbar import Toolbar
+from creator.widgets.warning_dialog import WarningDialog
+from creator.widgets.dialog import YesNoDialog
+from creator.widgets.dialog import Dialog
+from creator.widgets.tableview_widget import TableView
 
 
 class GridView(QtWidgets.QMainWindow):

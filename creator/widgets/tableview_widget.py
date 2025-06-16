@@ -1,14 +1,17 @@
+from functools import partial
+
 from PySide6 import QtWidgets, QtCore, QtGui
 
-
-from ..utils.path_loader import resource_path
+from creator.utils.path_loader import resource_path
+from creator.utils.table.list_table_model import ListTableModel
 
 
 class TableView(QtWidgets.QTableView):
-    def __init__(self, editable=True):
+    def __init__(self, editable=True, is_analoog=False):
         super().__init__()
 
         self.editable = editable
+        self.is_analoog = is_analoog
 
         self.setSortingEnabled(True)
 
@@ -128,7 +131,7 @@ class TableView(QtWidgets.QTableView):
         )
         self.model(proxy=True).modelReset.emit()
 
-    def paste_grid_content(self, copy_text: str, indexes: list):
+    def paste_grid_content(self, copy_text: str, indexes: list[QtCore.QModelIndex]):
         # NOTE: excel complicates matters, they add a trailing '\n' character
         # This however means we need to do the same, and expect this
         # We need to make sure we catch it here
@@ -152,12 +155,19 @@ class TableView(QtWidgets.QTableView):
         ]
 
         # Make sure we do not paste outside the window
-        if len(usable_rows) != len(row_contents):
-            return
-        elif (
+        if (
             init_index.column() + len(row_contents[0].split("\t"))
             > self.model(proxy=True).columnCount()
         ):
+            return
+        elif len(usable_rows) != len(row_contents):
+            # NOTE: since Analoog is all about adding rows when we need more
+            # We need to make sure more rows are added if needed
+            if self.is_analoog:
+                model: ListTableModel = self.model()
+
+                QtCore.QTimer.singleShot(0, partial(model.paste_data, init_index, visible_rows, copy_text))
+                return
             return
 
         self.model(proxy=True).modelAboutToBeReset.emit()
@@ -232,7 +242,7 @@ class TableView(QtWidgets.QTableView):
 
         value = self.model(proxy=True).data(self.currentIndex(), QtCore.Qt.EditRole)
 
-        # Single cell
+        # Single cell or automated input
         if len(self.selectedIndexes()) == 1:
             return
 

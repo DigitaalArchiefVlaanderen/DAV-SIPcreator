@@ -24,7 +24,7 @@ class ConfigController:
                 if not "SIP Creator opslag locatie" in values:
                     return False
                 
-                if version == ConfigurationVersion.V3:
+                if version in (ConfigurationVersion.V5, ConfigurationVersion.V4, ConfigurationVersion.V3):
                     if not "Bestandscontrole lijst locatie" in values:
                         return False
 
@@ -57,9 +57,13 @@ class ConfigController:
                     if active != 1:
                         return False
                     
-                    if tab == "Type SIPs" and version == ConfigurationVersion.V4:
+                    if tab == "Type SIPs" and version in (ConfigurationVersion.V5, ConfigurationVersion.V4):
                         if "onroerend_erfgoed" not in values[tab]:
                             return False
+                        
+                        if version == ConfigurationVersion.V5:
+                            if "analoog" not in values[tab]:
+                                return False
 
                 continue
 
@@ -101,7 +105,7 @@ class ConfigController:
                 return Configuration.get_default()
 
             # Run in reverse order of versions to ensure we have the latest one
-            for v in (ConfigurationVersion.V4, ConfigurationVersion.V3, ConfigurationVersion.V2, ConfigurationVersion.V1):
+            for v in (ConfigurationVersion.V5, ConfigurationVersion.V4, ConfigurationVersion.V3, ConfigurationVersion.V2, ConfigurationVersion.V1):
                 if self._verify_configuration(configuration, version=v):
                     # Valid for this version
                     return Configuration.from_json(configuration, version=v)

@@ -103,6 +103,7 @@ class Misc:
                 digitaal=True,
                 migratie=False,
                 onroerend_erfgoed=False,
+                analoog=False,
             ),
             save_location=os.path.join(os.getcwd(), "SIP_Creator"),
             bestandscontrole_lijst_location=""
@@ -119,6 +120,8 @@ class Configuration:
         os.makedirs(self.sip_db_location, exist_ok=True)
         os.makedirs(self.import_templates_location, exist_ok=True)
         os.makedirs(self.overdrachtslijsten_location, exist_ok=True)
+        os.makedirs(self.grid_location, exist_ok=True)
+        os.makedirs(self.analoog_location, exist_ok=True)
         os.makedirs(self.sips_location, exist_ok=True) 
 
     @staticmethod
@@ -158,6 +161,7 @@ class Configuration:
                 elif version == ConfigurationVersion.V2:
                     types = v["Type SIPs"]
                     types["onroerend_erfgoed"] = False
+                    types["analoog"] = False
 
                     misc = Misc(
                         environments_activity=v["Omgevingen"],
@@ -169,6 +173,7 @@ class Configuration:
                 elif version == ConfigurationVersion.V3:
                     types = v["Type SIPs"]
                     types["onroerend_erfgoed"] = False
+                    types["analoog"] = False
 
                     misc = Misc(
                         environments_activity=v["Omgevingen"],
@@ -178,6 +183,17 @@ class Configuration:
                         bestandscontrole_lijst_location=v["Bestandscontrole lijst locatie"],
                     )
                 elif version == ConfigurationVersion.V4:
+                    types = v["Type SIPs"]
+                    types["analoog"] = False
+
+                    misc = Misc(
+                        environments_activity=v["Omgevingen"],
+                        role_activity=v["Rollen"],
+                        type_activity=types,
+                        save_location=v["SIP Creator opslag locatie"],
+                        bestandscontrole_lijst_location=v["Bestandscontrole lijst locatie"],
+                    )
+                elif version == ConfigurationVersion.V5:
                     misc = Misc(
                         environments_activity=v["Omgevingen"],
                         role_activity=v["Rollen"],
@@ -240,6 +256,14 @@ class Configuration:
     def overdrachtslijsten_location(self) -> str:
         return os.path.join(self.misc.save_location, "overdrachtslijsten")
     
+    @property
+    def analoog_location(self) -> str:
+        return os.path.join(self.misc.save_location, "analoog")
+    
+    @property
+    def grid_location(self) -> str:
+        return os.path.join(self.misc.save_location, "Grid")
+
     @property
     def sips_location(self) -> str:
         return os.path.join(self.misc.save_location, "SIPs")
