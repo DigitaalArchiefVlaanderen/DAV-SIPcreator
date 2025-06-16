@@ -123,6 +123,7 @@ class GridView(QtWidgets.QMainWindow):
         df["Path in SIP"] = [s["Path in SIP"] for s in sip_folder_structure.values()]
         df["Type"] = [s["Type"] for s in sip_folder_structure.values()]
         df["DossierRef"] = [s["DossierRef"] for s in sip_folder_structure.values()]
+        df["Naam"] = [s["Naam"] for s in sip_folder_structure.values()]
 
         df["Openingsdatum"] = [
             s["Openingsdatum"] for s in sip_folder_structure.values()

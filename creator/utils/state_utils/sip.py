@@ -118,6 +118,7 @@ class SIP(QtCore.QObject):
                     "original Path in SIP": dossier.dossier_label,
                     "path": dossier.path,
                     "Type": "dossier",
+                    "Naam": os.path.basename(path_in_sip),
                     "DossierRef": path_in_sip.split("/")[0],
                     # To be determined based on the files for this dossier
                     "Openingsdatum": None,
@@ -137,6 +138,7 @@ class SIP(QtCore.QObject):
                         or os.path.getsize(real_path) == 0
                         else "stuk"
                     ),
+                    "Naam": os.path.basename(path_in_sip),
                     "DossierRef": path_in_sip.split("/")[0],
                     # Openingsdatum will be the creation dates of the file
                     # There is no cross-platform way of doing this sadly
