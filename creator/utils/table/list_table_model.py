@@ -209,7 +209,7 @@ class ListTableModel(TableModel):
             self.date_check(row, col, value)
 
             self.dataChanged.emit(self.index(row, col-1), self.index(row, col+1))
-        elif column in ("ID beschrijving", "ID verpakking"):
+        elif any(n in column for n in ("ID beschrijving", "ID verpakking")):
             self.location_check(row, col, value)
         elif column == "Naam":
             self.name_check(row, col, value)
