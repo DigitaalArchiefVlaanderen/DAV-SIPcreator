@@ -176,11 +176,12 @@ class ListTableModel(TableModel):
 
             old_manual_entry = self.manual_entry
             self.manual_entry = False
+
             if value != "":
-                # NOTE: set Type, DossierRef and 'Analoog?'
+                # NOTE: set Type, DossierRef, 'Analoog?'
                 self.set_value(
                     self.index(row, col+1),
-                    "stuk" if "/" in value else "dossier"
+                    "" if "/" in value else "dossier"
                 )
                 self.set_value(
                     self.index(row, col+2),
@@ -191,7 +192,7 @@ class ListTableModel(TableModel):
                     "ja"
                 )
             else:
-                # NOTE: clear Type, DossierRef and 'Analoog?'
+                # NOTE: clear Type, DossierRef, 'Analoog?'
                 self.set_value(
                     self.index(row, col+1),
                     ""
@@ -204,6 +205,14 @@ class ListTableModel(TableModel):
                     self.index(row, col+3),
                     ""
                 )
+
+            # NOTE: set "Naam" automatically, also run the checks needed    
+            self.set_value(
+                self.index(row, col+4),
+                value
+            )
+            self.run_checks(row, col+4, value)
+
             self.manual_entry = old_manual_entry
         elif column in ("Openingsdatum", "Sluitingsdatum"):
             self.date_check(row, col, value)
