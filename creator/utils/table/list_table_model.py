@@ -156,7 +156,7 @@ class ListTableModel(TableModel):
             if tooltip:
                 return tooltip
 
-    def run_checks(self, row: int, col: int, value: str) -> None:
+    def run_checks(self, row: int, col: int, value: str) -> str:
         column = self.columns[col]
 
         value = str(value).encode(encoding="utf-8", errors="replace").decode("utf-8")
@@ -206,6 +206,8 @@ class ListTableModel(TableModel):
         elif column == "ID_Rijksregisternummer":
             value = self.rrn_check(row, col, value)
 
+        return value
+
     def setData(self, index: QtCore.QModelIndex, value: str, role=QtCore.Qt.ItemDataRole.EditRole):
         if not index.isValid():
             return False
@@ -215,7 +217,7 @@ class ListTableModel(TableModel):
                 return False
 
         if role == QtCore.Qt.ItemDataRole.EditRole:
-            self.run_checks(index.row(), index.column(), value)
+            value = self.run_checks(index.row(), index.column(), value)
             self.set_value(index, value)
             self.dataChanged.emit(index, index)
             return True
