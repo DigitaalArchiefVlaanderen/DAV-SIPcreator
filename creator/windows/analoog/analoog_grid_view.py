@@ -6,6 +6,7 @@ import hashlib
 from openpyxl import load_workbook
 import sqlite3 as sql
 from copy import deepcopy
+import re
 
 from PySide6 import QtWidgets, QtCore, QtGui
 
@@ -189,7 +190,14 @@ class AnaloogGridView(QtWidgets.QMainWindow):
                 # Since we skipped a column, make sure to update the index
                 col_index = col_index - 1
 
-                ws[f"{_col_index_to_xslx_col(col_index)}1"] = col.strip()
+                col_name = col.strip()
+
+                matches = re.match(r"(.+)\.\d+", col_name)
+
+                if matches is not None:
+                    col_name = matches.group(1)
+
+                ws[f"{_col_index_to_xslx_col(col_index)}1"] = col_name
 
             # NOTE: write the data
             for row_index, row in enumerate(data):
