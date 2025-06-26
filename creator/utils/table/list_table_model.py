@@ -15,6 +15,9 @@ class ListTableModel(TableModel):
     bad_rows_changed: QtCore.Signal = QtCore.Signal(
         *(bool,), arguments=["is_data_valid"]
     )
+    data_rows_changed: QtCore.Signal = QtCore.Signal(
+        *(int,), arguments=["n_data_rows"]
+    )
 
     def __init__(self, list_item: ListItem):
         super().__init__()
@@ -30,6 +33,9 @@ class ListTableModel(TableModel):
         self.has_changed = False
         self.manual_entry = True
 
+    def _count_data_rows(self) -> int:
+        return len([None for row in self.raw_data if not all(v == "" for v in row[1:])])
+
     def first_open(self) -> None:
         self.colors = dict()
         self.tooltips = dict()
@@ -38,6 +44,8 @@ class ListTableModel(TableModel):
         for row, values in enumerate(self.raw_data):
             for col, value in enumerate(values):
                 self.run_checks(row, col, value)
+
+        self.data_rows_changed.emit(self._count_data_rows())
 
     # Inherited methods
     def row_is_bad(self, row: int) -> bool:
@@ -89,6 +97,8 @@ class ListTableModel(TableModel):
         for row, row_content in zip(rows_to_add_to, row_contents):
             for col, value in enumerate(self.raw_data[row][1:], start=1):
                 self.run_checks(row, col, value)
+
+        self.data_rows_changed.emit(self._count_data_rows())        
 
     def insert_rows(self, count: int) -> None:
         last_row = self.raw_data[self.rowCount() - 1]
@@ -220,6 +230,9 @@ class ListTableModel(TableModel):
             value = self.run_checks(index.row(), index.column(), value)
             self.set_value(index, value)
             self.dataChanged.emit(index, index)
+
+            self.data_rows_changed.emit(self._count_data_rows())
+
             return True
 
         return False

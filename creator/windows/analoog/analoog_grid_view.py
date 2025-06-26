@@ -85,9 +85,13 @@ class AnaloogGridView(QtWidgets.QMainWindow):
         self.create_sip_button.setEnabled(self.model.is_data_valid())
         self.model.bad_rows_changed.connect(self.create_sip_button.setEnabled)
         
+        self.row_count_label = QtWidgets.QLabel(text="0 rijen")
+        self.model.data_rows_changed.connect(self.update_row_count_label)
+
         grid_layout.addWidget(series_label, 0, 0, 1, 4)
-        grid_layout.addWidget(self.default_sorting_button, 0, 4, 1, 1)
+        grid_layout.addWidget(self.default_sorting_button, 0, 4)
         grid_layout.addWidget(self.show_bad_rows_checkbox, 1, 0)
+        grid_layout.addWidget(self.row_count_label, 1, 4)
         grid_layout.addWidget(self.table_view, 2, 0, 1, 5)
         grid_layout.addWidget(save_button, 3, 0, 1, 2)
         grid_layout.addWidget(self.create_sip_button, 3, 2, 1, 3)
@@ -242,6 +246,17 @@ class AnaloogGridView(QtWidgets.QMainWindow):
             ).exec()
 
         self.close()
+
+    def update_row_count_label(self, row_count: int) -> None:
+        self.row_count_label.setText(f"{row_count} rijen")
+
+        if row_count > 9998:
+            stylesheet = "QLabel {color: red; }"
+        else:
+            stylesheet = "QLabel {color: black; }"
+
+        self.row_count_label.setStyleSheet(stylesheet)
+
 
     def closeEvent(self, event):
         if not self.saved:
