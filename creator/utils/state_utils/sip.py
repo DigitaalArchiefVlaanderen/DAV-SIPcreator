@@ -103,7 +103,7 @@ class SIP(QtCore.QObject):
             r"^Thumbs\.db$",
             r"^Desktop\.ini$",
             r"^\.DS_Store$",
-            r"^\._*+$",
+            r"^\._.+$",
             r"^\.Spotlight-V100$",
             r"^\.Trashes$",
             r"^\.fseventsd$"
@@ -136,6 +136,7 @@ class SIP(QtCore.QObject):
                         "geen"
                         if not os.path.isfile(real_path)
                         or os.path.getsize(real_path) == 0
+                        or any(re.match(p, file_name) is not None for p in ignored_regexes)
                         else "stuk"
                     ),
                     "Naam": os.path.basename(path_in_sip),
@@ -157,7 +158,6 @@ class SIP(QtCore.QObject):
                 for file_name, location in _get_dossier_folder_structure(
                     dossier.path, dossier.path
                 ).items()
-                if not any(re.match(p, file_name) is not None for p in ignored_regexes)
             }
 
             if all(f["Type"] == "geen" for f in file_structure.values()):

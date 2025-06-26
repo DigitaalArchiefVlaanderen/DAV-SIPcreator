@@ -278,7 +278,7 @@ class DigitalWidget(MainWidget):
             r"^Thumbs\.db$",
             r"^Desktop\.ini$",
             r"^\.DS_Store$",
-            r"^\._*+$",
+            r"^\._.+$",
             r"^\.Spotlight-V100$",
             r"^\.Trashes$",
             r"^\.fseventsd$"
