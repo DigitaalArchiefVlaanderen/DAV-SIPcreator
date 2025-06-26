@@ -220,8 +220,10 @@ class ListTableModel(TableModel):
             self.date_check(row, col, value)
 
             self.dataChanged.emit(self.index(row, col-1), self.index(row, col+1))
-        elif any(n in column for n in ("ID beschrijving", "ID verpakking")):
-            self.location_check(row, col, value)
+        elif column == "ID beschrijving":
+            self.beschrijving_check(row, col, value)
+        elif column == "ID verpakking":
+            self.verpakking_check(row, col, value)
         elif column == "Naam":
             self.name_check(row, col, value)
         elif column == "ID_Rijksregisternummer":
@@ -449,7 +451,43 @@ class ListTableModel(TableModel):
 
         self._mark_cell(row, col)
 
-    def location_check(self, row: int, col: int, value: str) -> None:
+    def beschrijving_check(self, row: int, col: int, value: str) -> None:
+        beschrijving_values = [(r, row_data[col]) for r, row_data in enumerate(self.raw_data) if r != row and row_data[col] != ""]
+        old_value = self.raw_data[row][col]
+
+        # NOTE: check if we solved duplication
+        if old_value != "":
+            old_duplicate_rows = [r for r, v in beschrijving_values if v == old_value]
+
+            if len(old_duplicate_rows) == 1:
+                self._mark_cell(
+                    row=old_duplicate_rows[0],
+                    col=col
+                )
+
+        # NOTE: empty value is not allowed
+        if value == "":
+            self._mark_cell(row, col, CellColor.RED, tooltip=f"{self.columns[col]} moet een waarde hebben")
+            return
+
+        # NOTE: check if we made new duplication
+        duplicate_rows = [r for r, v in beschrijving_values if v == value]
+
+        if len(duplicate_rows) > 0:
+            for duplicate_row in duplicate_rows + [row]:
+                self._mark_cell(
+                    row=duplicate_row,
+                    col=col,
+                    color=CellColor.RED,
+                    tooltip=f"{self.columns[col]} moet uniek zijn"
+                )
+        else:
+            self._mark_cell(
+                row=row,
+                col=col,
+            )
+
+    def verpakking_check(self, row: int, col: int, value: str) -> None:
         column = self.columns[col]
 
         if value == "":
