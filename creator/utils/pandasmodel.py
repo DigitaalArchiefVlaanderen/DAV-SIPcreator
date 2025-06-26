@@ -530,9 +530,25 @@ class PandasModel(TableModel):
                     tooltip="Sluitingsdatum kan niet voor de openingsdatum zijn"
                 )
             return
-        
+
         # If we found an issue already, stop here
         if not is_opening_value_ok or not is_closing_value_ok:
+            return
+        
+        # Make sure if one value is filled, both are
+        if opening_date is None and closing_date is not None:
+            self._mark_bad_cell(
+                row=row,
+                col=opening_col,
+                tooltip="Openingsdatum kan niet leeg zijn"
+            )
+            return
+        elif closing_date is None and opening_date is not None:
+            self._mark_bad_cell(
+                row=row,
+                col=closing_col,
+                tooltip="Sluitingsdatum kan niet leeg zijn"
+            )
             return
 
         # Dossier specific checks
