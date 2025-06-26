@@ -123,6 +123,7 @@ class TabUI(QtWidgets.QMainWindow):
 
         self.application: Application = QtWidgets.QApplication.instance()
         self.state: State = self.application.state
+        self.state.check_series_loaded()
         self.series = self.state.series
 
         self.setWindowIcon(QtGui.QIcon(resource_path("logo.ico")))
