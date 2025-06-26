@@ -745,7 +745,7 @@ class TabUI(QtWidgets.QMainWindow):
                 'Origineel Doosnummer': f'''
                     CASE WHEN "Doosnr" = '' OR "Doosnr" GLOB '[0-9][0-9][0-9][0-9]' OR "Doosnr" GLOB '[0-9][0-9][0-9]' OR "Doosnr" GLOB '[0-9][0-9]' OR "Doosnr" GLOB '[0-9]'
                         THEN substr(\'0000\' || "Doosnr", -4, 4) || \'/{self.overdrachtslijst_name.replace("'", "''")}\'
-                        ELSE "Doosnr"
+                        ELSE "Doosnr" || \'/{self.overdrachtslijst_name.replace("'", "''")}\'
                     END
                 '''
             }
