@@ -24,6 +24,7 @@ class ListItemWidget(QtWidgets.QWidget):
     edepot_id_found: QtCore.Signal = QtCore.Signal(
         *(str,), arguments=["edepot_id"]
     )
+    updated_data_changed_since_last_upload: QtCore.Signal = QtCore.Signal()
 
     def __init__(self, list_item: ListItem):
         super().__init__()
@@ -56,8 +57,11 @@ class ListItemWidget(QtWidgets.QWidget):
 
         self.upload_button = QtWidgets.QPushButton(text="Upload")
         self.upload_button.clicked.connect(self.upload_button_clicked)
-        self.upload_button.setEnabled(self.grid_view.model.is_data_valid())
-        self.grid_view.model.bad_rows_changed.connect(self.upload_button.setEnabled)
+        self.upload_button.setEnabled(self.list_item.data_changed_since_last_upload and self.grid_view.model.is_data_valid())
+
+        # NOTE: even if the data is not saved yet, we need to enable the button
+        self.grid_view.model.data_changed.connect(lambda: self.upload_button.setEnabled(self.grid_view.model.is_data_valid()))
+        self.updated_data_changed_since_last_upload.connect(lambda: self.upload_button.setEnabled(False))
 
         self.edepot_button = QtWidgets.QPushButton(text="Open E-depot")
         self.edepot_button.clicked.connect(self.edepot_button_clicked)
@@ -79,6 +83,9 @@ class ListItemWidget(QtWidgets.QWidget):
                 text=f"Je FTPS connectie gegevens staan niet in orde voor omgeving '{self.sip.environment.name}'",
             ).exec()
             return
+
+        # NOTE: disable button now
+        self.upload_button.setEnabled(False)
 
         sip_location = os.path.join(self.state.configuration.sips_location, f"{self.list_item.grid.series._id}-{self.list_item.name}-SIPC.zip")
         md5_location = os.path.join(self.state.configuration.sips_location, f"{self.list_item.grid.series._id}-{self.list_item.name}-SIPC.xml")
@@ -113,6 +120,7 @@ class ListItemWidget(QtWidgets.QWidget):
                 session.storbinary(f"STOR {os.path.basename(md5_location)}", f)
 
         self._update_edepot_id()
+        self._update_data_changed_since_last_upload()
 
     def _update_edepot_id(self) -> None:
         edepot_id = None
@@ -136,6 +144,15 @@ class ListItemWidget(QtWidgets.QWidget):
             ''')
 
         self.edepot_id_found.emit(edepot_id)
+
+    def _update_data_changed_since_last_upload(self) -> None:
+        with sql.connect(self.list_item.source_path) as conn:
+            conn.execute(f'''
+                UPDATE extra
+                SET data_changed_since_last_upload=0;
+            ''')
+        
+        self.updated_data_changed_since_last_upload.emit()
 
     def edepot_id_found_handler(self, edepot_id: str) -> None:
         self.list_item.edepot_id = edepot_id

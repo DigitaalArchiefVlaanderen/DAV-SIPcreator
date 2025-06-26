@@ -60,21 +60,21 @@ class AnaloogWidget(MainWidget):
         """
             Load all the existing dbs into the list view
         """
-        def _read_db_data(path: str) -> tuple[Series, list[str], list[list[str]]]:
+        def _read_db_data(path: str) -> tuple[Series, str, bool, list[str], list[list[str]]]:
             with sql.connect(path) as conn:
-                extra_result = conn.execute("""
+                series_json, edepot_id, data_changed_since_last_upload = conn.execute("""
                     SELECT *
                     FROM extra;
                 """).fetchone()
                 columns_result = conn.execute("PRAGMA table_info(data);").fetchall()
                 data_result = conn.execute("SELECT * FROM data;").fetchall()
 
-                series = Series.from_dict(json.loads(extra_result[0]))
-                edepot_id = extra_result[1]
+                series = Series.from_dict(json.loads(series_json))
+                data_changed_since_last_upload = bool(data_changed_since_last_upload)
                 columns = [column_name.strip('"') for _, column_name, *_ in columns_result]
                 data = [list(r) for r in data_result]
 
-            return series, edepot_id, columns, data
+            return series, edepot_id, data_changed_since_last_upload, columns, data
 
         os.makedirs(self.state.configuration.analoog_location, exist_ok=True)
 
@@ -86,13 +86,14 @@ class AnaloogWidget(MainWidget):
             db_path = os.path.join(self.state.configuration.analoog_location, file)
 
             # 1: Load data
-            series, edepot_id, columns, data = _read_db_data(db_path)
+            series, edepot_id, data_changed_since_last_upload, columns, data = _read_db_data(db_path)
 
             # 2: Create widget
             list_item = AnaloogListItem(
                 source_path=db_path,
                 name=file[:-3],
                 edepot_id=edepot_id,
+                data_changed_since_last_upload=data_changed_since_last_upload,
                 grid=AnaloogGrid(
                     series=series,
                     columns=columns,
@@ -159,10 +160,11 @@ class AnaloogWidget(MainWidget):
                 conn.execute("""
                     CREATE TABLE extra (
                         series_json TEXT,
-                        edepot_id TEXT
+                        edepot_id TEXT,
+                        data_changed_since_last_upload INTEGER
                     );
                 """)
-                conn.execute(f"INSERT INTO extra VALUES (?, ?)", [json.dumps(list_item.grid.series.to_dict()), ""])
+                conn.execute(f"INSERT INTO extra VALUES (?, ?, ?)", [json.dumps(list_item.grid.series.to_dict()), "", 1])
 
             # 3: Create list item widget
             list_item_widget = AnaloogListItemWidget(list_item=list_item)

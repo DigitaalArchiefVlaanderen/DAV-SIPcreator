@@ -18,6 +18,7 @@ class ListTableModel(TableModel):
     data_rows_changed: QtCore.Signal = QtCore.Signal(
         *(int,), arguments=["n_data_rows"]
     )
+    data_changed: QtCore.Signal = QtCore.Signal()
 
     def __init__(self, list_item: ListItem):
         super().__init__()
@@ -98,7 +99,8 @@ class ListTableModel(TableModel):
             for col, value in enumerate(self.raw_data[row][1:], start=1):
                 self.run_checks(row, col, value)
 
-        self.data_rows_changed.emit(self._count_data_rows())        
+        self.data_rows_changed.emit(self._count_data_rows())
+        self.data_changed.emit()
 
     def insert_rows(self, count: int) -> None:
         last_row = self.raw_data[self.rowCount() - 1]
@@ -241,6 +243,7 @@ class ListTableModel(TableModel):
             self.dataChanged.emit(index, index)
 
             self.data_rows_changed.emit(self._count_data_rows())
+            self.data_changed.emit()
 
             return True
 

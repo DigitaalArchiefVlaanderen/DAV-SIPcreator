@@ -28,6 +28,8 @@ from creator.utils.proxymodel import CustomSortFilterModel
 
 
 class AnaloogGridView(QtWidgets.QMainWindow):
+    data_changed: QtCore.Signal = QtCore.Signal()
+
     def __init__(self, list_item: ListItem):
         super().__init__()
 
@@ -69,6 +71,7 @@ class AnaloogGridView(QtWidgets.QMainWindow):
         self.model = ListTableModel(list_item=self.list_item)
         self.model.first_open()
         self.model.dataChanged.connect(lambda: self._reset_saved())
+        self.model.data_changed.connect(self.data_changed.emit)
         self.proxy_model = CustomSortFilterModel()
         self.proxy_model.setSourceModel(self.model)
         self.table_view.setModel(self.proxy_model)
@@ -122,11 +125,19 @@ class AnaloogGridView(QtWidgets.QMainWindow):
                 title="Ongekende fout",
                 text="Ongekende fout is opgetreden tijdens het opslaan van de grid.",
             ).exec()
+            return
         
+        # NOTE: this only triggers if the data has changed since last save
         if not self.saved:
             Dialog(
                 title="Opgeslagen", text="De metadata is succesvol opgeslagen."
             ).exec()
+
+            with sql.connect(self.list_item.source_path) as conn:
+                conn.execute(f'''
+                    UPDATE extra
+                    SET data_changed_since_last_upload=0;
+                ''')
 
         self.saved = True
 

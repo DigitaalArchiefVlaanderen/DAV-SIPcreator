@@ -10,3 +10,4 @@ class ListItem:
     name: str
     edepot_id: str
     grid: Grid
+    data_changed_since_last_upload: bool = True
