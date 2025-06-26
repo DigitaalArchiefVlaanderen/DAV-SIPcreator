@@ -440,7 +440,7 @@ class TabUI(QtWidgets.QMainWindow):
                 if series.status != "Published":
                     continue
 
-                series_combobox.addItem(text=series.get_name(), userData=series._id)
+                series_combobox.addItem(series.get_name(), userData=series._id)
 
         def _set_uris(model: SQLliteModel) -> None:
             uri_pre = self.state.configuration.active_environment.get_serie_register_uri()
