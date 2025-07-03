@@ -118,7 +118,7 @@ class SIPWidget(QtWidgets.QFrame):
 
         self.open_explorer_button = QtWidgets.QPushButton(text="Bestandslocatie")
         self.open_explorer_button.clicked.connect(
-            lambda: os.startfile(self.state.configuration.sip_db_location)
+            lambda: os.startfile(self.state.configuration.sips_location)
         )
         self.open_explorer_button.setEnabled(False)
 

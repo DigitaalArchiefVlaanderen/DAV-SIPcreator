@@ -85,7 +85,7 @@ class AnaloogGridView(QtWidgets.QMainWindow):
         save_button.clicked.connect(self.save_button_click)
 
         self.create_sip_button = QtWidgets.QPushButton(text="Maak SIP")
-        self.create_sip_button.clicked.connect(self.create_sip_click)
+        self.create_sip_button.clicked.connect(lambda: self.create_sip_click())
         self.create_sip_button.setEnabled(self.model.is_data_valid())
         self.model.bad_rows_changed.connect(self.create_sip_button.setEnabled)
         
@@ -260,8 +260,8 @@ class AnaloogGridView(QtWidgets.QMainWindow):
 
         if manual:
             Dialog(
-                title="SIPs aangemaakt",
-                text="SIPS zijn aangemaakt voor de overdrachtslijst."
+                title="SIP aangemaakt",
+                text="De SIP is aangemaakt"
             ).exec()
 
         self.close()

@@ -49,7 +49,7 @@ class AnaloogWidget(MainWidget):
         start_sip_button.clicked.connect(self.start_sip_clicked)
 
         file_location_button = QtWidgets.QPushButton(text="Bestandslocatie")
-        file_location_button.clicked.connect(lambda: os.startfile(self.state.configuration.analoog_location))
+        file_location_button.clicked.connect(lambda: os.startfile(self.state.configuration.sips_location))
 
         self._layout.addWidget(title, 0, 0)
         self._layout.addWidget(start_sip_button, 1, 0)
