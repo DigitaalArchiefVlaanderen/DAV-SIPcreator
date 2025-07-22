@@ -1,14 +1,13 @@
 from PySide6 import QtWidgets, QtGui, QtCore
 
-import shutil
 import os
 import ftplib
-import uuid
 import socket
 import threading
 
 from ..application import Application
 
+from ..controllers.db_controller import SIPDBController, NotASIPDBException
 from ..controllers.file_controller import FileController
 
 from ..utils.state import State
@@ -16,6 +15,7 @@ from ..utils.state_utils.sip import SIP
 from ..utils.sip_status import SIPStatus
 
 from ..widgets.warning_dialog import WarningDialog
+from ..widgets.dialog import YesNoDialog
 
 from ..windows.sip_view import SIPView
 
@@ -42,6 +42,7 @@ class SIPWidget(QtWidgets.QFrame):
         self.sip_location = ""
 
         self.setFrameShape(QtWidgets.QFrame.Panel)
+        self.setFixedHeight(250)
 
         layout = QtWidgets.QHBoxLayout()
         self.setLayout(layout)
@@ -79,7 +80,7 @@ class SIPWidget(QtWidgets.QFrame):
 
         dossiers_scrollarea = QtWidgets.QScrollArea()
         dossiers_scrollarea.setWidgetResizable(True)
-        dossiers_scrollarea.setMinimumHeight(200)
+        dossiers_scrollarea.setMaximumHeight(180)
         dossiers_scrollarea.setMinimumWidth(100)
         dossiers_scrollarea.setStyleSheet("border: 0;")
         dossiers_widget.setFrameShape(QtWidgets.QFrame.Box)
@@ -117,16 +118,11 @@ class SIPWidget(QtWidgets.QFrame):
 
         self.open_explorer_button = QtWidgets.QPushButton(text="Bestandslocatie")
         self.open_explorer_button.clicked.connect(
-            lambda: os.startfile(
-                os.path.join(
-                    self.state.configuration.misc.save_location,
-                    FileController.SIP_STORAGE,
-                )
-            )
+            lambda: os.startfile(self.state.configuration.sips_location)
         )
         self.open_explorer_button.setEnabled(False)
 
-        self.open_edepot_button = QtWidgets.QPushButton(text="Edepot locatie")
+        self.open_edepot_button = QtWidgets.QPushButton(text="E-depot locatie")
         self.open_edepot_button.clicked.connect(
             lambda: os.startfile(
                 f"{self.state.configuration.active_environment.api_url}/input/processing-list/{self.sip.edepot_sip_id}"
@@ -134,10 +130,15 @@ class SIPWidget(QtWidgets.QFrame):
         )
         self.open_edepot_button.setEnabled(False)
 
+        self.delete_button = QtWidgets.QPushButton(text="Verwijder")
+        self.delete_button.clicked.connect(self.delete_button_clicked)
+        self.delete_button.setEnabled(True)
+
         controls_layout.addWidget(self.open_button)
         controls_layout.addWidget(self.upload_button)
         controls_layout.addWidget(self.open_explorer_button)
         controls_layout.addWidget(self.open_edepot_button)
+        controls_layout.addWidget(self.delete_button)
         controls_layout.addStretch()
 
         # Layout
@@ -145,29 +146,29 @@ class SIPWidget(QtWidgets.QFrame):
         layout.addWidget(dossiers_widget)
         layout.addWidget(controls)
 
-    def open_button_clicked(self):
-        if not self.sip.environment.has_api_credentials():
-            WarningDialog(
-                title="Connectie fout",
-                text=f"Je API connectie gegevens staan niet in orde voor omgeving '{self.sip.environment.name}'",
-            ).exec()
-            return
-
+    def open_button_clicked(self) -> None:
         self.__sip_view = SIPView(sip_widget=self)
 
-        if (
-            FileController.existing_grid_path(
-                self.application.state.configuration, self.sip
-            )
-            is not None
-        ):
-            self.import_template_df = FileController.existing_grid(
-                self.application.state.configuration, self.sip
-            )
+        db_path = os.path.join(self.state.configuration.sip_db_location, f"{self.sip.name}.db")
+        db_controller = SIPDBController(db_path)
+
+        db_exists = os.path.exists(db_path)
+        db_is_valid = db_controller.is_valid_db()
+
+        if db_exists:
+            if not db_is_valid:
+                raise NotASIPDBException(f"Database laden is gefaald.\nDe database op locatie '{db_path}' is geen SIP database of is corrupt.")
+
+            self.import_template_df = db_controller.read_data_table()
             self.__sip_view.open_grid_clicked(first_open=False)
-        else:
-            self.__sip_view.setup_ui()
-            self.__sip_view.show()
+            return
+        
+        # NOTE: can only continue if we can load the series
+        if not self.state.check_series_loaded():
+            return
+
+        self.__sip_view.setup_ui()
+        self.__sip_view.show()
 
     def upload_button_clicked(self):
         if not self.sip.environment.has_ftps_credentials():
@@ -223,6 +224,72 @@ class SIPWidget(QtWidgets.QFrame):
         self.sip.set_status(SIPStatus.UPLOADING)
         t.start()
 
+    def delete_button_clicked(self) -> None:
+        # Deletes the SIP and it's corresponding files (md5)
+        dialog = YesNoDialog(
+            title="Verwijder files",
+            text="Ben je zeker dat je de SIP en al zijn bijhorende files wilt verwijderen?\nDeze actie kan niet ongedaan gemaakt worden.",
+        )
+        dialog.exec()
+
+        if not dialog.result():
+            return
+
+        sip_location = os.path.join(
+            self.state.configuration.sips_location,
+            self.sip.file_name,
+        )
+        sidecar_location = os.path.join(
+            self.state.configuration.sips_location,
+            self.sip.sidecar_file_name,
+        )
+        db_location = os.path.join(
+            self.state.configuration.sip_db_location,
+            f"{self.sip.name}.db"
+        )
+
+        # NOTE: this is the most likely one to fail, hence we try it first
+        try:
+            import gc
+            import sqlite3 as sql
+            
+            for obj in gc.get_objects():
+                try:
+                    # Check if the object is a SQLite connection
+                    if isinstance(obj, sql.Connection):
+                        try:
+                            *_, db_path = obj.cursor().execute("PRAGMA database_list;").fetchone()
+                            print(db_path)
+
+                            if db_path == db_location:
+                                obj.close()
+                                print(f"Closed connection to {db_path}")
+                        except:
+                            # NOTE: already closed
+                            pass
+                except Exception as e:
+                    raise Exception("Error tijdens het sluiten van de database connectie")
+
+            os.remove(db_location)
+        except FileNotFoundError:
+            pass
+
+        try:
+            os.remove(sip_location)
+        except FileNotFoundError:
+            pass
+
+        try:
+            os.remove(sidecar_location)
+        except FileNotFoundError:
+            pass
+
+        self.deleteLater()
+
+        # NOTE: set the status to deleted, this will be caught automatically and deleted appropriately
+        self.sip.set_status(SIPStatus.DELETED)
+
+
     # Handlers
     def _update_status(self, status: SIPStatus) -> None:
         self.sip_status_label.setText(status.get_status_label())
@@ -233,11 +300,13 @@ class SIPWidget(QtWidgets.QFrame):
             self.upload_button.setEnabled(False)
             self.open_explorer_button.setEnabled(False)
             self.open_edepot_button.setEnabled(False)
+            self.delete_button.setEnabled(True)
         elif status == SIPStatus.SIP_CREATED:
-            self.open_button.setEnabled(False)
+            self.open_button.setEnabled(True)
             self.upload_button.setEnabled(True)
             self.open_explorer_button.setEnabled(True)
             self.open_edepot_button.setEnabled(False)
+            self.delete_button.setEnabled(True)
         elif status in (
             SIPStatus.UPLOADING,
             SIPStatus.UPLOADED,
@@ -246,6 +315,7 @@ class SIPWidget(QtWidgets.QFrame):
             self.upload_button.setEnabled(False)
             self.open_explorer_button.setEnabled(True)
             self.open_edepot_button.setEnabled(False)
+            self.delete_button.setEnabled(True)
         elif status in (
             SIPStatus.PROCESSING,
             SIPStatus.ACCEPTED,
@@ -255,6 +325,7 @@ class SIPWidget(QtWidgets.QFrame):
             self.upload_button.setEnabled(False)
             self.open_explorer_button.setEnabled(True)
             self.open_edepot_button.setEnabled(True)
+            self.delete_button.setEnabled(True)
 
     def _update_name(self, name: str) -> None:
         # The updating of the status is handled separately

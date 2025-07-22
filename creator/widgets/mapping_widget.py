@@ -39,7 +39,7 @@ class TagListWidget(QtWidgets.QScrollArea):
         self.vertical_layout.addWidget(TagWidget(self.button_group, tag))
 
     def clear_tags(self):
-        for i in range(self.vertical_layout.count()):
+        for i in range(1, self.vertical_layout.count()):
             widget = self.vertical_layout.itemAt(i).widget()
             widget.deleteLater()
 
@@ -92,12 +92,13 @@ class TagMappingWidget(QtWidgets.QFrame):
         self.horizontal_layout.addWidget(self.output_mapping)
 
     def add_to_metadata(self, tags: list):
+        self.metadata_mapping.clear_tags()
         self.metadata_mapping.add_tags(tags)
 
     def add_to_import_template(self, tags: list):
         self.import_mapping.clear_tags()
         self.import_mapping.add_tags(
-            [t for t in tags if t not in ("Path in SIP", "Type", "DossierRef")]
+            [t for t in tags if t not in ("Type", "DossierRef", "Analoog?")]
         )
 
     def add_to_mapping(self, tags: list):

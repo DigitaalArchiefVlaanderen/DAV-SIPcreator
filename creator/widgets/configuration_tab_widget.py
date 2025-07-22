@@ -46,7 +46,7 @@ class ConnectionConfigurationTab(QtWidgets.QWidget):
     def get_tab_info(self):
         return {
             connection_type: {
-                key: text_field.toPlainText() for key, text_field in values.items()
+                key: text_field.toPlainText().strip(" \n") for key, text_field in values.items()
             }
             for connection_type, values in self.tab_links.items()
         }
@@ -70,17 +70,32 @@ class MiscConfigurationTab(QtWidgets.QWidget):
         title.setFont(font)
         self.grid_layout.addWidget(title, 0, 0)
 
+        # NOTE: SIP save location
         key = "SIP Creator opslag locatie"
         value = os.path.normpath(misc.save_location)
         label = QtWidgets.QLabel(text=key)
+
         self.location_label = QtWidgets.QLabel(text=value)
         change_location_button = QtWidgets.QPushButton(text="Selecteer opslag locatie")
         change_location_button.clicked.connect(self.change_location_clicked)
         self.tab_links[key] = self.location_label
+        
+        # NOTE: bestandscontrole lijst location
+        key = "Bestandscontrole lijst locatie"
+        value = os.path.normpath(misc.bestandscontrole_lijst_location)
+        bestandscontrole_label = QtWidgets.QLabel(text=key)
+
+        self.bestandscontrole_location_label = QtWidgets.QLabel(text=value)
+        change_bestandscontrole_location_button = QtWidgets.QPushButton(text="Selecteer locatie")
+        change_bestandscontrole_location_button.clicked.connect(self.change_bestandscontrole_location_clicked)
+        self.tab_links[key] = self.bestandscontrole_location_label
 
         self.grid_layout.addWidget(label, 1, 0)
         self.grid_layout.addWidget(self.location_label, 1, 1)
         self.grid_layout.addWidget(change_location_button, 2, 0, 1, 2)
+        self.grid_layout.addWidget(bestandscontrole_label, 3, 0)
+        self.grid_layout.addWidget(self.bestandscontrole_location_label, 3, 1)
+        self.grid_layout.addWidget(change_bestandscontrole_location_button, 4, 0, 1, 2)
 
         self.environment_selection_group = QtWidgets.QButtonGroup()
         self.role_selection_group = QtWidgets.QButtonGroup()
@@ -88,6 +103,8 @@ class MiscConfigurationTab(QtWidgets.QWidget):
 
         button_group_info = [
             ("Actieve omgeving", misc.environments_activity, self.environment_selection_group),
+            ("Actieve rol", misc.role_activity, self.role_selection_group),
+            ("Actieve SIP type", misc.type_activity, self.type_selection_group),
         ]
 
         for index, (title, activity, button_group) in enumerate(button_group_info):
@@ -116,12 +133,16 @@ class MiscConfigurationTab(QtWidgets.QWidget):
                     button.text(): button.isChecked()
                     for button in self.environment_selection_group.buttons()
                 },
+                "Rollen": {
+                    button.text(): button.isChecked()
+                    for button in self.role_selection_group.buttons()
+                },
                 "Type SIPs": {
                     button.text(): button.isChecked()
                     for button in self.type_selection_group.buttons()
                 },
             },
-            **{key: text_field.text() for key, text_field in self.tab_links.items()},
+            **{key: text_field.text().strip(" \n") for key, text_field in self.tab_links.items()},
         }
 
     def change_location_clicked(self):
@@ -132,4 +153,14 @@ class MiscConfigurationTab(QtWidgets.QWidget):
         if folder_path != "":
             self.location_label.setText(
                 os.path.normpath(os.path.join(folder_path, "SIP_Creator"))
+            )
+
+    def change_bestandscontrole_location_clicked(self) -> None:
+        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            caption="Selecteer locatie", filter="Bestandscontrole lijst (*.xlsx)"
+        )
+
+        if file_path != "":
+            self.bestandscontrole_location_label.setText(
+                os.path.normpath(file_path)
             )

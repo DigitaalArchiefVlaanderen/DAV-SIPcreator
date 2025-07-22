@@ -4,12 +4,9 @@ from PySide6 import QtWidgets, QtCore
 
 from ..application import Application
 
-from ..utils.state_utils.dossier import Dossier
 from .dossier_widget import DossierWidget
 from .sip_widget import SIPWidget
-from .dialog import Dialog
 
-from ..utils.configuration import Environment
 from ..utils.state import State
 from ..utils.sip_status import SIPStatus
 
@@ -144,7 +141,7 @@ class SearchableListWidget(QtWidgets.QWidget):
 
 
 class SearchableSelectionListView(SearchableListWidget):
-    def __init__(self):
+    def __init__(self, item_type_str: str = "dossiers"):
         super().__init__()
 
         self._field = "dossier_label"
@@ -152,12 +149,12 @@ class SearchableSelectionListView(SearchableListWidget):
         self.count_label.setText("0 / 0")
 
         self.remove_selected_button = QtWidgets.QPushButton(
-            text="Verwijder geselecteerde dossiers"
+            text=f"Verwijder geselecteerde {item_type_str}"
         )
         self.remove_selected_button.clicked.connect(self.remove_selected_clicked)
         self.remove_selected_button.setEnabled(False)
 
-        self.select_all_button = QtWidgets.QCheckBox(text="Selecteer alle dossiers")
+        self.select_all_button = QtWidgets.QCheckBox(text=f"Selecteer alle {item_type_str}")
         self.select_all_button.clicked.connect(self.select_all_clicked)
 
         self.grid_layout.addWidget(self.select_all_button, 0, 0, 1, 2)
@@ -273,6 +270,16 @@ class SIPListWidget(SearchableListWidget):
         self.sips_status_filter.currentTextChanged.connect(self.reload_widgets)
 
         self.grid_layout.addWidget(self.sips_status_filter, 0, 0, 1, 2)
+
+    def next_sip_name(self) -> str:
+        next_sip_number = 1
+
+        sip_names = [sipwidget["reference"].sip_name for sipwidget in self.widgets]
+
+        while f"SIP {next_sip_number}" in sip_names:
+            next_sip_number += 1
+
+        return f"SIP {next_sip_number}"
 
     def search_widgets(self):
         widgets_to_show: List[SIPWidget] = []

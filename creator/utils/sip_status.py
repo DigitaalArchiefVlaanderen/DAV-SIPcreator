@@ -5,6 +5,7 @@ class SIPStatus(enum.Enum):
     IN_PROGRESS = "color: #000000;"
     SIP_CREATED = "color: #010101;"
     UPLOADING = "color: #68B581;"
+    DELETED = "color: white"
 
     # Status coming from API
     UPLOADED = "color: #42A362;"
@@ -20,6 +21,8 @@ class SIPStatus(enum.Enum):
                 return "Klaar voor upload"
             case "UPLOADING":
                 return "Bezig met upload"
+            case "DELETED":
+                return "Aan het verwijderen"
             case "UPLOADED":
                 return "Klaar met upload"
             case "PROCESSING":

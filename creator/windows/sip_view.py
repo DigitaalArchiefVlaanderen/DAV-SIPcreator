@@ -1,15 +1,18 @@
 from PySide6 import QtWidgets, QtGui, QtCore
 
 import pandas as pd
+import numpy as np
 import json
-
-from typing import List
+import os
 
 from ..application import Application
 from ..controllers.api_controller import APIController, APIException
+from ..controllers.excel_controller import ExcelController
+from ..controllers.db_controller import SIPDBController
 from ..utils.sip_status import SIPStatus
-from ..utils.series import Series
-from ..utils.state_utils.sip import FilenameNotUniqueException
+from ..utils.state import State
+from ..utils.path_loader import resource_path
+from ..utils.state_utils.sip import SIP, FilenameNotUniqueException
 from ..widgets.mapping_widget import TagMappingWidget
 from ..widgets.toolbar import Toolbar
 from ..widgets.warning_dialog import WarningDialog
@@ -21,13 +24,14 @@ from .folder_structure_view import FolderStructure
 class SIPView(QtWidgets.QMainWindow):
     def __init__(self, sip_widget):
         super().__init__()
+        # NOTE: avoid circular import
+        from ..widgets.sip_widget import SIPWidget
 
         self.application: Application = QtWidgets.QApplication.instance()
-        self.config_controller = self.application.config_controller
-        self.sip_widget = sip_widget
-        self.sip = self.sip_widget.sip
+        self.state: State = self.application.state
 
-        self.listed_series: List[Series] = []
+        self.sip_widget: SIPWidget = sip_widget
+        self.sip: SIP = self.sip_widget.sip
 
         self.folder_structure_view = None
 
@@ -39,6 +43,8 @@ class SIPView(QtWidgets.QMainWindow):
         self.setCentralWidget(central_widget)
         self.toolbar = Toolbar()
         self.addToolBar(self.toolbar)
+
+        self.setWindowIcon(QtGui.QIcon(resource_path("logo.ico")))
 
         # Show SIP info as passed down by the SIPWidget
         # Add controls to select Series, MetadataFile, do linking and generate folder structure
@@ -56,12 +62,12 @@ class SIPView(QtWidgets.QMainWindow):
         self.title.editingFinished.connect(
             lambda: self.sip_widget.sip.set_name(self.title.text())
         )
+        self.title.setMaxLength(185)
 
         status = QtWidgets.QLabel(text=self.sip_widget.sip.status.get_status_label())
         status.setStyleSheet(self.sip_widget.sip.status.value)
         self.title.setEnabled(self.sip_widget.sip.status == SIPStatus.IN_PROGRESS)
 
-        configuration = self.config_controller.get_configuration()
         self.series_combobox = QtWidgets.QComboBox()
         self.series_combobox.setEditable(True)
         self.series_combobox.setInsertPolicy(QtWidgets.QComboBox.NoInsert)
@@ -74,16 +80,7 @@ class SIPView(QtWidgets.QMainWindow):
         self.series_combobox.setMaximumWidth(900)
 
         # Text will be set dynamically later
-        self.series_amount_label = QtWidgets.QLabel()
-
-        try:
-            self.listed_series = APIController.get_series(configuration)
-        except APIException:
-            self.listed_series = []
-
-        # We had no series to show
-        if len(self.listed_series) == 0:
-            self.deleteLater()
+        self.series_amount_label = QtWidgets.QLabel(text=str(len(self.state.series)))
 
         self.set_series_combobox_items(status="Published")
 
@@ -146,7 +143,7 @@ class SIPView(QtWidgets.QMainWindow):
             self.series_combobox.removeItem(i)
 
         self.series_combobox.addItems(
-            [s.get_name() for s in self.listed_series if s.status == status]
+            [s.get_name() for s in self.state.series if s.status == status]
         )
         self.series_amount_label.setText(f"{self.series_combobox.count()} serie(s)")
 
@@ -156,21 +153,19 @@ class SIPView(QtWidgets.QMainWindow):
         )
 
         if metadata_path != "":
-            self.sip_widget.sip.set_metadata_file_path(metadata_path)
+            self.sip.set_metadata_file_path(metadata_path)
 
-            self.metadata_path_label.setText(self.sip_widget.sip.metadata_file_path)
+            self.metadata_path_label.setText(self.sip.metadata_file_path)
 
-            self.sip_widget.metadata_df = pd.read_excel(
-                self.sip_widget.sip.metadata_file_path, dtype=str
-            )
+            self.sip_widget.metadata_df = ExcelController.read_excel(self.sip.metadata_file_path)
 
-            # Only allow columns where no field is empty at all
+            # Only allow columns where not all fields are empty
             columns_without_empty_fields = [
                 c
-                for c, has_empty in dict(
-                    self.sip_widget.metadata_df.eq("").any()
+                for c, all_empty in dict(
+                    self.sip_widget.metadata_df.eq("").all()
                 ).items()
-                if not has_empty
+                if not all_empty
             ]
 
             self.tag_mapping_widget.add_to_metadata(columns_without_empty_fields)
@@ -181,41 +176,43 @@ class SIPView(QtWidgets.QMainWindow):
 
         # Only select series if given text matches an existing series
         try:
-            series = [s for s in self.listed_series if s.get_name() == series_label][0]
+            series = [s for s in self.state.series if s.get_name() == series_label][0]
         except IndexError:
             return
 
         try:
             self.import_template_location = APIController.get_import_template(
-                self.config_controller.get_configuration(),
+                self.state.configuration,
                 series_id=series._id,
             )
         except APIException:
             return
 
-        self.sip_widget.import_template_df = pd.read_excel(
-            self.import_template_location, engine="openpyxl", dtype=str
-        )
+        self.sip_widget.import_template_df = ExcelController.read_excel(self.import_template_location)
         self.tag_mapping_widget.add_to_import_template(
             self.sip_widget.import_template_df.columns
         )
-        self.sip_widget.sip.set_series(series)
+        self.sip.set_series(series)
 
         self.open_grid_button.setEnabled(True)
 
     def open_grid_clicked(self, first_open=True):
+        db_controller = SIPDBController(
+            os.path.join(self.state.configuration.sip_db_location, f"{self.sip.name}.db")
+        )
+
         if first_open:
             tag_mapping = self.tag_mapping_widget.get_mapping()
 
-            if len(tag_mapping) > 1 and "Naam" not in tag_mapping.values():
+            if len(tag_mapping) > 0 and "Path in SIP" not in tag_mapping.values():
                 WarningDialog(
                     title="Mapping fout",
-                    text="Een mapping naar 'Naam' in het importsjabloon moet opgegeven worden",
+                    text="Een mapping naar 'Path in SIP' in het importsjabloon moet opgegeven worden",
                 ).exec()
                 return
 
             # Save the data as part of the SIPWidget
-            self.sip_widget.sip.set_tag_mapping(tag_mapping)
+            self.sip.set_tag_mapping(tag_mapping)
 
             # NOTE: this should not be needed if proper linking is provided
             self.sip_widget.import_template_location = self.import_template_location
@@ -229,7 +226,13 @@ class SIPView(QtWidgets.QMainWindow):
             if not first_open:
                 self.__grid_view.load_table()
             else:
-                self.__grid_view.fill_table()
+                df = self.__grid_view.fill_table()
+
+                # NOTE: create db here
+                db_controller.create_db(
+                    df,
+                    self.sip,
+                )
         except FilenameNotUniqueException as exc:
             WarningDialog(
                 title="Overlapende naam",
@@ -241,25 +244,47 @@ class SIPView(QtWidgets.QMainWindow):
         self.close()
 
     def folder_structure_click(self) -> None:
-        def _save_mapping(name_map_column: str, folder_structure: list) -> None:
+        def _save_mapping(path_in_sip_map_column: str, folder_structure: list) -> None:
             df = self.sip_widget.metadata_df
+
+            # NOTE: only check for files (anything with an extension)
+            df_sub = df[df[path_in_sip_map_column].str.contains(r"\.[a-zA-Z0-9]+$", regex=True, na=False)][[*folder_structure]].apply(lambda x: x.str.strip())
+
+            if np.any(df_sub.isna()) or np.any(df_sub == ""):
+                WarningDialog(
+                    title="Mappenstructuur mapping fout",
+                    text="Alle kolommen die gebruikt worden voor de mappenstructuur moeten verplicht een waarde hebben.",
+                ).exec()
+                return
+
+            # Kamerplanten/groot/monstera.docx
+            # jaar -> dor of niet dor
+            # Kamerplanten/groot/**2022/dor**/monstera.docx
+
+            df["__folder"] = df[path_in_sip_map_column].apply(lambda x: x.rsplit("/", 1)[0])
+            df["__file"] = df[path_in_sip_map_column].apply(lambda x: "" if len(x.rsplit("/", 1)) == 1 else x.rsplit("/", 1)[1])
+
             folder_mapping = {
-                name: mapped_name
-                for name, mapped_name in zip(
-                    df[name_map_column],
-                    df[[*folder_structure, name_map_column]].agg("/".join, axis=1),
+                path_in_sip: mapped_name
+                for path_in_sip, mapped_name in zip(
+                    df[path_in_sip_map_column],
+                    df[["__folder", *folder_structure, "__file"]].fillna("").astype(str).convert_dtypes().agg("/".join, axis=1),
                 )
+                # NOTE: only do aggregate mapping if it's a stuk (with an extension)
+                if os.path.splitext(path_in_sip)[1] != ""
             }
+
+            df.drop(["__folder", "__file"], axis=1)
 
             self.sip_widget.sip.folder_mapping = folder_mapping
 
         tag_mapping = self.tag_mapping_widget.get_mapping()
 
         # Make sure we already know which column maps to name
-        if "Naam" not in tag_mapping.values():
+        if "Path in SIP" not in tag_mapping.values():
             WarningDialog(
                 title="Mapping fout",
-                text="Een mapping naar 'Naam' in het importsjabloon moet opgegeven worden",
+                text="Een mapping naar 'Path in SIP' in het importsjabloon moet opgegeven worden",
             ).exec()
             return
 
@@ -267,18 +292,20 @@ class SIPView(QtWidgets.QMainWindow):
             self.folder_structure_view = FolderStructure(self.sip_widget.sip.name)
             self.folder_structure_view.setup_ui()
 
-            name_map_column = [k for k, v in tag_mapping.items() if v == "Naam"][0]
+            path_in_sip_map_column = [k for k, v in tag_mapping.items() if v == "Path in SIP"][0]
+            # Only allow columns where not all fields are empty
             columns_without_empty_fields = [
                 c
-                for c, has_empty in dict(
-                    self.sip_widget.metadata_df.eq("").any()
+                for c, all_empty in dict(
+                    self.sip_widget.metadata_df.eq("").all()
                 ).items()
-                if not has_empty and c != name_map_column
+                if not all_empty and c != path_in_sip_map_column
             ]
+
             self.folder_structure_view.add_to_metadata(columns_without_empty_fields)
             self.folder_structure_view.closed.connect(
                 lambda f: _save_mapping(
-                    name_map_column=name_map_column, folder_structure=f
+                    path_in_sip_map_column=path_in_sip_map_column, folder_structure=f
                 )
             )
 

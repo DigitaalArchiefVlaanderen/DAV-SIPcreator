@@ -1,18 +1,25 @@
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtWidgets, QtCore, QtGui
 import pandas as pd
-import numpy as np
 
-from datetime import datetime
 import os
+from datetime import datetime
 
-from ..application import Application
-from ..controllers.file_controller import FileController
-from ..utils.sip_status import SIPStatus
-from ..utils.pandasmodel import PandasModel, Color
-from ..widgets.toolbar import Toolbar
-from ..widgets.warning_dialog import WarningDialog
-from ..widgets.dialog import Dialog
-from ..widgets.tableview_widget import TableView
+from creator.application import Application
+
+from creator.controllers.file_controller import FileController
+from creator.controllers.db_controller import SIPDBController, NotASIPDBException
+
+from creator.utils.sip_status import SIPStatus
+from creator.utils.state_utils.sip import SIP
+from creator.utils.pandasmodel import PandasModel
+from creator.utils.proxymodel import CustomSortFilterModel
+from creator.utils.path_loader import resource_path
+
+from creator.widgets.toolbar import Toolbar
+from creator.widgets.warning_dialog import WarningDialog
+from creator.widgets.dialog import YesNoDialog
+from creator.widgets.dialog import Dialog
+from creator.widgets.tableview_widget import TableView
 
 
 class GridView(QtWidgets.QMainWindow):
@@ -20,14 +27,20 @@ class GridView(QtWidgets.QMainWindow):
         super().__init__()
 
         self.sip_widget = sip_widget
+        self.sip: SIP = sip_widget.sip
 
         self.application: Application = QtWidgets.QApplication.instance()
+        self.state = self.application.state
+
+        self.intentional_close = False
 
     def setup_ui(self):
         self.resize(800, 600)
-        self.setWindowTitle(self.sip_widget.sip.name)
+        self.setWindowTitle(self.sip.name)
         self.toolbar = Toolbar()
         self.addToolBar(self.toolbar)
+
+        self.setWindowIcon(QtGui.QIcon(resource_path("logo.ico")))
 
         central_widget = QtWidgets.QWidget()
         self.setCentralWidget(central_widget)
@@ -35,8 +48,10 @@ class GridView(QtWidgets.QMainWindow):
         grid_layout = QtWidgets.QGridLayout()
         central_widget.setLayout(grid_layout)
 
-        series_label = QtWidgets.QLabel(text=self.sip_widget.sip.series.get_name())
+        series_label = QtWidgets.QLabel(text=self.sip.series.get_name())
+        self.default_sorting_button = QtWidgets.QPushButton(text="Reset sortering")
         grid_layout.addWidget(series_label, 0, 0, 1, 4)
+        grid_layout.addWidget(self.default_sorting_button, 0, 4, 1, 1)
 
         self.name_extension_checkbox = QtWidgets.QCheckBox(
             text="Verwijder file-extensie uit 'Naam' kolom"
@@ -53,11 +68,18 @@ class GridView(QtWidgets.QMainWindow):
         self.show_dossiers_only_checkbox = QtWidgets.QCheckBox(
             text="Toon enkel dossiers"
         )
-        self.show_dossiers_only_checkbox.stateChanged.connect(self._dossers_only_clicked)
+        self.show_dossiers_only_checkbox.stateChanged.connect(self._dossiers_only_clicked)
         grid_layout.addWidget(self.show_dossiers_only_checkbox, 1, 2)
 
+        # NOTE: will be filled once we know the columns we have
+        self.column_dropdown = QtWidgets.QComboBox()
+        self.add_column_button = QtWidgets.QPushButton(text="Voeg kolom toe")
+        self.add_column_button.clicked.connect(self.add_column_button_clicked)
+        grid_layout.addWidget(self.column_dropdown, 1, 3)
+        grid_layout.addWidget(self.add_column_button, 1, 4)
+
         self.table_view = TableView()
-        grid_layout.addWidget(self.table_view, 2, 0, 1, 4)
+        grid_layout.addWidget(self.table_view, 2, 0, 1, 5)
 
         save_button = QtWidgets.QPushButton(text="Opslaan")
         save_button.clicked.connect(self.save_button_click)
@@ -66,7 +88,7 @@ class GridView(QtWidgets.QMainWindow):
         self.create_sip_button = QtWidgets.QPushButton(text="Maak SIP")
         self.create_sip_button.clicked.connect(self.create_sip_click)
         self.create_sip_button.setEnabled(False)
-        grid_layout.addWidget(self.create_sip_button, 3, 2, 1, 2)
+        grid_layout.addWidget(self.create_sip_button, 3, 2, 1, 3)
 
     # Grid filters
     def _set_grid_filter_connections(self) -> None:
@@ -79,63 +101,20 @@ class GridView(QtWidgets.QMainWindow):
         )
 
     def _bad_rows_clicked(self, state: QtCore.Qt.CheckState) -> None:
-        model: PandasModel = self.table_view.model()
-        data: pd.DataFrame = model.get_data()
+        model: CustomSortFilterModel = self.table_view.model(proxy=True)
 
-        checked: bool = state == QtCore.Qt.CheckState.Checked.value
-
-        if checked:
-            model.bad_rows_changed.connect(
-                lambda row, is_bad: self.table_view.setRowHidden(row, not is_bad)
-            )
+        if state == QtCore.Qt.CheckState.Checked.value:
+            model.add_filter(CustomSortFilterModel.BAD_ROWS_FILTER)
         else:
-            model.bad_rows_changed.disconnect()
+            model.remove_filter(CustomSortFilterModel.BAD_ROWS_FILTER)
 
-        bad_rows = model.get_bad_rows()
+    def _dossiers_only_clicked(self, state: QtCore.Qt.CheckState) -> None:
+        model: CustomSortFilterModel = self.table_view.model(proxy=True)
 
-        if checked:
-            # Manually do this so we can guarantee order of operations
-            self.show_dossiers_only_checkbox.setChecked(False)
-
-        for row in range(model.rowCount()):
-            data_row = data.index[row]
-
-            # Either hide or unhide every bad row (depending on state of checkbox)
-            if data_row not in bad_rows:
-                self.table_view.setRowHidden(row, checked)
-
-    def _dossers_only_clicked(self, state: QtCore.Qt.CheckState) -> None:
-        model: PandasModel = self.table_view.model()
-        data: pd.DataFrame = model.get_data()
-
-        checked: bool = state == QtCore.Qt.CheckState.Checked.value
-
-        dossier_rows = data[data["Type"] == "dossier"].index
-
-        if checked:
-            # Manually do this so we can guarantee order of operations
-            self.show_bad_rows_checkbox.setChecked(False)
-
-        for row in range(model.rowCount()):
-            data_row = data.index[row]
-
-            # Hide files only
-            is_file = data_row not in dossier_rows
-
-            if is_file:
-                # Either hide or unhide every file (depending on state of checkbox)
-                self.table_view.setRowHidden(row, checked)
-
-    def _rows_sorted(self) -> None:
-        # If we sort, we need to reassess what to hide, so redo it
-        if self.show_bad_rows_checkbox.isChecked():
-            model = self.table_view.model()
-            model.bad_rows_changed.disconnect()
-
-            for row in range(model.rowCount()):
-                self.table_view.setRowHidden(row, False)
-
-            self._bad_rows_clicked(QtCore.Qt.CheckState.Checked.value)
+        if state == QtCore.Qt.CheckState.Checked.value:
+            model.add_filter(CustomSortFilterModel.SHOW_DOSSIERS_FILTER)
+        else:
+            model.remove_filter(CustomSortFilterModel.SHOW_DOSSIERS_FILTER)
 
     # Loading grid
     def _fill_from_files(self, sip_folder_structure: dict):
@@ -144,6 +123,7 @@ class GridView(QtWidgets.QMainWindow):
         df["Path in SIP"] = [s["Path in SIP"] for s in sip_folder_structure.values()]
         df["Type"] = [s["Type"] for s in sip_folder_structure.values()]
         df["DossierRef"] = [s["DossierRef"] for s in sip_folder_structure.values()]
+        df["Naam"] = [s["Naam"] for s in sip_folder_structure.values()]
 
         df["Openingsdatum"] = [
             s["Openingsdatum"] for s in sip_folder_structure.values()
@@ -181,31 +161,20 @@ class GridView(QtWidgets.QMainWindow):
 
     def _fill_mapping(self, sip_folder_structure: dict):
         # NOTE: this whole method is a jumble, have fun figuring it all out in it's current state
-        name_mapping_from = [
-            k for k, v in self.sip_widget.sip.tag_mapping.items() if v == "Naam"
-        ][0]
-        mapping_from_cols = self.sip_widget.sip.tag_mapping.keys()
-        mapping_to_cols = self.sip_widget.sip.tag_mapping.values()
+        mapping_from_cols = self.sip.tag_mapping.keys()
+        mapping_to_cols = self.sip.tag_mapping.values()
 
         temp_df = self.sip_widget.metadata_df.copy(deep=True)
+
+        # NOTE: make sure the Path in SIP reflects the actual value (from folder_mapping)
+        temp_df["Path in SIP"] = temp_df["Path in SIP"].replace({v["original Path in SIP"]: k for k, v in sip_folder_structure.items()})
 
         # Select only the columns we care about
         temp_df = temp_df[temp_df.columns.intersection(mapping_from_cols)]
 
-        # Add the Path in SIP
-        temp_df["Path in SIP"] = temp_df[name_mapping_from]
-        temp_df.replace(
-            {
-                "Path in SIP": {
-                    name_from: value["Path in SIP"]
-                    for name_from, value in sip_folder_structure.items()
-                }
-            },
-            inplace=True,
-        )
-
         # Change all the from-cols to the to-cols
-        temp_df.rename(columns=self.sip_widget.sip.tag_mapping, inplace=True)
+        # temp_df.rename(columns={**self.sip.tag_mapping, **{"_Path in SIP": "Path in SIP"}}, inplace=True)
+        temp_df.rename(columns=self.sip.tag_mapping, inplace=True)
 
         temp_df = pd.merge(
             self.sip_widget.import_template_df,
@@ -217,92 +186,160 @@ class GridView(QtWidgets.QMainWindow):
 
         # NOTE: we do this to preserve the positioning of the columns
         for col in mapping_to_cols:
-            temp_df[f"{col}_1"] = temp_df[f"{col}_2"]
+            if col != "Path in SIP":
+                temp_df[f"{col}_1"] = temp_df[f"{col}_2"]
 
-        required_columns = [
+        required_columns = ["Path in SIP"] + [
             c if c not in mapping_to_cols else f"{c}_1"
             for c in self.sip_widget.import_template_df.columns
+            if c != "Path in SIP"
         ]
         temp_df = temp_df[temp_df.columns.intersection(required_columns)]
 
-        temp_df.rename(columns={f"{v}_1": v for v in mapping_to_cols}, inplace=True)
+        temp_df.rename(columns={f"{v}_1": v for v in mapping_to_cols if v != "Path in SIP"}, inplace=True)
 
         self.sip_widget.import_template_df = temp_df
 
-    def load_table(self):
-        sip_folder_structure = self.sip_widget.sip.get_sip_folder_structure()
+    def load_table(self) -> pd.DataFrame:
+        sip_folder_structure = self.sip.get_sip_folder_structure()
 
-        self.table_view.setModel(
-            PandasModel(
-                self.sip_widget.import_template_df,
-                self.create_sip_button,
-                (
-                    self.sip_widget.sip.series.valid_from,
-                    self.sip_widget.sip.series.valid_to,
-                ),
-                sip_folder_structure=sip_folder_structure,
-            )
+        model = PandasModel(
+            self.sip_widget.import_template_df,
+            self.create_sip_button,
+            (
+                self.sip.series.valid_from,
+                self.sip.series.valid_to,
+            ),
+            sip_folder_structure=sip_folder_structure,
         )
-        self.table_view.model().sort_triggered.connect(self._rows_sorted)
+
+        proxy_model = CustomSortFilterModel()
+        proxy_model.setSourceModel(model)
+        self.table_view.setModel(proxy_model)
+        self.default_sorting_button.clicked.connect(proxy_model.reset_sorting)
         self._set_grid_filter_connections()
 
-    def fill_table(self):
-        sip_folder_structure = self.sip_widget.sip.get_sip_folder_structure()
+        if model.is_data_valid():
+            self.create_sip_button.setEnabled(True)
+        else:
+            self.create_sip_button.setEnabled(False)
+
+        unique_columns = set(m for m in model.get_data().columns)
+        filtered_columns = [
+            c for c in unique_columns
+            if c not in (
+                "Path in SIP",
+                "Type",
+                "DossierRef",
+                "Analoog?",
+                "Naam",
+                "Openingsdatum",
+                "Sluitingsdatum",
+            )
+        ]
+
+        for column in filtered_columns:
+            self.column_dropdown.addItem(column)
+
+        return model.get_data()
+
+    def fill_table(self) -> pd.DataFrame:
+        sip_folder_structure = self.sip.get_sip_folder_structure()
 
         self._fill_from_files(sip_folder_structure)
 
-        if self.sip_widget.sip.tag_mapping:
+        if self.sip.tag_mapping:
             self._fill_mapping(sip_folder_structure)
 
-        self.table_view.setModel(
-            PandasModel(
-                self.sip_widget.import_template_df,
-                self.create_sip_button,
-                (
-                    self.sip_widget.sip.series.valid_from,
-                    self.sip_widget.sip.series.valid_to,
-                ),
-                sip_folder_structure=sip_folder_structure,
-            )
+        model = PandasModel(
+            self.sip_widget.import_template_df,
+            self.create_sip_button,
+            (
+                self.sip.series.valid_from,
+                self.sip.series.valid_to,
+            ),
+            sip_folder_structure=sip_folder_structure,
         )
-        self.table_view.model().sort_triggered.connect(self._rows_sorted)
+
+        proxy_model = CustomSortFilterModel()
+        proxy_model.setSourceModel(model)
+        self.table_view.setModel(proxy_model)
+        self.default_sorting_button.clicked.connect(proxy_model.reset_sorting)
         self._set_grid_filter_connections()
 
-    # Actions
-    def create_sip_click(self):
-        self.save_button_click(filter_save=True)
-        table = self.table_view.model()
-        df = table.get_data()
+        if model.is_data_valid():
+            self.create_sip_button.setEnabled(True)
+        else:
+            self.create_sip_button.setEnabled(False)
 
-        # Filter out bad rows
-        if len(df.loc[df["Type"] != "geen"]) > 9999:
-            WarningDialog(
-                title="Te veel data",
-                text="De metadata mag maximaal 9999 rijen data bevatten",
-            ).exec()
-            return
-
-        try:
-            FileController.create_sip(
-                configuration=self.application.state.configuration,
-                sip=self.sip_widget.sip,
+        unique_columns = set(m for m in model.get_data().columns)
+        filtered_columns = [
+            c for c in unique_columns
+            if c not in (
+                "Path in SIP",
+                "Type",
+                "DossierRef",
+                "Analoog?",
+                "Naam",
+                "Openingsdatum",
+                "Sluitingsdatum",
             )
-        except FileNotFoundError:
-            WarningDialog(
-                title="Bestand verplaatst",
-                text="Een of meerdere bestanden die in de SIP moeten komen zijn verplaatst, kan niet verder gaan.",
-            ).exec()
+        ]
+
+        for column in filtered_columns:
+            self.column_dropdown.addItem(column)
+
+        return model.get_data()
+
+    # Actions
+    def add_column_button_clicked(self) -> None:
+        column = self.column_dropdown.currentText()
+
+        model: PandasModel = self.table_view.model()
+        df = model.get_data()
+
+        model.modelAboutToBeReset.emit()
+
+        new_column_name = column
+        spaces_added = 1
+
+        # NOTE: keep adding spaces until it is new
+        while (new_column_name := f"{new_column_name} ") in df.columns:
+            spaces_added += 1
+
+        df.insert(df.columns.get_loc(column) + spaces_added, new_column_name, None)
+
+        # NOTE: rerun all checks (not super efficient, would be better to just do it for this row, but oh well)
+        model._trigger_fill_data()
+        model.modelReset.emit()
+
+    def create_sip_click(self):
+        df = self.save_button_click(filter_save=True)
+
+        if df is None:
             return
 
-        self.sip_widget.sip.set_status(SIPStatus.SIP_CREATED)
-        self.sip_widget.sip_name_label.setEnabled(False)
+        FileController.create_sip(
+            configuration=self.application.state.configuration,
+            sip=self.sip,
+            df=df,
+            unfiltered_df=self.table_view.model().get_data()
+        )
 
+        self.sip.set_status(SIPStatus.SIP_CREATED)
+
+        Dialog(
+            title="SIP aangemaakt",
+            text="De SIP is aangemaakt"
+        ).exec()
+
+        self.intentional_close = True
         self.close()
 
-    def save_button_click(self, filter_save=False):
+    def save_button_click(self, filter_save=False) -> pd.DataFrame:
         # Filter_save means we are applying all the filters to the actual save
         try:
-            df = self.table_view.model().get_data()
+            df = self.table_view.model().get_data().copy(deep=True)
 
             if filter_save:
                 # Bad rows filter
@@ -314,21 +351,20 @@ class GridView(QtWidgets.QMainWindow):
                 if self.table_view.model().filter_name_column:
                     df["Naam"] = df["Naam"].map(lambda n: n.rsplit(".", 1)[0])
 
-            FileController.save_grid(
-                configuration=self.application.state.configuration,
-                df=df,
-                sip_widget=self.sip_widget,
-            )
+            db_path = os.path.join(self.state.configuration.sip_db_location, f"{self.sip.name}.db")
+            db_controller = SIPDBController(db_path)
+
+            if not db_controller.is_valid_db():
+                raise NotASIPDBException(f"Database laden is gefaald.\nDe database op locatie '{db_path}' is geen SIP database of is corrupt.")
+            
+            db_controller.update_data_table(df=df)
 
             if not filter_save:
                 Dialog(
                     title="Opgeslagen", text="De metadata is succesvol opgeslagen."
                 ).exec()
-        except PermissionError:
-            WarningDialog(
-                title="Ongeldige rechten",
-                text="Ongeldige rechten om het bestand op te slaan, zorg er zeker voor dat je de excel niet open hebt staan en probeer opnieuw.",
-            ).exec()
+
+            return df
         except Exception:
             WarningDialog(
                 title="Ongekende fout",
@@ -336,11 +372,15 @@ class GridView(QtWidgets.QMainWindow):
             ).exec()
 
     def closeEvent(self, event):
-        if (
-            FileController.existing_grid_path(
-                self.application.state.configuration, self.sip_widget.sip
+        if not self.intentional_close:
+            dialog = YesNoDialog(
+                title="Opslaan",
+                text="Gemaakte wijzigingen opslaan?"
             )
-            is None
-        ):
-            self.save_button_click()
+            dialog.exec()
+
+            if dialog.result():
+                self.save_button_click()
+
+        self.intentional_close = False
         event.accept()

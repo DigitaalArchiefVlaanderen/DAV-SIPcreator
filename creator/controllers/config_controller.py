@@ -3,13 +3,14 @@ import json
 
 from ..utils.path import is_path_exists_or_creatable
 from ..utils.configuration import Configuration
+from ..utils.version import ConfigurationVersion
 
 
 class ConfigController:
     def __init__(self, path: str):
         self.configuration_path = path
 
-    def _verify_configuration(self, configuration: dict) -> bool:
+    def _verify_configuration(self, configuration: dict, version: ConfigurationVersion=ConfigurationVersion.V4) -> bool:
         """Verifies the integrity of the configuration"""
         if "misc" not in configuration:
             return False
@@ -22,13 +23,22 @@ class ConfigController:
             if environment == "misc":
                 if not "SIP Creator opslag locatie" in values:
                     return False
+                
+                if version in (ConfigurationVersion.V5, ConfigurationVersion.V4, ConfigurationVersion.V3):
+                    if not "Bestandscontrole lijst locatie" in values:
+                        return False
 
                 if not is_path_exists_or_creatable(
                     values["SIP Creator opslag locatie"]
                 ):
                     configuration[environment]["SIP Creator opslag locatie"] = os.path.join(os.getcwd(), "SIP_Creator")
 
-                for tab in ("Omgevingen",):
+                if version == ConfigurationVersion.V1:
+                    tabs = ("Omgevingen",)
+                else:
+                    tabs = ("Omgevingen", "Rollen", "Type SIPs")
+
+                for tab in tabs:
                     if not tab in values:
                         return False
 
@@ -46,6 +56,14 @@ class ConfigController:
 
                     if active != 1:
                         return False
+                    
+                    if tab == "Type SIPs" and version in (ConfigurationVersion.V5, ConfigurationVersion.V4):
+                        if "onroerend_erfgoed" not in values[tab]:
+                            return False
+                        
+                        if version == ConfigurationVersion.V5:
+                            if "analoog" not in values[tab]:
+                                return False
 
                 continue
 
@@ -86,9 +104,11 @@ class ConfigController:
             except Exception:
                 return Configuration.get_default()
 
-            # TODO: allow to use old versions and fill in the rest?
-            if not self._verify_configuration(configuration):
-                # NOTE: something in the config is bad
-                return Configuration.get_default()
+            # Run in reverse order of versions to ensure we have the latest one
+            for v in (ConfigurationVersion.V5, ConfigurationVersion.V4, ConfigurationVersion.V3, ConfigurationVersion.V2, ConfigurationVersion.V1):
+                if self._verify_configuration(configuration, version=v):
+                    # Valid for this version
+                    return Configuration.from_json(configuration, version=v)
 
-            return Configuration.from_json(configuration)
+            # No older config is valid, return default
+            return Configuration.get_default()

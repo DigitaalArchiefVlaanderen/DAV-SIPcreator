@@ -1,4 +1,7 @@
-from PySide6 import QtWidgets
+from PySide6 import QtWidgets, QtGui
+
+
+from ..utils.path_loader import resource_path
 
 
 class WarningDialog(QtWidgets.QDialog):
@@ -7,6 +10,8 @@ class WarningDialog(QtWidgets.QDialog):
 
         self.resize(400, 300)
         self.setWindowTitle(title)
+
+        self.setWindowIcon(QtGui.QIcon(resource_path("logo.ico")))
 
         vertical_layout = QtWidgets.QVBoxLayout()
         self.setLayout(vertical_layout)

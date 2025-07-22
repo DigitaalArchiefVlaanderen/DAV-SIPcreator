@@ -1,22 +1,17 @@
-from PySide6 import QtGui, QtCore
+from PySide6 import QtCore
 import pandas as pd
 import os
+import re
 
 from datetime import datetime
-from enum import Enum
+
+from .tablemodel import TableModel, CellColor
 
 
-class Color(Enum):
-    RED = QtGui.QBrush(QtGui.QColor(255, 0, 0))
-    YELLOW = QtGui.QBrush(QtGui.QColor(255, 255, 0))
-    GREY = QtGui.QBrush(QtGui.QColor(230, 230, 230))
-
-
-class PandasModel(QtCore.QAbstractTableModel):
+class PandasModel(TableModel):
     bad_rows_changed: QtCore.Signal = QtCore.Signal(
         *(int, bool), arguments=["row", "is_bad"]
     )
-    sort_triggered: QtCore.Signal = QtCore.Signal()
 
     def __init__(
         self,
@@ -34,15 +29,23 @@ class PandasModel(QtCore.QAbstractTableModel):
         self.colors = dict()
         self.tooltips = dict()
 
-        self.should_filter_name_column = False
+        self.columns_to_disable: list[int] = [i for i, c in enumerate(self._data.columns) if c in ("Path in SIP", "Type", "DossierRef", "Analoog?")]
 
-        # Warning rows
-        self._check_empty_rows()
+        self.should_filter_name_column = False
 
         # NOTE: we basically take all the existing data
         # And act as if we just entered it
         # We do this so the checks will be run on the data automatically
         self._trigger_fill_data()
+
+    # Inherited methods
+    def row_is_dossier(self, row: int) -> bool:
+        return self._data.iloc[row]["Type"] == "dossier"
+
+    def row_is_bad(self, row: int) -> bool:
+        _id = self._data.index[row]
+
+        return any(True for (row_id, _), color in self.colors.items() if row_id == _id and color in (CellColor.RED, CellColor.YELLOW))
 
     def rowCount(self, *index):
         return self._data.shape[0]
@@ -77,9 +80,9 @@ class PandasModel(QtCore.QAbstractTableModel):
             if color:
                 return color.value
 
-            # Mark first 3 columns as grey, only if no other color is assigned
-            if col < 3:
-                return Color.GREY.value
+            # Mark grey if not editable
+            if QtCore.Qt.ItemFlag.ItemIsEditable.name not in self.flags(index).name:
+                return CellColor.GREY.value
 
         elif role == QtCore.Qt.ItemDataRole.ToolTipRole:
             tooltip = self.tooltips.get((data_row, col))
@@ -91,18 +94,28 @@ class PandasModel(QtCore.QAbstractTableModel):
         if not index.isValid():
             return False
 
+        if role == QtCore.Qt.ItemDataRole.EditRole:
+            if QtCore.Qt.ItemFlag.ItemIsEditable.name not in self.flags(index).name:
+                return False
+
         row, column = index.row(), index.column()
+        old_value = self._data.iloc[row, column]
+
+        if old_value == value:
+            return False
 
         # Do not allow editing of warning rows
-        if self.colors.get((self._data.index[row], column)) == Color.YELLOW:
+        if self.colors.get((self._data.index[row], column)) == CellColor.YELLOW:
             return False
+
+        value = str(value).encode(encoding="utf-8", errors="replace").decode("utf-8")
 
         if role == QtCore.Qt.ItemDataRole.EditRole:
             self._data.iloc[row, column] = value
 
             # NOTE: "Naam"
             if column == self._data.columns.get_loc("Naam"):
-                self._name_data_check(value, row, column)
+                self._name_data_check(value, old_value, row, column)
 
             # NOTE: "Openingsdatum" and "Sluitingsdatum"
             elif column in (
@@ -111,13 +124,12 @@ class PandasModel(QtCore.QAbstractTableModel):
             ):
                 is_stuk = self._data.iloc[row]["Type"] == "stuk"
 
-                valid_date = self._date_data_check(value, row, column, is_stuk=is_stuk)
+                self._date_data_check(row=row, is_stuk=is_stuk)
+            elif column == self._data.columns.get_loc("ID_Rijksregisternummer"):
+                new_value = self._rrn_check(value, row, column)
 
-                if valid_date and is_stuk:
-                    self._update_dossier_date_range(
-                        dossier_ref=self._data.iloc[row]["DossierRef"], column=column
-                    )
-
+                if new_value != value:
+                    return self.setData(index, new_value, role)
             if self.is_data_valid():
                 self._create_sip_button.setEnabled(True)
             else:
@@ -137,14 +149,14 @@ class PandasModel(QtCore.QAbstractTableModel):
                 return str(self._data.index[section])
 
     def flags(self, index):
-        if index.column() < 3:
+        if index.column() in self.columns_to_disable:
             return (
                 QtCore.Qt.ItemFlag.ItemIsSelectable | QtCore.Qt.ItemFlag.ItemIsEnabled
             )
 
         if (
             self.colors.get((self._data.index[index.row()], index.column()))
-            == Color.YELLOW
+            == CellColor.YELLOW
         ):
             return (
                 QtCore.Qt.ItemFlag.ItemIsSelectable | QtCore.Qt.ItemFlag.ItemIsEnabled
@@ -156,27 +168,19 @@ class PandasModel(QtCore.QAbstractTableModel):
             | QtCore.Qt.ItemFlag.ItemIsEditable
         )
 
-    def sort(self, col, order):
-        self.layoutAboutToBeChanged.emit()
-        self._data = self._data.sort_values(
-            self._data.columns[col], ascending=order == QtCore.Qt.AscendingOrder
-        )
-        self.layoutChanged.emit()
-        self.sort_triggered.emit()
-
-    def get_data(self):
+    def get_data(self) -> pd.DataFrame:
         return self._data
 
     def get_bad_rows(self) -> set:
         return set(
             row
             for (row, _), color in self.colors.items()
-            if color in (Color.RED, Color.YELLOW)
+            if color in (CellColor.RED, CellColor.YELLOW)
         )
 
     def is_data_valid(self):
         # NOTE: we are using the colors dict to see if anything is marked invalid
-        return not any(c == Color.RED for c in self.colors.values())
+        return not any(c == CellColor.RED for c in self.colors.values())
 
     # Utils
     def _check_empty_rows(self) -> None:
@@ -217,8 +221,28 @@ class PandasModel(QtCore.QAbstractTableModel):
             )
 
     def _trigger_fill_data(self) -> None:
+        self.colors = dict()
+        self.tooltips = dict()
+        
+        # Warning rows
+        self._check_empty_rows()
+
         self._vectorized_name_data_check()
         self._vectorized_date_data_check()
+
+        # NOTE: I do not want to write vectorized rrn checks
+        rrn_col = self._data.columns.get_loc("ID_Rijksregisternummer")
+        for r in range(self.rowCount()):
+            data_row = self._data.index[r]
+
+            if (data_row, rrn_col) in self.colors:
+                continue
+
+            self._rrn_check(
+                value=self._data.iloc[r, rrn_col],
+                row=r,
+                col=rrn_col,
+            )
 
     def _proper_date_format(self, date_str: str) -> datetime:
         # Returns the date if valid, otherwise returns None
@@ -229,6 +253,9 @@ class PandasModel(QtCore.QAbstractTableModel):
             pass
 
     def _date_invalid_check(self, date: datetime) -> str:
+        if date is None:
+            return
+
         if date > datetime.now() and date.year != 9999:
             return "Datum mag niet in de toekomst zijn"
 
@@ -237,13 +264,43 @@ class PandasModel(QtCore.QAbstractTableModel):
 
         if self.date_end is not None and date > self.date_end:
             return "Datum moet binnen de serie-datumrange vallen"
+        
+    def _rrn_check(self, value: str, row: int, col: int) -> str:
+        if value == "":
+            self._unmark_bad_cell(row, col)
+            return value
 
-    def _get_date_values_for_dossier_ref(self, dossier_ref: str, column: str) -> list:
+        # NOTE: we allow loose form matching, and will just set it correctly later
+        loose_form_match = re.match(r"^\d{11}$", value)
+        if loose_form_match:
+            value = f"{value[:2]}.{value[2:4]}.{value[4:6]}-{value[6:9]}.{value[9:]}"
+            
+        strict_form_match = re.match(r"^\d{2}\.\d{2}\.\d{2}-\d{3}\.\d{2}$", value)
+
+        if not strict_form_match:
+            self._mark_bad_cell(row, col, CellColor.RED, "Rijksregisternummer moet van vorm xx.xx.xx-xxx.xx zijn, of 11 cijfers na elkaar zijn")
+            return value
+        
+        # NOTE: check if the actual rrn is valid
+        calc, control = value[:-2].replace(".", "").replace("-", ""), value[-2:]
+
+        is_valid_check = lambda c: 97 - int(c) % 97 == int(control)
+
+        # NOTE: for people born after 2000, add a 2 to the calc
+        calc_before, calc_after = calc, f"2{calc}"
+
+        if not is_valid_check(calc_before) and not is_valid_check(calc_after):
+            self._mark_bad_cell(row, col, CellColor.RED, "Ingegeven rijksregisternummer is niet mogelijk")
+            return value
+
+        self._unmark_bad_cell(row, col)
+        return value
+
+    def _get_date_values_for_dossier_ref(self, dossier_ref: str, column: str) -> list[str]:
         files = self._data.loc[
             (self._data["Type"] == "stuk") & (self._data["DossierRef"] == dossier_ref)
         ]
 
-        # TODO: find a way to do this vectorized
         return [
             d
             for d in files[column]
@@ -251,7 +308,43 @@ class PandasModel(QtCore.QAbstractTableModel):
             and self._date_invalid_check(date) is None
         ]
 
-    def _update_dossier_date_range(self, dossier_ref: str, column: str) -> None:
+    def _update_dossier_date_range(self, dossier_ref: str) -> None:
+        def _opening():
+            # Only change the values if we have something useful to change it in to
+            if opening_dates:
+                new_opening = min(opening_dates)
+
+                current_value = dossier.iloc[0]["Openingsdatum"]
+                current_date = self._proper_date_format(current_value)
+
+                # If valid date
+                if current_date is not None and not self._date_invalid_check(current_date):
+                    # Only change if the openingsdate is actually lower
+                    if current_value <= new_opening:
+                        return
+
+                self._data.iloc[row, opening_col] = new_opening
+                index = self.index(row, opening_col)
+                self.dataChanged.emit(index, index)
+
+        def _closing():
+            # Only change the values if we have something useful to change it in to
+            if closing_dates:
+                new_closing = max(closing_dates)
+
+                current_value = dossier.iloc[0]["Sluitingsdatum"]
+                current_date = self._proper_date_format(current_value)
+
+                # If valid date
+                if current_date is not None and not self._date_invalid_check(current_date):
+                    # Only change if the closingdate is actually higher
+                    if current_value >= new_closing:
+                        return
+
+                self._data.iloc[row, closing_col] = new_closing
+                index = self.index(row, closing_col)
+                self.dataChanged.emit(index, index)
+
         dossier = self._data.loc[
             (self._data["Type"] == "dossier")
             & (self._data["DossierRef"] == dossier_ref)
@@ -267,28 +360,13 @@ class PandasModel(QtCore.QAbstractTableModel):
         row = dossier.index.to_list()[0]
         opening_col = self._data.columns.get_loc("Openingsdatum")
         closing_col = self._data.columns.get_loc("Sluitingsdatum")
-
-        # Only change the values if we have something useful to change it in to
-        if column == opening_col and opening_dates:
-            new_opening = min(opening_dates)
-
-            # Only change if the openingsdate is actually lower
-            if dossier["Openingsdatum"].to_list()[0] < new_opening:
-                return
-
-            self.setData(self.index(row, opening_col), value=new_opening)
-        elif column == closing_col and closing_dates:
-            new_closing = max(closing_dates)
-
-            # Only change if the closingdate is actually higher
-            if dossier["Sluitingsdatum"].to_list()[0] > new_closing:
-                return
-
-            self.setData(self.index(row, closing_col), value=new_closing)
+        
+        _opening()
+        _closing()
 
     # Marking and unmarking of cells
     def _mark_bad_cell(
-        self, row: int, col: int, color: Color = Color.RED, tooltip: str = None
+        self, row: int, col: int, color: CellColor = CellColor.RED, tooltip: str = None
     ) -> None:
         data_row = self._data.index[row]
 
@@ -297,11 +375,11 @@ class PandasModel(QtCore.QAbstractTableModel):
         if tooltip is not None:
             self.tooltips[(data_row, col)] = tooltip
 
-        if color == Color.RED:
+        if color == CellColor.RED:
             self.bad_rows_changed.emit(row, True)
 
     def _mark_warning_row(
-        self, row: int, color: Color = Color.YELLOW, tooltip: str = None
+        self, row: int, color: CellColor = CellColor.YELLOW, tooltip: str = None
     ) -> None:
         for c in range(self.columnCount()):
             self._mark_bad_cell(row=row, col=c, color=color, tooltip=tooltip)
@@ -319,174 +397,232 @@ class PandasModel(QtCore.QAbstractTableModel):
         if (data_row, col) in self.tooltips:
             del self.tooltips[(data_row, col)]
 
-    def _mark_name_cell(self, row: int) -> None:
+    def _mark_name_cell(self, row: int, tooltip: str) -> None:
         col = self._data.columns.get_loc("Naam")
 
         self._mark_bad_cell(
-            row=row, col=col, tooltip="Een dossier moet verplicht een naam hebben"
+            row=row, col=col, tooltip=tooltip
         )
 
     def _mark_date_cell(self, row: int, col: int, tooltip: str) -> None:
         self._mark_bad_cell(row=row, col=col, tooltip=tooltip)
 
     # Checks
-    def _name_data_check(self, value: str, row: int, col: int) -> bool:
+    def _name_data_check(self, value: str, old_value: str, row: int, col: int) -> bool:
         # Return True if cell was ok, otherwise return False
+        # NOTE: check for old duplicates no longer being duplicates
+        if old_value != "" and len((rows := self._data.index[(self._data.Type == "dossier") & (self._data.Naam == old_value)].tolist())) == 1:
+            # NOTE: this will only be one row, but this is okay
+            for r in rows:
+                self._unmark_bad_cell(
+                    row=r,
+                    col=col
+                )
+
         if value == "" and self._data.iloc[row]["Type"] == "dossier":
-            self._mark_name_cell(row=row)
+            self._mark_name_cell(row=row, tooltip="Een dossier moet verplicht een naam hebben")
+            return False
+        
+        if len(value) > 255:
+            self._mark_bad_cell(
+                row=row, col=col, tooltip="Naam mag niet langer zijn dan 255 karakters"
+            )
+            return False
+
+        # NOTE: check for new duplication
+        if value != "" and len((rows := self._data.index[(self._data.Type == "dossier") & (self._data.Naam == value)].tolist())) > 1:
+            for r in rows:
+                self._mark_bad_cell(
+                    row=r,
+                    col=col,
+                    tooltip="Naam veld moet uniek zijn"
+                )
+
             return False
 
         self._unmark_bad_cell(row=row, col=col)
+        return True
+
+    def _individual_date_cell_checks(self, row: int, col: int, is_stuk: bool, value: str, date: datetime, tooltip: str) -> bool:
+        # Returns if the value was ok or not
+        if is_stuk and (value == "" or value is None):
+            self._unmark_bad_cell(
+                row=row,
+                col=col
+            )
+            return True
+        
+        if date is None:
+            self._mark_bad_cell(
+                row=row,
+                col=col,
+                tooltip="Datum moet in het formaat YYYY-MM-DD en geldig zijn"
+            )
+            return False
+        
+        if tooltip is not None:
+            self._mark_bad_cell(
+                row=row,
+                col=col,
+                tooltip=tooltip
+            )
+            return False
+        
+        self._unmark_bad_cell(
+            row=row,
+            col=col
+        )
         return True
 
     def _date_data_check(
-        self, value: str, row: int, col: int, is_stuk: bool, re_evaluation=False
-    ) -> bool:
-        # Return True if cell was ok, otherwise return False
+        self, row: int, is_stuk: bool
+    ) -> None:
         data_row = self._data.iloc[[row]]
+        dossier_ref = data_row["DossierRef"].to_list()[0]
 
-        opening_date = data_row["Openingsdatum"].to_list()[0]
-        closing_date = data_row["Sluitingsdatum"].to_list()[0]
-
+        # NOTE: if we have multiple, we only take the first (not optimal but fine)
+        dossier_data_row = self._data.loc[
+            (self._data["Type"] == "dossier")
+            & (self._data["DossierRef"] == dossier_ref)
+        ]
+        dossier_row = dossier_data_row.index.to_list()[0]
+        
         opening_col = self._data.columns.get_loc("Openingsdatum")
         closing_col = self._data.columns.get_loc("Sluitingsdatum")
 
-        # If it's an empty value at a "stuk", that's fine
-        if is_stuk and value == "":
-            self._unmark_bad_cell(row=row, col=col)
-            return True
+        opening_date_value = data_row["Openingsdatum"].to_list()[0]
+        closing_date_value = data_row["Sluitingsdatum"].to_list()[0]
 
-        date = self._proper_date_format(value)
+        opening_date, closing_date = self._proper_date_format(opening_date_value), self._proper_date_format(closing_date_value)
+        opening_tooltip, closing_tooltip = self._date_invalid_check(opening_date), self._date_invalid_check(closing_date)
+        
+        # NOTE: we start by individually checking opening, then closing
+        is_opening_value_ok = self._individual_date_cell_checks(
+            row=row,
+            col=opening_col,
+            is_stuk=is_stuk,
+            value=opening_date_value,
+            date=opening_date,
+            tooltip=opening_tooltip
+        )
+        is_closing_value_ok = self._individual_date_cell_checks(
+            row=row,
+            col=closing_col,
+            is_stuk=is_stuk,
+            value=closing_date_value,
+            date=closing_date,
+            tooltip=closing_tooltip
+        )
 
-        # Date needs to be in the correct format
-        if date is None:
-            self._mark_bad_cell(
-                row=row, col=col, tooltip="Datum moet in het formaat YYYY-MM-DD zijn"
-            )
-            return False
-
-        # Date needs to be valid (in past and in series range)
-        if (tooltip := self._date_invalid_check(date)) is not None:
-            self._mark_bad_cell(row=row, col=col, tooltip=tooltip)
-            return False
-
-        # Openingdate cannot be after closingdate
-        if opening_date and closing_date and opening_date > closing_date:
-            self._mark_date_cell(
-                row=row,
-                col=opening_col,
-                tooltip="Openingsdatum kan niet na de sluitingsdatum zijn",
-            )
-            self._mark_date_cell(
-                row=row,
-                col=closing_col,
-                tooltip="Sluitingsdatum kan niet voor de openingsdatum zijn",
-            )
-
-            return False
-
-        if not is_stuk:
-            # The openings and closing dates need to match the files
-            dossier = data_row
-            dossier_ref = dossier["DossierRef"].to_list()[0]
-
-            opening_dates = self._get_date_values_for_dossier_ref(
-                dossier_ref=dossier_ref, column="Openingsdatum"
-            )
-            closing_dates = self._get_date_values_for_dossier_ref(
-                dossier_ref=dossier_ref, column="Sluitingsdatum"
-            )
-
-            dossier_opening = dossier["Openingsdatum"].to_list()[0]
-            dossier_closing = dossier["Sluitingsdatum"].to_list()[0]
-
-            if (
-                col == opening_col
-                and opening_dates
-                and dossier_opening > min(opening_dates)
-            ):
-                self._mark_date_cell(
-                    row=row,
-                    col=col,
-                    tooltip="De openingsdatum van het dossier kan niet later zijn dan de openingsdatum van een stuk",
-                )
-                return False
-
-            elif (
-                col == closing_col
-                and closing_dates
-                and dossier_closing < max(closing_dates)
-            ):
-                self._mark_date_cell(
-                    row=row,
-                    col=col,
-                    tooltip="De sluitingsdatum van het dossier kan niet vroeger zijn dan de sluitingsdatum van een stuk",
-                )
-                return False
-
-        # Everything checks out
-        self._unmark_bad_cell(row=row, col=col)
-
-        # Re-evaluate if we are unmarking a cell, to make sure the linked cell is proparly adressed
-        if not re_evaluation:
-            if col == opening_col:
-                self._date_data_check(
-                    value=closing_date,
-                    row=row,
-                    col=closing_col,
-                    is_stuk=is_stuk,
-                    re_evaluation=True,
-                )
-            elif col == closing_col:
-                self._date_data_check(
-                    value=opening_date,
+        # NOTE: do this check first, so bad order can still be displayed properly if needed
+        # Check if the order is correct
+        if opening_date is not None and closing_date is not None and opening_date > closing_date:
+            if is_opening_value_ok:
+                self._mark_bad_cell(
                     row=row,
                     col=opening_col,
-                    is_stuk=is_stuk,
-                    re_evaluation=True,
+                    tooltip="Openingsdatum kan niet na de sluitingsdatum zijn"
+                )
+            if is_closing_value_ok:
+                self._mark_bad_cell(
+                    row=row,
+                    col=closing_col,
+                    tooltip="Sluitingsdatum kan niet voor de openingsdatum zijn"
+                )
+            return
+
+        # If we found an issue already, stop here
+        if not is_opening_value_ok or not is_closing_value_ok:
+            return
+        
+        # Make sure if one value is filled, both are
+        if opening_date is None and closing_date is not None:
+            self._mark_bad_cell(
+                row=row,
+                col=opening_col,
+                tooltip="Openingsdatum kan niet leeg zijn"
+            )
+            return
+        elif closing_date is None and opening_date is not None:
+            self._mark_bad_cell(
+                row=row,
+                col=closing_col,
+                tooltip="Sluitingsdatum kan niet leeg zijn"
+            )
+            return
+
+        # Dossier specific checks
+        opening_date_values = self._get_date_values_for_dossier_ref(dossier_ref=dossier_ref, column="Openingsdatum")
+        closing_date_values = self._get_date_values_for_dossier_ref(dossier_ref=dossier_ref, column="Sluitingsdatum")
+
+        min_opening_date_value = None if not opening_date_values else min(opening_date_values)
+        max_closing_date_value = None if not closing_date_values else max(closing_date_values)
+
+        if not is_stuk:
+            # NOTE: if we have no values to compare to, that's also okay
+            # Check if the values are still ok given the values we just entered for this dossier
+            if opening_date_values and opening_date_value > min_opening_date_value:
+                self._mark_bad_cell(
+                    row=dossier_row,
+                    col=opening_col,
+                    tooltip="De openingsdatum van het dossier kan niet later zijn dan de openingsdatum van een stuk"
+                )
+            if closing_date_values and closing_date_value < max_closing_date_value:
+                self._mark_bad_cell(
+                    row=dossier_row,
+                    col=closing_col,
+                    tooltip="De sluitingsdatum van het dossier kan niet vroeger zijn dan de sluitingsdatum van een stuk"
                 )
 
-        # Re-evaluate the dossier_dates
-        if not re_evaluation and is_stuk:
-            dossier_ref = data_row["DossierRef"].to_list()[0]
+            return
+        
+        # Stuk specific actions (update values of dossier if needed)
+        if opening_date_values:
+            dossier_opening_date_value = dossier_data_row["Openingsdatum"].to_list()[0]
 
-            dossier = self._data.loc[
-                (self._data["Type"] == "dossier")
-                & (self._data["DossierRef"] == dossier_ref)
-            ]
+            if dossier_opening_date_value > min_opening_date_value:
+                self.setData(
+                    self.index(
+                        dossier_row,
+                        opening_col,
+                    ),
+                    min_opening_date_value
+                )
+        if closing_date_values:
+            dossier_closing_date_value = dossier_data_row["Sluitingsdatum"].to_list()[0]
 
-            dossier_row = dossier.index.to_list()[0]
-            dossier_opening = dossier["Openingsdatum"].to_list()[0]
-            dossier_closing = dossier["Sluitingsdatum"].to_list()[0]
-
-            self._update_dossier_date_range(dossier_ref=dossier_ref, column=col)
-
-            self._date_data_check(
-                value=dossier_opening,
-                row=dossier_row,
-                col=opening_col,
-                is_stuk=False,
-                re_evaluation=True,
-            )
-            self._date_data_check(
-                value=dossier_closing,
-                row=dossier_row,
-                col=closing_col,
-                is_stuk=False,
-                re_evaluation=True,
-            )
-
-        return True
+            if dossier_closing_date_value < max_closing_date_value:
+                self.setData(
+                    self.index(
+                        dossier_row,
+                        closing_col
+                    ),
+                    max_closing_date_value
+                )
 
     # Vectorized checks
     def _vectorized_name_data_check(self) -> None:
+        # Empty name for dossiers
         mask = self._data.loc[self._data.Type == "dossier"].Naam.apply(
             lambda n: n == ""
         )
-        bad_rows = self._data.loc[self._data.Type == "dossier"].Naam[mask]
+        empty_rows = self._data.loc[self._data.Type == "dossier"].Naam[mask]
 
-        for row, _ in bad_rows.items():
-            self._mark_name_cell(row=row)
+        for row, _ in empty_rows.items():
+            self._mark_name_cell(row=row, tooltip="Een dossier moet verplicht een naam hebben")
+
+        # Duplicate names
+        mask = self._data.loc[(self._data.Type == "dossier") & (self._data.Naam != "")].Naam.duplicated(keep=False)
+        duplicate_rows = self._data.loc[(self._data.Type == "dossier") & (self._data.Naam != "")].Naam[mask]
+
+        for row, _ in duplicate_rows.items():
+            self._mark_name_cell(row=row, tooltip="Naam veld moet uniek zijn")
+
+        # Max length 255
+        long_rows = self._data[self._data.Naam.str.len() > 255].Naam
+
+        for row, _ in long_rows.items():
+            self._mark_name_cell(row=row, tooltip="Naam mag niet langer zijn dan 255 karakters")
 
     def _vectorized_date_data_check(self) -> None:
         opening_col, closing_col = self._data.columns.get_loc(
@@ -499,17 +635,13 @@ class PandasModel(QtCore.QAbstractTableModel):
         empty_dossier_date_mask = df.loc[df.Type == "dossier"].apply(lambda n: n == "")
 
         # Date mapping
-        non_empty_date_mask = df.apply(lambda n: n != "")
-        non_empty_opening = df.Openingsdatum[non_empty_date_mask.Openingsdatum]
-        non_empty_closing = df.Sluitingsdatum[non_empty_date_mask.Sluitingsdatum]
-
         opening_date_mapping = pd.to_datetime(
-            non_empty_opening,
+            df[~((df.Openingsdatum == "") & (df.Sluitingsdatum == ""))].Openingsdatum,
             format="%Y-%m-%d",
             errors="coerce",
         )
         closing_date_mapping = pd.to_datetime(
-            non_empty_closing,
+            df[~((df.Openingsdatum == "") & (df.Sluitingsdatum == ""))].Sluitingsdatum,
             format="%Y-%m-%d",
             errors="coerce",
         )
@@ -567,26 +699,38 @@ class PandasModel(QtCore.QAbstractTableModel):
                 tooltip="Sluitingsdatum mag niet leeg zijn voor dossiers",
             )
 
-        for row, _ in non_empty_opening[bad_opening_format_mask].items():
+        for row, is_bad in bad_opening_format_mask.items():
+            if not is_bad:
+                continue
+
             self._mark_bad_cell(
                 row=row,
                 col=opening_col,
                 tooltip="Openingsdatum moet in het formaat YYYY-MM-DD zijn",
             )
-        for row, _ in non_empty_closing[bad_closing_format_mask].items():
+        for row, is_bad in bad_closing_format_mask.items():
+            if not is_bad:
+                continue
+
             self._mark_bad_cell(
                 row=row,
                 col=closing_col,
                 tooltip="Sluitingsdatum moet in het formaat YYYY-MM-DD zijn",
             )
 
-        for row, _ in non_empty_opening[opening_future_mask].items():
+        for row, is_bad in opening_future_mask.items():
+            if not is_bad:
+                continue
+
             self._mark_bad_cell(
                 row=row,
                 col=opening_col,
                 tooltip="Datum mag niet in de toekomst zijn",
             )
-        for row, _ in non_empty_closing[closing_future_mask].items():
+        for row, is_bad in closing_future_mask.items():
+            if not is_bad:
+                continue
+
             self._mark_bad_cell(
                 row=row,
                 col=closing_col,
@@ -594,35 +738,50 @@ class PandasModel(QtCore.QAbstractTableModel):
             )
 
         if opening_before_start_range_mask is not None:
-            for row, _ in non_empty_opening[opening_before_start_range_mask].items():
+            for row, is_bad in opening_before_start_range_mask.items():
+                if not is_bad:
+                    continue
+
                 self._mark_bad_cell(
                     row=row,
                     col=opening_col,
                     tooltip="Datum moet binnen de serie-datumrange vallen",
                 )
         if opening_after_end_range_mask is not None:
-            for row, _ in non_empty_opening[opening_after_end_range_mask].items():
+            for row, is_bad in opening_after_end_range_mask.items():
+                if not is_bad:
+                    continue
+
                 self._mark_bad_cell(
                     row=row,
                     col=opening_col,
                     tooltip="Datum moet binnen de serie-datumrange vallen",
                 )
         if closing_before_start_range_mask is not None:
-            for row, _ in non_empty_closing[closing_before_start_range_mask].items():
+            for row, is_bad in closing_before_start_range_mask.items():
+                if not is_bad:
+                    continue
+
                 self._mark_bad_cell(
                     row=row,
                     col=closing_col,
                     tooltip="Datum moet binnen de serie-datumrange vallen",
                 )
         if closing_after_end_range_mask is not None:
-            for row, _ in non_empty_closing[closing_after_end_range_mask].items():
+            for row, is_bad in closing_after_end_range_mask.items():
+                if not is_bad:
+                    continue
+
                 self._mark_bad_cell(
                     row=row,
                     col=closing_col,
                     tooltip="Datum moet binnen de serie-datumrange vallen",
                 )
 
-        for row, _ in non_empty_opening[closing_before_opening_mask].items():
+        for row, is_bad in closing_before_opening_mask.items():
+            if not is_bad:
+                continue
+
             self._mark_date_cell(
                 row=row,
                 col=opening_col,
@@ -641,7 +800,9 @@ class PandasModel(QtCore.QAbstractTableModel):
 
         name_column = self._data.columns.get_loc("Naam")
 
+        self.modelAboutToBeReset.emit()
         self.dataChanged.emit(
             self.index(0, name_column),
             self.index(self.rowCount(), name_column),
         )
+        self.modelReset.emit()

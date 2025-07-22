@@ -54,6 +54,18 @@ WHERE d.path IN (
     WHERE sip_id=?
 )
 """
+delete_dossiers_by_sip = f"""
+DELETE FROM {Tables.DOSSIER.value} as d
+WHERE d.path IN (
+    SELECT dossier_id
+    FROM {Tables.SIP_DOSSIER_LINK.value} as s
+    WHERE s.sip_id=?
+)
+"""
+delete_dossier_links_by_sip = f"""
+DELETE FROM {Tables.SIP_DOSSIER_LINK.value}
+WHERE sip_id=?
+"""
 
 create_series_table = f"""
 CREATE TABLE IF NOT EXISTS {Tables.SERIES.value} (
@@ -80,6 +92,16 @@ SET status=?,
     valid_from=?,
     valid_to=?
 WHERE id=?
+"""
+# NOTE: delete is nothing else references it
+delete_series = f"""
+DELETE FROM {Tables.SERIES.value} as series
+WHERE id=?
+  AND 1 = (
+    SELECT count(*)
+    FROM {Tables.SIP.value} as sip
+    WHERE sip.series_id=series.id
+  )
 """
 
 create_sip_table = f"""
@@ -110,9 +132,6 @@ update_sip_table = [
 read_all_sip = f"""
 SELECT * FROM {Tables.SIP.value}
 """
-get_sip_count = f"""
-SELECT count(*) FROM {Tables.SIP.value}
-"""
 insert_sip = f"""
 INSERT INTO {Tables.SIP.value}(id, environment_name, name, status, series_id, metadata_file_path, tag_mapping_dict, folder_mapping_list, edepot_sip_id)
 VALUES(?,?,?,?,?,?,?,?,?)
@@ -129,3 +148,4 @@ SET environment_name=?,
     edepot_sip_id=?
 WHERE id=?
 """
+delete_sip = f"DELETE FROM {Tables.SIP.value} WHERE id=?"

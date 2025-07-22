@@ -52,7 +52,7 @@ IF you do not want an exe to be created, you only need to do steps 1-3.
 2. `venv\Scripts\activate.bat`
 3. `pip install -r requirements.txt`
 4. `pip install -r requirements.build.txt`
-5. `pyinstaller --noconfirm --onefile --windowed main.py`
+5. `pyinstaller --noconfirm --onefile --icon=logo.ico --add-data "logo.ico;." --windowed main.py`
 
 If you chose to create the exe, a folders will now be created in the project directory, `dist`.
 Your exe can be found in this folder.

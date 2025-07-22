@@ -1,11 +1,12 @@
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtWidgets, QtCore, QtGui
 
-import os
 import json
 
 
 from ..application import Application
 from ..controllers.config_controller import ConfigController
+
+from ..utils.path_loader import resource_path
 
 from ..widgets.configuration_tab_widget import (
     MiscConfigurationTab,
@@ -21,6 +22,8 @@ class ConfigurationWidget(QtWidgets.QMainWindow):
 
         self.application: Application = QtWidgets.QApplication.instance()
         self.config_controller: ConfigController = self.application.config_controller
+
+        self.setWindowIcon(QtGui.QIcon(resource_path("logo.ico")))
 
         self.tabs = {}
 
@@ -62,7 +65,16 @@ class ConfigurationWidget(QtWidgets.QMainWindow):
             environment: tab.get_tab_info() for environment, tab in self.tabs.items()
         }
 
+        type_changed = False
+
+        if self.tabs["misc"].get_tab_info()["Type SIPs"] != self.application.state.configuration.active_type:
+            type_changed = True
+
         self._write_configuration(configuration)
+        self.config_controller.get_configuration().create_locations()
+
+        if type_changed:
+            self.application.type_changed.emit()
 
         self.close()
         self.closed.emit()

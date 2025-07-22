@@ -1,8 +1,9 @@
 from PySide6 import QtWidgets, QtCore
 
-from typing import List, Callable
+from typing import List
 import uuid
 import os
+import re
 
 from .dossier import Dossier
 from ..series import Series
@@ -15,12 +16,6 @@ class FilenameNotUniqueException(Exception):
         super().__init__(*args, **kwargs)
 
         self.overlap = overlap
-
-
-def get_next_sip_name():
-    db_controller = QtWidgets.QApplication.instance().db_controller
-
-    return f"SIP {db_controller.get_sip_count() + 1}"
 
 
 class SIP(QtCore.QObject):
@@ -44,7 +39,7 @@ class SIP(QtCore.QObject):
 
         self._id = str(uuid.uuid4()) if _id is None else _id
 
-        self.name = get_next_sip_name() if name is None else name
+        self.name = name
         self.status = SIPStatus.IN_PROGRESS if status is None else status
         self.series = Series() if series is None else series
 
@@ -63,11 +58,11 @@ class SIP(QtCore.QObject):
 
     @property
     def file_name(self):
-        return f"{self.series._id}-{self.name}.zip"
+        return f"{self.series._id}-{self.name}-SIPC.zip"
 
     @property
     def sidecar_file_name(self):
-        return f"{self.series._id}-{self.name}.xml"
+        return f"{self.series._id}-{self.name}-SIPC.xml"
 
     @property
     def error_file_name(self):
@@ -99,21 +94,32 @@ class SIP(QtCore.QObject):
             if self.folder_mapping is None:
                 return location
 
-            # Take the filename
-            file_name = os.path.basename(location)
-
             # Get the mapping, otherwise return default
-            return self.folder_mapping.get(file_name, location)
+            return self.folder_mapping.get(location, location)
+
+        ignored_regexes = [
+            r"^~.*",
+            r"^.+\.te?mp$",
+            r"^Thumbs\.db$",
+            r"^Desktop\.ini$",
+            r"^\.DS_Store$",
+            r"^\._.+$",
+            r"^\.Spotlight-V100$",
+            r"^\.Trashes$",
+            r"^\.fseventsd$"
+        ]
 
         sip_structure = {}
 
         for dossier in self.dossiers:
             dossier_structure = {
-                dossier.dossier_label: {
-                    "Path in SIP": dossier.dossier_label,
+                (path_in_sip := _map_location_to_sip(dossier.dossier_label)): {
+                    "Path in SIP": path_in_sip,
+                    "original Path in SIP": dossier.dossier_label,
                     "path": dossier.path,
                     "Type": "dossier",
-                    "DossierRef": dossier.dossier_label,
+                    "Naam": os.path.basename(path_in_sip),
+                    "DossierRef": path_in_sip.split("/")[0],
                     # To be determined based on the files for this dossier
                     "Openingsdatum": None,
                     "Sluitingsdatum": None,
@@ -121,29 +127,32 @@ class SIP(QtCore.QObject):
             }
 
             file_structure = {
-                file_name: {
-                    "Path in SIP": f"{dossier.dossier_label}/{_map_location_to_sip(location)}",
-                    "path": os.path.join(dossier.path, location),
+                (path_in_sip := _map_location_to_sip(f'{dossier.dossier_label}/{location}')): {
+                    "Path in SIP": path_in_sip,
+                    "original Path in SIP": f'{dossier.dossier_label}/{location}',
+                    "path": (real_path := os.path.join(dossier.path, location)),
                     "Type": (
                         # Set specific bad-type to filter on later
                         "geen"
-                        if not os.path.isfile(os.path.join(dossier.path, location))
-                        or os.path.getsize(os.path.join(dossier.path, location)) == 0
+                        if not os.path.isfile(real_path)
+                        or os.path.getsize(real_path) == 0
+                        or any(re.match(p, file_name) is not None for p in ignored_regexes)
                         else "stuk"
                     ),
-                    "DossierRef": dossier.dossier_label,
+                    "Naam": os.path.basename(path_in_sip),
+                    "DossierRef": path_in_sip.split("/")[0],
                     # Openingsdatum will be the creation dates of the file
                     # There is no cross-platform way of doing this sadly
                     # nt is Windows
                     "Openingsdatum": (
-                        os.path.getctime(os.path.join(dossier.path, location))
+                        os.path.getctime(real_path)
                         if os.name == "nt"
-                        else os.stat(os.path.join(dossier.path, location)).st_birthtime
+                        else os.stat(real_path).st_birthtime
                     ),
                     # Sluitingsdatum will be the last edited time of the file
                     # This works as a cross-platform way of getting modification time
                     "Sluitingsdatum": os.path.getmtime(
-                        os.path.join(dossier.path, location)
+                        real_path
                     ),
                 }
                 for file_name, location in _get_dossier_folder_structure(
@@ -161,7 +170,10 @@ class SIP(QtCore.QObject):
                     overlapping_names.append(file_name)
 
             if len(overlapping_names):
-                raise FilenameNotUniqueException(overlap=overlapping_names)
+                # raise FilenameNotUniqueException(overlap=overlapping_names)
+                # NOTE: since this check is no longer required, remove the exception throwing
+                # Do keep the code in case we need it at some point
+                pass
 
             sip_structure = {
                 **sip_structure,
