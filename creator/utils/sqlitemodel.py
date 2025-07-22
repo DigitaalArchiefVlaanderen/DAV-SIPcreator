@@ -86,6 +86,7 @@ class SQLliteModel(TableModel):
 
         # Check if there is any value in the matching row where the color is red or yellow
         # return any(True for (row_id, _), color in self.colors.items() if row_id == _id and color in (CellColor.RED, CellColor.YELLOW))
+        return False
 
     def row_has_no_series(self, row: int) -> bool:
         # This filter should only apply to the main table
