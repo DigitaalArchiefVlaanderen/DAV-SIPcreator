@@ -209,11 +209,11 @@ class ListTableModel(TableModel):
                 )
 
             # NOTE: set "Naam" automatically, also run the checks needed    
+            self.run_checks(row, col+4, value)
             self.set_value(
                 self.index(row, col+4),
                 value
             )
-            self.run_checks(row, col+4, value)
 
             self.manual_entry = old_manual_entry
         elif column in ("Openingsdatum", "Sluitingsdatum"):
@@ -322,8 +322,6 @@ class ListTableModel(TableModel):
 
             if val == "":
                 self._mark_cell(r, col, CellColor.RED, "Path in SIP mag niet leeg zijn")
-            elif "/" in val:
-                self._mark_cell(r, col, CellColor.RED, "Path in SIP mag geen '/' bevatten")
             else:
                 self._mark_cell(r, col)
 
