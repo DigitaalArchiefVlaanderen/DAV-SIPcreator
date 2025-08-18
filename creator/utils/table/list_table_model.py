@@ -23,6 +23,7 @@ class ListTableModel(TableModel):
     def __init__(self, list_item: ListItem):
         super().__init__()
 
+        self.list_item = list_item
         self.columns = {i: c for i, c in enumerate(list_item.grid.columns)}
         self.raw_data = list_item.grid.data
 
@@ -122,6 +123,54 @@ class ListTableModel(TableModel):
 
         for c, value in enumerate(new_row[1:], start=1):
             self.run_checks(self.rowCount()-1, c, value)
+
+    def insert_col(self, col_name: str) -> None:
+        self.modelAboutToBeReset.emit()
+
+        new_column_name = col_name
+        spaces_added = 1
+
+        # NOTE: keep adding spaces until it is new
+        while (new_column_name := f"{new_column_name} ") in self.list_item.grid.columns:
+            spaces_added += 1
+
+        old_index = self.list_item.grid.columns.index(col_name)
+        new_index = old_index + spaces_added
+        self.list_item.grid.columns.insert(
+            new_index,
+            new_column_name
+        )
+
+        # Reset the columns
+        self.columns = {i: c for i, c in enumerate(self.list_item.grid.columns)}
+
+        # Move the data
+        new_data = []
+
+        # Special case
+        # If we try to add at the end of the columns
+        if new_index == len(self.raw_data):
+            new_data = [
+                row + [""]
+                for row in self.raw_data
+            ]
+        else:
+            for row in self.raw_data:
+                row_data = []
+
+                for idx, value in enumerate(row):
+                    if idx == new_index:
+                        row_data.append("")
+
+                    row_data.append(value)
+
+                new_data.append(row_data)
+        
+        self.list_item.grid.data = new_data
+        self.raw_data = self.list_item.grid.data
+
+        self.modelReset.emit()
+        self.first_open()
 
     def set_value(self, index, new_value: str):
         self.has_changed = True

@@ -92,9 +92,34 @@ class AnaloogGridView(QtWidgets.QMainWindow):
         self.row_count_label = QtWidgets.QLabel(text="0 rijen")
         self.model.data_rows_changed.connect(self.update_row_count_label)
 
+        self.column_dropdown = QtWidgets.QComboBox()
+        
+        filtered_columns = [
+            c for c in self.list_item.grid.columns
+            if c not in (
+                "_id",
+                "Path in SIP",
+                "Type",
+                "DossierRef",
+                "Analoog?",
+                "Naam",
+                "Openingsdatum",
+                "Sluitingsdatum",
+            )
+        ]
+
+        for column in filtered_columns:
+            self.column_dropdown.addItem(column)
+
+
+        self.add_column_button = QtWidgets.QPushButton(text="Voeg kolom toe")
+        self.add_column_button.clicked.connect(self.add_column_button_clicked)
+
         grid_layout.addWidget(series_label, 0, 0, 1, 4)
         grid_layout.addWidget(self.default_sorting_button, 0, 4)
         grid_layout.addWidget(self.show_bad_rows_checkbox, 1, 0)
+        grid_layout.addWidget(self.column_dropdown, 1, 2)
+        grid_layout.addWidget(self.add_column_button, 1, 3)
         grid_layout.addWidget(self.row_count_label, 1, 4)
         grid_layout.addWidget(self.table_view, 2, 0, 1, 5)
         grid_layout.addWidget(save_button, 3, 0, 1, 2)
@@ -120,7 +145,7 @@ class AnaloogGridView(QtWidgets.QMainWindow):
                     );
                 """)
                 conn.executemany(f"INSERT INTO data VALUES ({'?,' * (len(self.list_item.grid.columns) - 1)}?)", self.list_item.grid.data)
-        except Exception:
+        except Exception as exc:
             WarningDialog(
                 title="Ongekende fout",
                 text="Ongekende fout is opgetreden tijdens het opslaan van de grid.",
@@ -276,6 +301,13 @@ class AnaloogGridView(QtWidgets.QMainWindow):
 
         self.row_count_label.setStyleSheet(stylesheet)
 
+    
+    def add_column_button_clicked(self) -> None:
+        column = self.column_dropdown.currentText()
+
+        model: ListTableModel = self.table_view.model()
+
+        model.insert_col(column)
 
     def closeEvent(self, event):
         if not self.saved:
