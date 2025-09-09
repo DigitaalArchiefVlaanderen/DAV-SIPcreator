@@ -109,16 +109,6 @@ class Misc:
             bestandscontrole_lijst_location=""
         )
 
-    @staticmethod
-    def get_default() -> "Misc":
-        return Misc(
-            environments_activity=dict(
-                ti=False,
-                prod=True,
-            ),
-            save_location=os.path.join(os.getcwd(), "SIP_Creator"),
-        )
-
 
 @dataclass
 class Configuration:
