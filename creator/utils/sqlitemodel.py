@@ -102,6 +102,8 @@ class SQLliteModel(TableModel):
 
         if self.get_value(self.index(row, series_name_col)) in ("", None):
             return True
+        
+        return False
 
     def get_value(self, index):
         row, col = index.row(), index.column()
