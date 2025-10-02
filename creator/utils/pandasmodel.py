@@ -252,7 +252,7 @@ class PandasModel(TableModel):
         except ValueError:
             pass
 
-    def _date_invalid_check(self, date: datetime) -> str:
+    def _date_invalid_check(self, date: datetime, is_opening_date: bool=True) -> str:
         if date is None:
             return
 
@@ -262,7 +262,7 @@ class PandasModel(TableModel):
         if self.date_start is not None and date < self.date_start:
             return "Datum moet binnen de serie-datumrange vallen"
 
-        if self.date_end is not None and date > self.date_end:
+        if self.date_end is not None and date > self.date_end and is_opening_date:
             return "Datum moet binnen de serie-datumrange vallen"
         
     def _rrn_check(self, value: str, row: int, col: int) -> str:
@@ -670,9 +670,6 @@ class PandasModel(TableModel):
         opening_after_end_range_mask = (
             opening_date_mapping > self.date_end if self.date_end is not None else None
         )
-        closing_after_end_range_mask = (
-            closing_date_mapping > self.date_end if self.date_end is not None else None
-        )
 
         # Closing before opening
         closing_before_opening_mask = closing_date_mapping < opening_date_mapping
@@ -759,16 +756,6 @@ class PandasModel(TableModel):
                 )
         if closing_before_start_range_mask is not None:
             for row, is_bad in closing_before_start_range_mask.items():
-                if not is_bad:
-                    continue
-
-                self._mark_bad_cell(
-                    row=row,
-                    col=closing_col,
-                    tooltip="Datum moet binnen de serie-datumrange vallen",
-                )
-        if closing_after_end_range_mask is not None:
-            for row, is_bad in closing_after_end_range_mask.items():
                 if not is_bad:
                     continue
 
