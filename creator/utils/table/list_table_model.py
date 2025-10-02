@@ -429,7 +429,7 @@ class ListTableModel(TableModel):
                 return
 
         if self.series.valid_to is not None:
-            if date > self.series.valid_to if col == start_column:
+            if date > self.series.valid_to and col == start_column:
                 self._mark_cell(row, col, CellColor.RED, "Datum mag niet na de sluitingsdatum van de serie zijn")
                 
                 _check_other_date_cell()

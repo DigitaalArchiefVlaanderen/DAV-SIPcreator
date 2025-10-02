@@ -519,7 +519,7 @@ class SQLliteModel(TableModel):
 
             after = datetime.strptime(after, "%d %m %Y")
             
-            if date > after and col != end_column:
+            if date > after and col == start_column:
                 self._mark_cell(row, col, CellColor.RED, "Datum mag niet na de sluitingsdatum van de serie zijn")
                 
                 _check_other_date_cell()

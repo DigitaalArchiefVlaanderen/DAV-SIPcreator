@@ -494,7 +494,7 @@ class PandasModel(TableModel):
         closing_date_value = data_row["Sluitingsdatum"].to_list()[0]
 
         opening_date, closing_date = self._proper_date_format(opening_date_value), self._proper_date_format(closing_date_value)
-        opening_tooltip, closing_tooltip = self._date_invalid_check(opening_date), self._date_invalid_check(closing_date)
+        opening_tooltip, closing_tooltip = self._date_invalid_check(opening_date), self._date_invalid_check(closing_date, is_opening_date=False)
         
         # NOTE: we start by individually checking opening, then closing
         is_opening_value_ok = self._individual_date_cell_checks(
