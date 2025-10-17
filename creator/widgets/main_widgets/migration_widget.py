@@ -10,6 +10,7 @@ import ftplib
 import socket
 from openpyxl import load_workbook
 from PySide6 import QtWidgets, QtCore, QtGui
+from PySide6.QtCore import QObject, Signal, QThread, Slot
 import pandas as pd
 import sqlite3 as sql
 from pathlib import Path
@@ -80,7 +81,8 @@ class MigrationWidget(MainWidget):
 
             tab_ui = TabUI(path=path)
             tab_ui.setup_ui()
-            tab_ui.load_items()
+            # Only setting up the UI, data loading starts when a user
+            # opens an overdrachtslijst.
 
             self.list_view.add_item("overdrachtslijst_name", MigrationListView(tab_ui))
 
@@ -129,9 +131,10 @@ class TabUI(QtWidgets.QMainWindow):
         self.setWindowIcon(QtGui.QIcon(resource_path("logo.ico")))
 
         self.can_upload = False
+        self._loaded = False # A marker so the UI is not populated multiple times when a user closes and reopens an overdrachtslijst
         self.edepot_ids = []
 
-        self.storage_base = f"{self.state.configuration.misc.save_location}/overdrachtslijsten"
+        self.storage_base = self.state.configuration.overdrachtslijsten_location
 
         self.toolbar = Toolbar()
         self.toolbar.configuration_changed.connect(self.configuration_changed.emit)
@@ -176,10 +179,12 @@ class TabUI(QtWidgets.QMainWindow):
 
         self._layout.addWidget(self.tab_widget, 0, 0)
 
-        save_button = QtWidgets.QPushButton(text="Opslaan")
-        save_button.clicked.connect(self.save_tabs)
-        self._layout.addWidget(save_button, 1, 0)
+        self.save_button = QtWidgets.QPushButton(text="Opslaan")
+        self.save_button.clicked.connect(self.save_tabs)
+        self._layout.addWidget(self.save_button, 1, 0)
         self._layout.addWidget(self.create_sips_button, 2, 0)
+
+        self._loaded = False
 
     def load_items(self):
         if self.create_db():
@@ -248,6 +253,22 @@ class TabUI(QtWidgets.QMainWindow):
                 ).exec()
             else:
                 self.edepot_available_changed.emit(True)
+
+        self._loaded = True
+
+    def show(self):
+        """Show the widget and optionally load the data"""
+        if not self._loaded:
+            with sql.connect(self.db_location) as conn:
+                number_of_rows = conn.execute(f'''SELECT COUNT(*) FROM Overdrachtslijst;''').fetchone()[0]
+            if number_of_rows > 1000:
+                WarningDialog(
+                    title="Lange laadtijd",
+                    text=f"Het inladen van {number_of_rows:,} rijen kan een aantal minuten duren. Tijdens het laden is de app niet responsief. Wacht tot de app weer responsief wordt."
+                ).exec()
+            self.load_items()
+            
+        return super().show()
 
     def create_db(self) -> bool:
         os.makedirs(self.storage_base, exist_ok=True)
@@ -895,11 +916,28 @@ class TabUI(QtWidgets.QMainWindow):
         self.close()
 
     def reload_tabs(self, new_tab: str=None) -> None:
+        # A wait message on the Opslaan button
+        self.save_button.setText("Wachten op inladen van data...")
+        self.save_button.setStyleSheet("background-color: lightblue;")
+        
+        # Dict to store all threads
+        self.data_loading_threads = {}
         for table_name, reference in self.tabs.items():
             # Reload all the data
             model: SQLliteModel = reference["model"]
 
-            model.get_data()
+            # Start background thread
+            thread = QThread()
+            worker = DataLoadingWorker(table_name, model)
+            worker.moveToThread(thread)
+
+            thread.started.connect(worker.run)
+            worker.finished.connect(self.on_load_finished)
+            worker.finished.connect(worker.deleteLater)
+            thread.finished.connect(thread.deleteLater)
+
+            self.data_loading_threads[table_name] = {"thread":thread, "worker":worker, "finished":False}
+            thread.start()
 
             # Only do this if the tab is new, or we are reloading all tabs
             if new_tab is None or new_tab == table_name:
@@ -931,6 +969,17 @@ class TabUI(QtWidgets.QMainWindow):
                             model.mark_column_as_hidden(i)
 
         self._filter_unassigned(self.unassigned_only_checkbox.checkState().value)
+
+    @Slot(str)
+    def on_load_finished(self, table_name):
+        """Run when loading of the data for all tables on the tab are finished"""
+        self.data_loading_threads[table_name]["thread"].quit()
+        self.data_loading_threads[table_name]["finished"] = True
+
+        if all([v["finished"] for v in self.data_loading_threads.values()]):
+            # Remove wait message
+            self.save_button.setText("Opslaan")
+            self.save_button.setStyleSheet("")
 
     def set_create_button_status(self, *_) -> None:
         for reference in self.tabs.values():
@@ -1379,3 +1428,16 @@ class MigrationListView(QtWidgets.QWidget):
                 os.startfile(
                     f"{self.state.configuration.active_environment.api_url}/input/processing-list/{edepot_id}"
                 )
+
+
+class DataLoadingWorker(QObject):
+    finished = Signal(str)
+
+    def __init__(self, table_name:str, model:SQLliteModel):
+        super().__init__()
+        self.model = model
+        self.table_name = table_name
+
+    def run(self):
+        self.model.get_data()
+        self.finished.emit(self.table_name)
