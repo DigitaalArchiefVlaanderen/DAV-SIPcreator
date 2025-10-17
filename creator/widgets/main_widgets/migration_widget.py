@@ -134,7 +134,7 @@ class TabUI(QtWidgets.QMainWindow):
         self._loaded = False # A marker so the UI is not populated multiple times when a user closes and reopens an overdrachtslijst
         self.edepot_ids = []
 
-        self.storage_base = f"{self.state.configuration.misc.save_location}/overdrachtslijsten"
+        self.storage_base = self.state.configuration.overdrachtslijsten_location
 
         self.toolbar = Toolbar()
         self.toolbar.configuration_changed.connect(self.configuration_changed.emit)
