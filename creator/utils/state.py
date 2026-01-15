@@ -30,12 +30,16 @@ class State(QtCore.QObject):
         self.series: List[Series] = None
 
     def check_series_loaded(self) -> bool:
-        if self.series is None:
-            self.load_series()
+        # NOTE: this is disabled now, we will assume it will be filled
+        # if self.series is None:
+        #     self.load_series()
 
-            return self.series is not None
+        #     return self.series is not None
         
         return True
+    
+    def set_series(self, series: list) -> None:
+        self.series = series
 
     def load_series(self) -> None:
         # NOTE: this method only gets called when config changes or if no series exist yet

@@ -1,0 +1,14 @@
+{
+    "toolbar": {
+        "configuration_button": "Configuratie"
+    },
+    "api": {
+        "Timeout": "De API request duurde te lang, probeer later opnieuw.",
+        "HTTPError": "Onbekende HTTPError bij het ophalen van API data.\nCredentials zijn mogelijks fout.",
+        "Fout": "Onbekende fout bij het ophalen van API data.\nDe API url is mogelijks fout."
+    },
+    "errors": {
+        "unexpected_error_title": "Een fout is opgetreden",
+        "unexpected_application_type": "Ongekend applicatie type meegegeven"
+    }
+}
