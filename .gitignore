@@ -8,8 +8,8 @@ venv/
 # Example dossiers
 examples/
 
-# Json files
-*.json
+# configuration files
+configuration*.json
 
 # Build files
 dist/

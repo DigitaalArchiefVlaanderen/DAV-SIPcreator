@@ -1,13 +1,20 @@
 from dataclasses import dataclass
 from datetime import datetime
 
+from enum import Enum
+
+
+class SeriesStatus(Enum):
+    PUBLISHED = "Published"
+    SUBMITTED = "Submitted"
+
 
 @dataclass
 class Series:
     _id: str = ""
     name: str = ""
-    status: str = ""
 
+    status: SeriesStatus = None
     valid_from: datetime = None
     valid_to: datetime = None
 
@@ -38,7 +45,7 @@ class Series:
         return Series(
             _id=series["Id"],
             name=series["Content"]["Name"],
-            status=series["Status"]["Status"],
+            status=SeriesStatus(series["Status"]["Status"]),
             valid_from=valid_from,
             valid_to=valid_to,
         )
@@ -52,7 +59,7 @@ class Series:
                 "Name": self.name
             },
             "Status": {
-                "Status": self.status
+                "Status": self.status.value
             },
             "ValidityPeriod": {}
         }
@@ -68,7 +75,12 @@ class Series:
     def from_list(series_list: list) -> list:
         return [Series.from_dict(s) for s in series_list]
 
-    def get_name(self):
+    @staticmethod
+    def from_full_name_and_id(_id: str, full_name: str) -> "Series":
+        # TODO
+        ...
+
+    def get_full_name(self) -> str:
         def transform_date(date: datetime):
             # Date comes in as YYYY-MM-DD
             # Date needs to go out as dd mon YYYY
@@ -119,7 +131,9 @@ class Series:
         return f"{self.name} {validity_string}"
 
     def __str__(self) -> str:
-        return self.get_name()
+        return self.get_full_name()
 
     def __repr__(self) -> str:
-        return self.get_name()
+        return self.get_full_name()
+
+

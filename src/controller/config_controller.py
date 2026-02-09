@@ -1,7 +1,7 @@
 import os
 import json
 
-from src.utils.configuration import Configuration, ConfigurationVersion
+from src.utils.data_objects.configuration import Configuration, ConfigurationVersion
 from src.utils.constants import CONFIGURATION_PATH
 from src.utils.path import is_path_exists_or_creatable
 

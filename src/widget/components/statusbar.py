@@ -52,23 +52,17 @@ class Statusbar(QtWidgets.QStatusBar):
         # Call original
         QtWidgets.QMainWindow.resizeEvent(self.parent_window, event)
 
-    # NOTE: this exists to serve as an easier way to handle signals that need to set a message
-    def set_left_text(self, text: str) -> None:
-        self.left_text = text
-
     @property
     def left_text(self) -> str:
         return self.currentMessage()
-    
-    @left_text.setter
-    def left_text(self, text: str) -> None:
-        # We kinda hack it to make it always permanent
+
+    # NOTE: this exists to serve as an easier way to handle signals that need to set a message
+    def set_left_text(self, text: str) -> None:
         self.showMessage(text, timeout=0)
 
     @property
     def right_text(self) -> str:
         return self.label_right.text()
     
-    @right_text.setter
-    def right_text(self, text: str) -> None:
+    def set_right_text(self, text: str) -> None:
         self.label_right.setText(text)

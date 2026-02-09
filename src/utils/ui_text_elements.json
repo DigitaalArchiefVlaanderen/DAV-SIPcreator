@@ -2,13 +2,186 @@
     "toolbar": {
         "configuration_button": "Configuratie"
     },
-    "api": {
-        "Timeout": "De API request duurde te lang, probeer later opnieuw.",
-        "HTTPError": "Onbekende HTTPError bij het ophalen van API data.\nCredentials zijn mogelijks fout.",
-        "Fout": "Onbekende fout bij het ophalen van API data.\nDe API url is mogelijks fout."
+    "dialog_window": {
+        "yes_no_dialog": {
+            "yes": "Ja",
+            "no": "Nee"
+        }
+    },
+    "sip": {
+        "status": {
+            "in_progress": {
+                "text": "In verwerking",
+                "priority": 0
+            },
+
+            "sip_created": {
+                "text": "Klaar voor upload",
+                "priority": 1
+            },
+            "uploading": {
+                "text": "Bezig met upload",
+                "priority": 2
+            },
+            "uploaded": {
+                "text": "Klaar met upload",
+                "priority": 3
+            },
+            "processing": {
+                "text": "E-edepot verwerking",
+                "priority": 4
+            },
+            "accepted": {
+                "text": "Geaccepteerd",
+                "priority": 5
+            },
+            "rejected": {
+                "text": "Geweigerd",
+                "priority": 6
+            },
+
+            "deleted": {
+                "text": "Aan het verwijderen",
+                "priority": 7
+            }
+        }
+    },
+    "digital": {
+        "main": {
+            "controls": {
+                "add_dossier_button": {
+                    "button_text": "Voeg een dossier toe",
+                    "dialog_message": "Selecteer dossier om toe te voegen"
+                },
+                "add_dossiers_button": {
+                    "button_text": "Voeg folder met dossiers toe",
+                    "dialog_message": "Selecteer een map met dossiers om toe te voegen",
+                    "action_takes_long_warning": {
+                        "title": "Dossiers toevoegen",
+                        "text": "Het toevoegen van veel dossiers kan een tijdje duren.\n\nGeschatte tijd: {estimated_seconds} seconden"
+                    }
+                },
+                "start_sip_button": {
+                    "button_text": "Start SIP",
+                    "too_many_files_warning": {
+                        "title": "Te veel bestanden",
+                        "text": "Er zijn te veel bestanden in de geselecteerde dossiers.\n\nMaximum: 9999\n\nAantal gevonden: {amount_of_files}"
+                    }
+                }
+            },
+            "dossier_list": {
+                "select_all": "Selecteer alle dossiers",
+                "remove_dossiers": "Verwijder geselecteerde dossiers"
+            },
+            "sip_list": {
+                "show_all": "alles tonen",
+                "dossiers_title": "Dossiers",
+                "controls": {
+                    "open_button_text": "Open",
+                    "upload_button_text": "Upload",
+                    "bestandslocatie_button_text": "Bestandslocatie",
+                    "edepot_button_text": "E-depot locatie",
+                    "remove_button_text": "Verwijder",
+
+                    "actions": {
+                        "remove": {
+                            "title": "Verwijder files",
+                            "text": "Ben je zeker dat je de SIP en al zijn bijhorende files wilt verwijderen?\nDeze actie kan niet ongedaan gemaakt worden."
+                        }
+                    }
+                }
+            }
+        },
+        "sip_detail_view": {
+            "published_series_text": "Gepubliceerde series",
+            "submitted_series_text": "Ingediende series",
+            "import_template_retrieval_button_text": "Haal importsjabloon op",
+            "metadata_file_button_text": "Selecteer metadata file",
+            "metadata_file_path_default_text": "Nog geen pad geselecteerd",
+            "metadata_selection_dialog_window": {
+                "title": "Selecteer Metadata File"
+            },
+            "folder_structure_button_text": "Stel mappenstructuur samen",
+            "open_grid_button_text": "Open metadata grid"
+        }
+    },
+    "configuration": {
+        "save_button_text": "Opslaan",
+        "misc": {
+            "tab_name": "misc",
+            "title": "Misc opties",
+
+            "sip_creator_save_location_label_text": "SIP Creator opslag locatie",
+            "sip_creator_save_location_button_text": "Selecteer opslag locatie",
+
+            "bestandscontrole_list_label_text": "Bestandscontrole lijst locatie",
+            "bestandscontrole_list_button_text": "Selecteer locatie",
+
+            "environments_selection_title": "Actieve omgevingen",
+            "role_selection_title": "Actieve rol",
+            "sip_selection_title": "Actieve SIP type"
+        }
     },
     "errors": {
-        "unexpected_error_title": "Een fout is opgetreden",
+        "api": {
+            "Timeout": {
+                "title": "Timeout",
+                "text": "De API request duurde te lang, probeer later opnieuw."
+            },
+            "HTTPError": {
+                "title": "HTTP error",
+                "text": "Onbekende HTTPError bij het ophalen van API data.\nCredentials zijn mogelijks fout."
+            },
+            "APIError": {
+                "title": "API fout",
+                "text": "Onbekende fout bij het ophalen van API data.\nDe API url is mogelijks fout."
+            }
+        },
+        "sip": {
+            "invalid_database_error": {
+                "title": "Fout bij het inladen van sip database",
+                "text": "Database laden is gefaald.\nDe database op locatie '{db_path}' is geen SIP database of is corrupt."
+            },
+            "db_already_exists_error": {
+                "title": "Fout bij het aanmaken van sip database",
+                "text": "Probeerde een sip db aan te maken terwijl deze al bestaat '{db_path}'"
+            },
+            "db_creation_when_db_has_no_series_error": {
+                "title": "Fout bij het aanmaken van sip database",
+                "text": "Probeerde een sip db aan te maken zonder een serie toe te kennen"
+            },
+            "db_creation_when_db_has_no_data_error": {
+                "title": "Fout bij het aanmaken van sip database",
+                "text": "Probeerde een sip db aan te maken zonder een gelinkt importsjabloon te hebben"
+            }
+        },
+        "series": {
+            "series_not_found_error": {
+                "title": "Serie niet gevonden",
+                "text": "Probeerde serie te vinden met id '{series_id}' en naam '{series_name}' in '{environment_name}', maar het was niet gevonden."
+            }
+        },
+        "unexpected_error": {
+            "title": "Een fout is opgetreden",
+            "text": "Een ongekende fout gebeurde '{exception_name}': {exception}"
+        },
         "unexpected_application_type": "Ongekend applicatie type meegegeven"
+    },
+    "warnings": {
+        "series_still_loading_warning": {
+            "title": "Series zijn aan het laden",
+            "text": "Series worden nog geladen, de actie wordt uitgevoerd zodra we alle series hebben."
+        }
+    },
+    "toolbar_info": {
+        "series_retrieval_in_progress": {
+            "left_text": "series ==> {ti_env_name}: {ti_amount_of_series} | {prod_env_name}: {prod_amount_of_series}..."
+        },
+        "series_retrieval_done": {
+            "left_text": "series ==> {ti_env_name}: {ti_amount_of_series} | {prod_env_name}: {prod_amount_of_series}"
+        },
+        "digital_background_work": {
+            "right_text": "sips en dossiers aan het inladen..."
+        }
     }
 }

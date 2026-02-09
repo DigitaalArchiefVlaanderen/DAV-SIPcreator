@@ -1,8 +1,11 @@
-import os
 from dataclasses import dataclass
+from enum import Enum
+import json
+import os
 from typing import List
 
-from enum import Enum
+from src.utils.constants import SaveLocations
+
 
 class ConfigurationVersion(Enum):
     V1 = 1
@@ -83,14 +86,20 @@ class Environment:
             port=self.ftps_port,
         )
 
+    def to_json(self) -> dict:
+        return {
+            "API": self.get_api_info(),
+            "FTPS": self.get_ftps_info()
+        }
+
     def get_serie_register_uri(self) -> str:
         return self.api_url.replace("digitaalarchief", "serieregister") + "/id/serie"
 
 @dataclass
 class Misc:
-    environments_activity: dict
-    role_activity: dict
-    type_activity: dict
+    environments_activity: dict[str, bool]
+    role_activity: dict[str, bool]
+    type_activity: dict[str, bool]
     save_location: str
     bestandscontrole_lijst_location: str
 
@@ -111,10 +120,18 @@ class Misc:
                 onroerend_erfgoed=False,
                 analoog=False,
             ),
-            save_location=os.path.join(os.getcwd(), "SIP_Creator"),
+            save_location=os.path.join(os.getcwd(), SaveLocations.DEFAULT_BASE_SAVE_LOCATION.value),
             bestandscontrole_lijst_location=""
         )
 
+    def to_json(self) -> dict:
+        return {
+            "Omgevingen": self.environments_activity,
+            "Rollen": self.role_activity,
+            "Type SIPs": self.type_activity,
+            "SIP Creator opslag locatie": self.save_location,
+            "Bestandscontrole lijst locatie": self.bestandscontrole_lijst_location
+        }
 
 @dataclass
 class Configuration:
@@ -126,9 +143,13 @@ class Configuration:
         os.makedirs(self.sip_db_location, exist_ok=True)
         os.makedirs(self.import_templates_location, exist_ok=True)
         os.makedirs(self.overdrachtslijsten_location, exist_ok=True)
-        os.makedirs(self.grid_location, exist_ok=True)
+        # os.makedirs(self.grid_location, exist_ok=True)
         os.makedirs(self.analoog_location, exist_ok=True)
         os.makedirs(self.sips_location, exist_ok=True) 
+
+    def save(self) -> None:
+        with open(SaveLocations.CONFIGURATION_FILE.value, "w", encoding="utf-8") as f:
+            json.dump(self.to_json(), f, indent=4)
 
     @staticmethod
     def get_default() -> "Configuration":
@@ -146,6 +167,15 @@ class Configuration:
             environments=[ti, prod],
             misc=misc,
         )
+
+    def to_json(self) -> dict:
+        return {
+            "misc": self.misc.to_json(),
+            **{
+                env.name: env.to_json()
+                for env in self.environments
+            }
+        }
 
     @staticmethod
     def from_json(json: dict, version: ConfigurationVersion) -> "Configuration":
@@ -256,24 +286,28 @@ class Configuration:
 
     @property
     def import_templates_location(self) -> str:
-        return os.path.join(self.misc.save_location, "import_templates")
+        return os.path.join(self.misc.save_location, SaveLocations.IMPORT_TEMPLATES_FOLDER.value)
     
     @property
     def overdrachtslijsten_location(self) -> str:
-        return os.path.join(self.misc.save_location, "overdrachtslijsten")
+        return os.path.join(self.misc.save_location, SaveLocations.OVERDRACHTSLIJSTEN_FOLDER.value)
     
     @property
     def analoog_location(self) -> str:
-        return os.path.join(self.misc.save_location, "analoog")
+        return os.path.join(self.misc.save_location, SaveLocations.ANALOOG_FOLDER.value)
     
     @property
     def grid_location(self) -> str:
-        return os.path.join(self.misc.save_location, "Grid")
+        return os.path.join(self.misc.save_location, SaveLocations.GRID_FOLDER.value)
 
     @property
     def sips_location(self) -> str:
-        return os.path.join(self.misc.save_location, "SIPs")
+        return os.path.join(self.misc.save_location, SaveLocations.SIPS_FOLDER.value)
         
     @property
     def sip_db_location(self) -> str:
-        return os.path.join(self.misc.save_location, "SIP_dbs")
+        return os.path.join(self.misc.save_location, SaveLocations.SIP_DB_FOLDER.value)
+
+    @property
+    def old_sip_db_location(self) -> str:
+        return os.path.join(self.misc.save_location, SaveLocations.OLD_SIP_DB_FOLDER.value)

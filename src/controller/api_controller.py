@@ -1,10 +1,12 @@
 from typing import Iterable
+import os
+import json
 
 import requests
 
-from src.utils.series import Series
-from creator.utils.state_utils.sip import SIP
-from src.utils.configuration import Configuration, Environment
+from src.utils.data_objects.series import Series
+from src.utils.data_objects.sip import SIP
+from src.utils.data_objects.configuration import Configuration, Environment
 
 
 class APIException(Exception):
@@ -133,13 +135,8 @@ class APIController:
 
             params["page"] = params["page"] + 1
 
-
-    # TODO: make into generators and do in background
     @staticmethod
-    def get_import_template(configuration: Configuration, series_id: str, environment: Environment=None) -> str:
-        # NOTE: we only get the environment given when it's retrieving for an existing grid
-        environment = environment or configuration.active_environment
-
+    def get_import_template(configuration: Configuration, environment: Environment, series_id: str) -> str:
         access_token = APIController._get_access_token(
             environment, reraise=True, warn=True
         )
@@ -176,6 +173,7 @@ class APIController:
 
             return file_location
 
+    # TODO: do in background
     @staticmethod
     def get_sip_id(sip: SIP) -> str:
         environment = sip.environment
