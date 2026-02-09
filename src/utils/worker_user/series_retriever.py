@@ -50,8 +50,12 @@ class SeriesRetriever(WorkerUser):
         # NOTE: only run if we have to
         if self.application.sneaky_series()[environment_name]:
             return
-        
+
         environment = self.application.configuration.get_environment(environment_name)
+
+        # TODO: proper error
+        if not environment.has_api_credentials():
+            return
         
         worker = worker_controller.run_thread(
             thread_function=lambda: APIController.get_series(environment=environment),
