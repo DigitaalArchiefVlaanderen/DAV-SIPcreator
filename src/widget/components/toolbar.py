@@ -31,7 +31,7 @@ class Toolbar(QtWidgets.QToolBar):
         # NOTE: prevent circular import
         from src.window.base_window import BaseWindow
 
-        self.configuration_window = BaseWindow()
+        self.configuration_window = BaseWindow(UI_TEXT_ELEMENTS["window_titles"]["configuration"])
 
     def configuration_clicked(self):
         # Redo the setup to reload in case changes were made

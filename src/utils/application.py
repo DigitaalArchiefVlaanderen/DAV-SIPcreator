@@ -206,8 +206,9 @@ class Application(QtWidgets.QApplication):
         window.statusbar.set_right_text(description)
 
     def stop_work_handler(self, window: Window) -> None:
+        # NOTE: this can happen sometimes if an action was queued, then immediately closing the window
         if window not in self.windows:
-            raise ValueError("Tried to access a window that does not seem to exist? How did you manage that?")
+            return
 
         window.statusbar.set_right_text("")
 

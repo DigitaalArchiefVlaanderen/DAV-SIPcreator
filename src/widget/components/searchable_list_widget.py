@@ -268,7 +268,7 @@ class SearchableListWidgetWithSelection(BaseWidget):
         selected_widgets: list[SearchableListWidgetWithSelection.CheckBoxWidget] = [widget for widget in self.widgets if widget.is_checked]
 
         self.searchable_list_widget.remove_widgets(selected_widgets)
-
+        self.application.main_db_controller.delete_dossier_paths([w.base_widget.path for w in selected_widgets])
 
     # NOTE: any methods or attributes we have not overwritten, direct them to the "parent"
     def __getattr__(self, name: str):

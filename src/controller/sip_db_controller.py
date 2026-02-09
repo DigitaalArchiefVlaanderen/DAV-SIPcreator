@@ -176,10 +176,13 @@ class SIPDBController(BaseObject):
                 yield sip, series_id, series_title
 
     # Helpers
+    def db_exists(self, sip_db_file_name: str) -> bool:
+        return os.path.exists(os.path.join(self.application.configuration.sip_db_location, sip_db_file_name))
+
     def is_valid_db(self, sip_db_file_name: str) -> bool|None:
-        if not os.path.exists(os.path.join(self.application.configuration.sip_db_location, sip_db_file_name)):
+        if not self.db_exists(sip_db_file_name=sip_db_file_name):
             return False
-        
+
         if not sip_db_file_name.endswith(".db"):
             return False
         

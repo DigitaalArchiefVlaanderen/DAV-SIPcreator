@@ -1,4 +1,14 @@
 {
+    "window_titles": {
+        "main": {
+            "digital": "Sip Creator digitaal",
+            "migration": "Sip Creator migratie",
+            "onroerend_erfgoed": "Sip Creator onroerend erfgoed",
+            "analog": "Sip Creator analoog"
+        },
+        "configuration": "Configuratie",
+        "folder_structure": "Mappenstructuur"
+    },
     "toolbar": {
         "configuration_button": "Configuratie"
     },
@@ -104,6 +114,15 @@
             },
             "folder_structure_button_text": "Stel mappenstructuur samen",
             "open_grid_button_text": "Open metadata grid"
+        },
+        "grid": {
+            "default_sorting_button_text": "Reset sortering",
+            "name_extension_checkbox_text": "Verwijder file-extensie uit 'Naam' kolom",
+            "bad_rows_checkbox_text": "Toon enkel rijen met fouten",
+            "dossiers_only_checkbox_text": "Toon enkel dossiers",
+            "add_column_button_text": "Voeg kolom toe",
+            "save_button_text": "Opslaan",
+            "create_sip_button_text": "Maak SIP"
         }
     },
     "configuration": {
@@ -158,6 +177,10 @@
             "mapping_error": {
                 "title": "Mapping fout",
                 "text": "Een mapping naar 'Path in SIP' in het importsjabloon moet opgegeven worden"
+            },
+            "folder_mapping_error": {
+                "title": "Mappenstructuur mapping fout",
+                "text": "Alle kolommen die gebruikt worden voor de mappenstructuur moeten verplicht een waarde hebben."
             }
         },
         "series": {

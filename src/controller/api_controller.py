@@ -137,9 +137,7 @@ class APIController:
 
     @staticmethod
     def get_import_template(configuration: Configuration, environment: Environment, series_id: str) -> str:
-        access_token = APIController._get_access_token(
-            environment, reraise=True, warn=True
-        )
+        access_token = APIController._get_access_token(environment)
 
         base_url = environment.api_url
         endpoint = "edepot/api/v1/sips/metadata-template"
@@ -158,7 +156,6 @@ class APIController:
             url=f"{base_url}/{endpoint}",
             headers=headers,
             data=json.dumps(data),
-            reraise=True,
         )
 
         storage_location = configuration.misc.save_location
@@ -166,6 +163,7 @@ class APIController:
         file_location = os.path.join(folder_location, f"{series_id}.xlsx")
 
         if not os.path.exists(folder_location):
+            print(1)
             os.makedirs(folder_location)
 
         with open(file_location, "wb") as f:

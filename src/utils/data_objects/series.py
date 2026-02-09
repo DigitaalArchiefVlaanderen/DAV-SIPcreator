@@ -75,11 +75,6 @@ class Series:
     def from_list(series_list: list) -> list:
         return [Series.from_dict(s) for s in series_list]
 
-    @staticmethod
-    def from_full_name_and_id(_id: str, full_name: str) -> "Series":
-        # TODO
-        ...
-
     def get_full_name(self) -> str:
         def transform_date(date: datetime):
             # Date comes in as YYYY-MM-DD

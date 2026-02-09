@@ -30,8 +30,10 @@ class DigitalWidget(BaseWidget):
     dossier_loaded_signal = QtCore.Signal(list)
     sip_loaded_signal = QtCore.Signal(SIP)
 
-    def __init__(self):
+    def __init__(self, parent_window: Window):
         super().__init__()
+
+        self.parent_window = parent_window
 
         self.dossier_loaded_signal.connect(self.dossiers_loaded_handler)
         self.sip_loaded_signal.connect(self.sip_loaded_handler)
@@ -115,6 +117,7 @@ class DigitalWidget(BaseWidget):
                 )
             )
 
+    # Handlers
     # NOTE: this needs to happen here, since we cannot create widgets in a thread
     def dossiers_loaded_handler(self, dossier_paths: list[str]) -> None:
         dossier_widgets = [DossierWidget(p) for p in dossier_paths]
@@ -123,9 +126,8 @@ class DigitalWidget(BaseWidget):
 
     # NOTE: this needs to happen here, since we cannot create widgets in a thread
     def sip_loaded_handler(self, sip: SIP) -> None:
-        self.sip_list_widget.add_widgets([SipListitemWidget(sip)])
-
-    # Handlers
+        self.sip_list_widget.add_widgets([SipListitemWidget(parent_window=self.parent_window, sip=sip)])
+    
     def dossier_selection_changed_handler(self) -> None:
         self.start_sip_button.setEnabled(len(self.dossier_list_widget.get_selected_items()) > 0)
 
@@ -136,36 +138,52 @@ class DigitalWidget(BaseWidget):
 
         This means we can now start the process of creating a SIP using these dossiers
         """
-        self.sip_detail_window = Window()
-
         sip = SIP()
         sip.set_dossiers(self.dossier_list_widget.get_selected_items())
-        self.dossier_list_widget.remove_selected_handler()
-        self.application.main_db_controller.delete_dossier_paths([w.path for w in self.dossier_list_widget.get_selected_items()])
 
-        self.sip_listitem_widget = SipListitemWidget(sip=sip)
-        self.sip_listitem_widget.open_grid_signal.connect(self.open_grid_handler)
+        self.sip_detail_window = Window(title=sip.name)
+        sip.name_changed_signal.connect(lambda: self.sip_detail_window.setWindowTitle(sip.name))
+
+        self.dossier_list_widget.remove_selected_handler()
+
+        self.sip_listitem_widget = SipListitemWidget(parent_window=self.parent_window, sip=sip)
+        self.sip_listitem_widget.open_grid_signal.connect(lambda: self.open_grid_handler(sip=sip))
         self.sip_list_widget.add_widgets([self.sip_listitem_widget])
 
         self.sip_detail_widget = SipDetailWidget(parent_window=self.sip_detail_window, sip=sip)
+        self.sip_detail_widget.open_grid_signal.connect(lambda: self.open_grid_handler(sip=sip))
         self.sip_detail_window.setCentralWidget(self.sip_detail_widget)
 
         self.sip_detail_window.show()
 
-    # TODO
+    # Handlers
     def open_grid_handler(self, sip: SIP) -> None:
         """
             All the values should already be in place in the sip,
             only some checks are left and then opening the grid
         """
-        
+        if not self.application.sip_db_controller.db_exists(sip.db_name):
+            print("Creating db")
+            sip.set_data_from_dossiers()
+
+            self.application.sip_db_controller.create_sip_db(sip=sip)
 
         if not self.application.sip_db_controller.is_valid_db(sip.db_name):
             self.application.thread_error_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["sip"]["invalid_database_error"]["title"],
-                UI_TEXT_ELEMENTS["errors"]["sip"]["invalid_database_error"]["text"].format(db_path=os.path.join(self.application.configuration.sip_db_location, self.sip.db_name))
+                UI_TEXT_ELEMENTS["errors"]["sip"]["invalid_database_error"]["text"].format(
+                    db_path=os.path.join(
+                        self.application.configuration.sip_db_location,
+                        sip.db_name
+                    )
+                )
             )
             return
+
+        print("valid")
+        from creator.windows.grid_view import GridView
+
+        
 
         ...
 
