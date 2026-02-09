@@ -66,7 +66,7 @@ class ConfigurationWidget(BaseWidget):
             # This means the series no longer match the configuration, get them again
             if original_env.get_api_info() != new_env.get_api_info():
                 self.application.force_stop_series_retrieval_signal.emit(env_name)
-                self.application.series[env_name] = []
+                self.application.clear_series(environment_name=env_name)
 
         self.new_configuration.save()
         self.application.get_series()

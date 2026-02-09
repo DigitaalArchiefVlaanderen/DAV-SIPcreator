@@ -57,7 +57,7 @@ class Application(QtWidgets.QApplication):
         # Keep a reference to the windows
         self.windows: list[Window] = []
 
-        self.series: dict[str, list[Series]] = {
+        self.__series: dict[str, list[Series]] = {
             e.name: []
             for e
             in self.configuration.environments
@@ -77,25 +77,24 @@ class Application(QtWidgets.QApplication):
         self.configuration.create_locations()
         self.get_series()
 
-
         # self.reset_bestandscontrole_location()
-        
-        # TODO: temporary
-        # self.type_changed.connect(self.application_type_changed_signal.emit)
-        # self.config_controller = OldConfigController(CONFIGURATION_PATH)
 
-        # self.db_controller = DBController("sqlite.db")
-        # self.state = State(
-        #     configuration_callback=self.config_controller.get_configuration,
-        #     db_controller=self.db_controller,
-        #     new=True
-        # )
-        # self.state.set_series(self.series[self.configuration.active_environment_name])
-        # self.application_environment_changed_signal.connect(lambda: self.state.set_series(self.series[self.configuration.active_environment_name]))
+    # NOTE: some parts of the code need access to the dict, even if it's empty
+    # shhhh don't tell anyone
+    def sneaky_series(self) -> dict[str, list[Series]]:
+        return self.__series
 
-        # self.db_controller.set_application()
+    @property
+    def series(self) -> dict[str, list[Series]]:
+        Helper().wait_for_series_loaded(warn=False)
+        return self.__series
 
-        # self.sip_status_thread = SIPStatusThread(self.state)
+    def clear_series(self, environment_name: str) -> None:
+        self.__series[environment_name] = []
+
+    def add_series(self, environment_name: str, series: list[Series]) -> None:
+        self.__series[environment_name] += series
+        self.series_updated_signal.emit()
 
     def setup_signals(self) -> None:
         self.aboutToQuit.connect(self.worker_controller.close_controller)
@@ -121,9 +120,9 @@ class Application(QtWidgets.QApplication):
                 lambda: window.statusbar.set_left_text(
                     UI_TEXT_ELEMENTS["toolbar_info"]["series_retrieval_in_progress"]["left_text"].format(
                         ti_env_name=TI_ENVIRONMENT_NAME,
-                        ti_amount_of_series=len(self.series[TI_ENVIRONMENT_NAME]),
+                        ti_amount_of_series=len(self.sneaky_series()[TI_ENVIRONMENT_NAME]),
                         prod_env_name=PROD_ENVIRONMENT_NAME,
-                        prod_amount_of_series=len(self.series[PROD_ENVIRONMENT_NAME])
+                        prod_amount_of_series=len(self.sneaky_series()[PROD_ENVIRONMENT_NAME])
                     )
                 )
             )
@@ -132,9 +131,9 @@ class Application(QtWidgets.QApplication):
                 lambda: window.statusbar.set_left_text(
                     UI_TEXT_ELEMENTS["toolbar_info"]["series_retrieval_done"]["left_text"].format(
                         ti_env_name=TI_ENVIRONMENT_NAME,
-                        ti_amount_of_series=len(self.series[TI_ENVIRONMENT_NAME]),
+                        ti_amount_of_series=len(self.sneaky_series()[TI_ENVIRONMENT_NAME]),
                         prod_env_name=PROD_ENVIRONMENT_NAME,
-                        prod_amount_of_series=len(self.series[PROD_ENVIRONMENT_NAME])
+                        prod_amount_of_series=len(self.sneaky_series()[PROD_ENVIRONMENT_NAME])
                     )
                 )
             )
@@ -143,8 +142,6 @@ class Application(QtWidgets.QApplication):
         self.series_retriever.run(worker_controller=self.worker_controller)
 
     def get_series_by_id_or_name(self, environment_name: str, series_id: str, series_name: str) -> Series:
-        Helper().wait_for_series_loaded()
-        
         for series in self.series[environment_name]:
             if series._id == series_id:
                 return series

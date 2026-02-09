@@ -54,6 +54,7 @@ class TagListWidget(QtWidgets.QScrollArea):
         self.get_selected_tag().parent().deleteLater()
 
 
+# NOTE: just taken from old code, might need some fixes or cleanup
 class TagMappingWidget(QtWidgets.QFrame):
     class MappingButtonWidget(QtWidgets.QWidget):
         def __init__(self, map_tags_callback, unmap_tags_callback):
@@ -131,7 +132,7 @@ class TagMappingWidget(QtWidgets.QFrame):
 
         self.output_mapping.remove_selected_tag()
 
-    def get_mapping(self):
+    def get_mapping(self) -> dict[str, str]:
         return {
             b.text().split(" -> ")[0]: b.text().split(" -> ")[1]
             for b in self.output_mapping.button_group.buttons()
@@ -199,5 +200,5 @@ class FolderMappingWidget(QtWidgets.QFrame):
 
         self.output_mapping.remove_selected_tag()
 
-    def get_mapping(self) -> list:
+    def get_mapping(self) -> list[str]:
         return [b.text() for b in self.output_mapping.button_group.buttons()]

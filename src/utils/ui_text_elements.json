@@ -96,6 +96,7 @@
             "published_series_text": "Gepubliceerde series",
             "submitted_series_text": "Ingediende series",
             "import_template_retrieval_button_text": "Haal importsjabloon op",
+            "import_template_retrieval_toolbar_text": "Bezig met importsjabloon ophalen",
             "metadata_file_button_text": "Selecteer metadata file",
             "metadata_file_path_default_text": "Nog geen pad geselecteerd",
             "metadata_selection_dialog_window": {
@@ -153,6 +154,10 @@
             "db_creation_when_db_has_no_data_error": {
                 "title": "Fout bij het aanmaken van sip database",
                 "text": "Probeerde een sip db aan te maken zonder een gelinkt importsjabloon te hebben"
+            },
+            "mapping_error": {
+                "title": "Mapping fout",
+                "text": "Een mapping naar 'Path in SIP' in het importsjabloon moet opgegeven worden"
             }
         },
         "series": {

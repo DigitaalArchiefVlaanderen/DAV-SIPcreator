@@ -77,6 +77,10 @@ class SearchableListWidget(BaseWidget):
             if search_text in get_attr_deep(widget, self.search_field)
         ]
 
+    def clear_widgets(self) -> None:
+        for i in reversed(range(self.list_layout.count())):
+            self.list_layout.removeItem(self.list_layout.itemAt(i))
+
     def reload_shown_widgets(self, sort: bool=False) -> None:
         self.hide()
         self.search_for_widgets()
@@ -86,9 +90,8 @@ class SearchableListWidget(BaseWidget):
                 self.widgets, key=lambda w: get_attr_deep(w, self.search_field)
             )
 
-            # Clear and readd all the widgets to the layout
-            for i in reversed(range(self.list_layout.count())):
-                self.list_layout.removeItem(self.list_layout.itemAt(i))
+            # Clear and read all the widgets to the layout
+            self.clear_widgets()
 
             for widget in self.widgets:
                 self.list_layout.addWidget(widget)
@@ -106,7 +109,7 @@ class SearchableListWidget(BaseWidget):
 
         self.widgets_reloaded_signal.emit()
 
-    def add_widgets(self, widgets: list[BaseWidget], sort: bool=True) -> None:
+    def add_widgets(self, widgets: list[BaseWidget]) -> None:
         # NOTE: we only want to add widgets that we don't have yet
         widgets_to_add = [w for w in widgets if w not in self.widgets]
 
@@ -123,11 +126,12 @@ class SearchableListWidget(BaseWidget):
                 return
 
             if widget not in self.widgets:
+                print(self.widgets)
                 return
 
             self.widgets.remove(widget)
             self.list_layout.removeWidget(widget)
-            widget.deleteLater()
+            widget.hide()
 
         self.reload_shown_widgets()
 
@@ -207,7 +211,7 @@ class SearchableListWidgetWithSelection(BaseWidget):
         self.grid_layout.addWidget(self.searchable_list_widget, 1, 0)
         self.grid_layout.addWidget(self.remove_selected_items_button, 2, 0)
 
-    def add_widgets(self, widgets: list[BaseWidget], sort: bool=True, select: bool=True) -> None:
+    def add_widgets(self, widgets: list[BaseWidget], select: bool=True) -> None:
         widgets: list[SearchableListWidgetWithSelection.CheckBoxWidget] = [SearchableListWidgetWithSelection.CheckBoxWidget(widget) for widget in widgets]
 
         # NOTE: we also need to set some signals here
@@ -220,7 +224,7 @@ class SearchableListWidgetWithSelection(BaseWidget):
 
             widget.state_changed_signal.connect(self.selection_changed_signal.emit)
 
-        self.searchable_list_widget.add_widgets(widgets=widgets, sort=sort)
+        self.searchable_list_widget.add_widgets(widgets=widgets)
 
     # Helper functions
     def get_selected_items(self) -> list[BaseWidget]:

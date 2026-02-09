@@ -140,14 +140,34 @@ class DigitalWidget(BaseWidget):
 
         sip = SIP()
         sip.set_dossiers(self.dossier_list_widget.get_selected_items())
+        self.dossier_list_widget.remove_selected_handler()
+        self.application.main_db_controller.delete_dossier_paths([w.path for w in self.dossier_list_widget.get_selected_items()])
 
         self.sip_listitem_widget = SipListitemWidget(sip=sip)
+        self.sip_listitem_widget.open_grid_signal.connect(self.open_grid_handler)
         self.sip_list_widget.add_widgets([self.sip_listitem_widget])
 
-        self.sip_detail_widget = SipDetailWidget(sip=sip)
+        self.sip_detail_widget = SipDetailWidget(parent_window=self.sip_detail_window, sip=sip)
         self.sip_detail_window.setCentralWidget(self.sip_detail_widget)
 
         self.sip_detail_window.show()
+
+    # TODO
+    def open_grid_handler(self, sip: SIP) -> None:
+        """
+            All the values should already be in place in the sip,
+            only some checks are left and then opening the grid
+        """
+        
+
+        if not self.application.sip_db_controller.is_valid_db(sip.db_name):
+            self.application.thread_error_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["sip"]["invalid_database_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["sip"]["invalid_database_error"]["text"].format(db_path=os.path.join(self.application.configuration.sip_db_location, self.sip.db_name))
+            )
+            return
+
+        ...
 
 
 # Controls

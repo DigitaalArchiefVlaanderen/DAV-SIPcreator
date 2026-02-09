@@ -43,3 +43,13 @@ class MainDBController(BaseObject):
             result = conn.execute(f"SELECT * FROM {self.TABLES["dossier"]};").fetchall()
 
             return [r for r, *_ in result]
+
+    def delete_dossier_paths(self, paths: list[str]) -> None:
+        with self.conn as conn:
+            conn.executemany(
+                f"""
+                    DELETE FROM {self.TABLES["dossier"]}
+                    WHERE path = ?
+                """,
+                [(p,) for p in paths]
+            )

@@ -48,7 +48,7 @@ class SeriesRetriever(WorkerUser):
 
     def run_environment_series(self, worker_controller: WorkerController, environment_name: str) -> Worker:
         # NOTE: only run if we have to
-        if self.application.series[environment_name]:
+        if self.application.sneaky_series()[environment_name]:
             return
         
         environment = self.application.configuration.get_environment(environment_name)
@@ -66,8 +66,7 @@ class SeriesRetriever(WorkerUser):
 
     # Handlers
     def new_series_ready_handler(self, series: list[Series], environment_name: str) -> None:
-        self.application.series[environment_name] += series
-        self.application.series_updated_signal.emit()
+        self.application.add_series(environment_name=environment_name, series=series)
 
     def series_retrieval_done_handler(self, environment_name: str) -> None:
         self.RETRIEVAL_DONE[environment_name] = True

@@ -49,6 +49,8 @@ class SIP(BaseObject):
         # it is not always going to be here, usually the data is just in a db
         self.data: dict[str, list[str]] = None
 
+        self.import_template_path: str = None
+
     @property
     def name(self) -> str:
         return self.__name
@@ -75,13 +77,17 @@ class SIP(BaseObject):
 
     @property
     def series(self) -> Series:
-        Helper().wait_for_series_loaded()
+        Helper().wait_for_series_loaded(custom_signal=self.series_changed_signal)
         return self.__series
 
     # NOTE: seems stupid, but it's easier to be used in a lambda this way
     def set_series(self, series: Series) -> None:
         self.__series = series
         self.series_changed_signal.emit()
+
+    def set_import_template_path(self, import_template_path: str) -> None:
+        print("setting import template path", import_template_path)
+        self.import_template_path = import_template_path
 
     @property
     def file_name(self) -> str:

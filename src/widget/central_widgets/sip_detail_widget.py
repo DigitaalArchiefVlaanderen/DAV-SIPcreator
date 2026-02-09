@@ -1,5 +1,6 @@
 from PySide6 import QtWidgets, QtGui, QtCore
 
+from src.controller.api_controller import APIController
 
 from src.utils.constants import BusinessRules, UI_TEXT_ELEMENTS
 from src.utils.data_objects.series import SeriesStatus
@@ -8,13 +9,18 @@ from src.utils.data_objects.sip import SIP
 from src.widget.base_widget import BaseWidget, ApplicationMixin
 from src.widget.components.mapping_widget import TagMappingWidget, FolderMappingWidget
 
+from src.window.base_window import Window
+
 UI_TEXT = UI_TEXT_ELEMENTS["digital"]["sip_detail_view"]
 
 
 class SipDetailWidget(BaseWidget):
-    def __init__(self, sip: SIP):
-        super().__init__()
+    open_grid_signal = QtCore.Signal()
 
+    def __init__(self, parent_window: Window, sip: SIP):
+        super().__init__(parent_window)
+
+        self.parent_window = parent_window
         self.sip = sip
 
         self.setup_ui()
@@ -26,7 +32,7 @@ class SipDetailWidget(BaseWidget):
 
         self.sip_name_edit = SipNameEditAndStatusWidget(sip=self.sip)
         self.series_type_selector = SeriesTypeSelectorWidget(sip=self.sip)
-        self.series_retrieval = SeriesRetrievalWidget(sip=self.sip)
+        self.series_retrieval = SeriesRetrievalWidget(parent_window=self.parent_window, sip=self.sip)
         self.metadata_file_selector = MetadataFileSelectorWidget()
         self.folder_structure_button = FolderStructureButton(sip=self.sip)
 
@@ -44,6 +50,21 @@ class SipDetailWidget(BaseWidget):
         self.vertical_layout.addWidget(self.folder_structure_button)
         self.vertical_layout.addWidget(self.tag_mapping)
         self.vertical_layout.addWidget(self.open_grid_button)
+
+    def setup_signals(self) -> None:
+        self.open_grid_button.clicked.connect(self.open_grid_handler)
+        self.series_type_selector.selection_changed_signal.connect(self.series_retrieval.series_dropdown.set_series_type)
+
+        self.series_retrieval.import_template_retrieved_signal.connect(lambda: self.open_grid_button.setEnabled(True))
+
+    def open_grid_handler(self) -> None:
+        """
+            We don't actually open the grid here, but we do prep the values in the sip
+        """
+        self.sip.tag_mapping = self.tag_mapping.get_mapping()
+        self.sip.folder_mapping = self.folder_structure_button.mapping_widget.get_mapping()
+
+        self.open_grid_signal.emit()
 
 
 # Components
@@ -79,7 +100,7 @@ class SipNameEditAndStatusWidget(BaseWidget):
         )
 
 class SeriesTypeSelectorWidget(BaseWidget):
-    selection_changed_signal = QtCore.Signal()
+    selection_changed_signal = QtCore.Signal(SeriesStatus)
 
     SELECTED_TYPE = SeriesStatus.PUBLISHED
 
@@ -125,7 +146,7 @@ class SeriesTypeSelectorWidget(BaseWidget):
     def radio_buttons_toggled_handler(self, checked: bool) -> None:
         self.SELECTED_TYPE = SeriesStatus.PUBLISHED if checked else SeriesStatus.SUBMITTED
 
-        self.selection_changed_signal.emit()
+        self.selection_changed_signal.emit(self.SELECTED_TYPE)
 
 class SeriesDropdownWidget(QtWidgets.QComboBox, ApplicationMixin):
     def __init__(self, sip: SIP):
@@ -146,9 +167,16 @@ class SeriesDropdownWidget(QtWidgets.QComboBox, ApplicationMixin):
         self.series_type: SeriesStatus = SeriesStatus.PUBLISHED
 
         self.setup_signals()
+        self.set_series()
         
     def setup_signals(self) -> None:
         self.application.series_updated_signal.connect(self.series_updated_handler)
+        self.editTextChanged.connect(lambda: self.sip.set_series(self.currentData()))
+
+    def set_series_type(self, series_type: SeriesStatus) -> None:
+        self.series_type = series_type
+        self.clear_series()
+        self.set_series()
 
     # Helper
     def clear_series(self) -> None:
@@ -173,10 +201,13 @@ class SeriesDropdownWidget(QtWidgets.QComboBox, ApplicationMixin):
         self.set_series()
 
 class SeriesRetrievalWidget(BaseWidget):
-    def __init__(self, sip: SIP):
+    import_template_retrieved_signal = QtCore.Signal()
+
+    def __init__(self, parent_window: Window, sip: SIP):
         super().__init__()
 
         self.sip = sip
+        self.parent_window = parent_window 
 
         self.setup_ui()
         self.setup_signals()
@@ -198,10 +229,20 @@ class SeriesRetrievalWidget(BaseWidget):
         self.import_template_retrieval_button.clicked.connect(self.import_template_retrieval_clicked_handler)
 
     def import_template_retrieval_clicked_handler(self) -> None:
-        selected_series = self.series_dropdown.currentData()
+        self.application.work_in_progress_signal.emit(self.parent_window, UI_TEXT["import_template_retrieval_toolbar_text"])
+        self.parent_window.worker = self.application.worker_controller.run_thread(
+            thread_function=lambda: APIController.get_import_template(
+                configuration=self.application.configuration,
+                environment=self.sip.environment,
+                series_id=self.sip.series._id
+            ),
+            thread_is_generator=False
+        )
+        self.parent_window.worker.about_to_finish_signal.connect(lambda: self.application.work_ended_signal.emit(self.parent_window))
+        
+        self.parent_window.worker.result_ready_signal.connect(self.sip.set_import_template_path)
+        self.parent_window.worker.result_ready_signal.connect(self.import_template_retrieved_signal.emit)
 
-        # TODO: this requires some background work
-        ...
 
 class MetadataFileSelectorWidget(BaseWidget):
     # TODO: use to then get metadatadf and stuff (creator.windows.sip_view 150)
@@ -245,27 +286,32 @@ class MetadataFileSelectorWidget(BaseWidget):
         self.metadata_path_label.setText(metadata_path)
         self.metadata_path_selected.emit(metadata_path)
 
-# TODO: below
 class FolderStructureButton(QtWidgets.QPushButton, ApplicationMixin):
     def __init__(self, sip: SIP):
         super().__init__()
 
         self.sip = sip
+        self.mapping_widget = FolderMappingWidget()
 
         self.setText(UI_TEXT["folder_structure_button_text"])
 
         self.setup_signals()
         
     def setup_signals(self) -> None:
-        ...
+        self.clicked.connect(self.open_folder_mapping_handler)
+
+    def open_folder_mapping_handler(self) -> None:
+        # NOTE: just to make sure we don't have dangling connections
+        self.mapping_widget.save_button.clicked.disconnect()
+
+        self.mapping_window = Window()
+        self.mapping_window.setCentralWidget(self.mapping_widget)
+
+        self.mapping_widget.save_button.clicked.connect(self.mapping_closed_handler)
+        self.mapping_window.show()
+
 
 class OpenGridButton(QtWidgets.QPushButton, ApplicationMixin):
     def __init__(self):
         super().__init__()
-
         self.setText(UI_TEXT["open_grid_button_text"])
-
-        self.clicked.connect(self.open_grid_clicked_handler)
-
-    def open_grid_clicked_handler(self) -> None:
-        ...

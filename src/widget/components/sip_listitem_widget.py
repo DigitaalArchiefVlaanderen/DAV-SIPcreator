@@ -21,6 +21,8 @@ from src.window.base_window import Window
 UI_TEXT = UI_TEXT_ELEMENTS["digital"]["main"]["sip_list"]
 
 class SipListitemWidget(QtWidgets.QFrame):
+    open_grid_signal = QtCore.Signal(SIP)
+
     def __init__(self, sip: SIP):
         super().__init__()
 
@@ -37,6 +39,7 @@ class SipListitemWidget(QtWidgets.QFrame):
         self.sip_name_and_status_widget = SipNameAndStatusWidget(sip=self.sip)
         self.dossiers_widget = DossiersWidget(sip=self.sip)
         self.controls_widget = ControlsWidget(sip=self.sip)
+        self.controls_widget.open_grid_signal.connect(lambda: self.open_grid_signal.emit(self.sip))
 
         self.horizontal_layout.addWidget(self.sip_name_and_status_widget)
         self.horizontal_layout.addWidget(self.dossiers_widget)
@@ -124,6 +127,8 @@ class DossiersWidget(QtWidgets.QFrame):
 class ControlsWidget(BaseWidget):
     UI_TEXT = UI_TEXT["controls"]
 
+    open_grid_signal = QtCore.Signal()
+
     def __init__(self, sip: SIP):
         super().__init__()
 
@@ -183,23 +188,23 @@ class ControlsWidget(BaseWidget):
 
     # Handlers
     def open_button_clicked_handler(self) -> None:
-        if self.sip.series is None:
-            self.sip_detail_window = Window()
+        print(self.application.sip_db_controller.is_valid_db(self.sip.db_name))
+        # print(self.application.sip_db_controller.read_sip_data(self.sip.db_name))
 
-            self.sip_detail_widget = SipDetailWidget(sip=self.sip)
-            self.sip_detail_window.setCentralWidget(self.sip_detail_widget)
-
-            self.sip_detail_window.show()
-        
-        # The sip was already created at one point, and has a grid linked to it
-        if not self.application.sip_db_controller.is_valid_db(self.sip.db_name):
-            self.application.thread_error_signal.emit(
-                UI_TEXT_ELEMENTS["errors"]["sip"]["invalid_database_error"]["title"],
-                UI_TEXT_ELEMENTS["errors"]["sip"]["invalid_database_error"]["text"].format(db_path=os.path.join(self.application.configuration.sip_db_location, self.sip.db_name))
-            )
+        if self.application.sip_db_controller.is_valid_db(self.sip.db_name) \
+                and self.application.sip_db_controller.read_sip_data(self.sip.db_name):
+            self.open_grid_signal.emit()
             return
 
+        self.sip_detail_window = Window()
 
+        self.sip_detail_widget = SipDetailWidget(sip=self.sip)
+        self.sip_detail_widget.open_grid_signal.connect(self.open_grid_signal.emit)
+        self.sip_detail_window.setCentralWidget(self.sip_detail_widget)
+
+        self.sip_detail_window.show()
+
+    # TODO
     def upload_button_clicked_handler(self) -> None:
         ...
 
@@ -264,4 +269,3 @@ class ControlsWidget(BaseWidget):
 
         self.sip.set_status(SIPStatus.DELETED)
         self.deleteLater()
-

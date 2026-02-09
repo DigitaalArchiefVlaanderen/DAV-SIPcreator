@@ -36,7 +36,7 @@ class SIPDBController(BaseObject):
             )
             return
 
-        Helper().wait_for_series_loaded()
+        Helper().wait_for_series_loaded(custom_signal=sip.series_changed_signal, warn=False)
         if sip.series is None:
             self.application.thread_error_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_when_db_has_no_series_error"]["title"],

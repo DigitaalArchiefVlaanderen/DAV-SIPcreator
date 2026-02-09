@@ -50,9 +50,9 @@ class Helper(BaseObject):
         # NOTE: sleep some extra time, just in case
         time.sleep(extra_delay)
 
-    def wait_for_series_loaded(self, warn=True, extra_delay=0.2) -> None:
+    def wait_for_series_loaded(self, custom_signal: QtCore.Signal=None, warn=True, extra_delay=0.5) -> None:
         self.wait_for_signal_or_value(
-            signal=self.application.series_retriever.finished_signal,
+            signal=custom_signal or self.application.series_retriever.finished_signal,
             value=not self.application.series_retrieval_busy,
             warning_title=UI_TEXT_ELEMENTS["warnings"]["series_still_loading_warning"]["title"],
             warning_text=UI_TEXT_ELEMENTS["warnings"]["series_still_loading_warning"]["text"],
