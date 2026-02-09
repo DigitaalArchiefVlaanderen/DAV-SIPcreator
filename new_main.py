@@ -31,17 +31,22 @@ def set_main(application: Application, main_window: MainWindow) -> None:
     loading_is_generator = False
 
     if active_type == "digitaal":
-        main_window.central_widget = DigitalWidget()
+        main_window.central_widget = DigitalWidget(main_window)
         UI_TEXT = UI_TEXT["digital_background_work"]
         loading_is_generator = True
-    elif active_type in ("migratie", "onroerend_erfgoed"):
+        main_window.setWindowTitle(UI_TEXT_ELEMENTS["window_titles"]["main"]["digital"])
+    elif active_type == "migratie":
         main_window.central_widget = MigrationWidget(main_window)
+        main_window.setWindowTitle(UI_TEXT_ELEMENTS["window_titles"]["main"]["migration"])
+    elif active_type == "onroerend_erfgoed":
+        main_window.central_widget = MigrationWidget(main_window)
+        main_window.setWindowTitle(UI_TEXT_ELEMENTS["window_titles"]["main"]["onroerend_erfgoed"])
     elif active_type == "analoog":
         main_window.central_widget = AnaloogWidget(main_window)
+        main_window.setWindowTitle(UI_TEXT_ELEMENTS["window_titles"]["main"]["analog"])
     else:
         raise ValueError(UI_TEXT_ELEMENTS["errors"]["unexpected_application_type"])
-    
-    main_window.setWindowTitle(f"Sip Creator {active_type.replace("_", " ")}")
+
     main_window.setCentralWidget(None)
     main_window.setCentralWidget(main_window.central_widget)
 
@@ -59,7 +64,7 @@ import faulthandler
 faulthandler.enable()
 # sys.excepthook = excepthook
 
-main_window = MainWindow()
+main_window = MainWindow(title=None)
 app.application_type_changed_signal.connect(lambda: set_main(application=app, main_window=main_window))
 set_main(application=app, main_window=main_window)
 
