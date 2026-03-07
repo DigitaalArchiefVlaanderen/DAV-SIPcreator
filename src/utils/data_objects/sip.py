@@ -1,4 +1,5 @@
 import os
+import uuid
 
 from PySide6 import QtCore
 
@@ -18,6 +19,7 @@ class SIP(BaseObject):
     def __init__(self):
         super().__init__()
 
+        self.__id: str = str(uuid.uuid4())
         self.__name: str = "No name set"
         self.__status: SIPStatus = SIPStatus.IN_PROGRESS
         self.__series: Series = None
@@ -60,6 +62,14 @@ class SIP(BaseObject):
     @property
     def sidecar_file_name(self) -> str:
         return f"{self.series._id}-{self.name}-SIPC.xml"
+
+    def __eq__(self, other):
+        if not isinstance(other, SIP):
+            return NotImplemented
+        return self.__id == other.__id
+
+    def __hash__(self):
+        return hash(self.__id)
 
     def open_edepot_url(self) -> str:
         return os.startfile(f"{self.environment.api_url}/input/processing-list/{self.edepot_sip_id}")
