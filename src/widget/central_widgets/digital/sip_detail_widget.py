@@ -1,29 +1,31 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 import numpy as np
 import os
 from PySide6 import QtWidgets, QtGui, QtCore
 
-from src.controller.api_controller import APIController
-
 from src.utils.constants import BusinessRules, UI_TEXT_ELEMENTS
 from src.utils.data_objects.series import SeriesStatus
-from src.utils.data_objects.sip import SIP
+from src.utils.data_objects.digital.sip import SIP
 
-from src.widget.base_widget import BaseWidget, ApplicationMixin
-from src.widget.central_widgets.folder_structure import FolderStructure
-from src.widget.components.mapping_widget import TagMappingWidget, FolderMappingWidget
+from src.widget.base_widget import ComponentWidget, ApplicationMixin
+from src.widget.central_widgets.central_widget import CentralWidget
+from src.widget.components.digital.mapping_widget import TagMappingWidget, FolderMappingWidget
 
 from src.window.base_window import Window
+
+if TYPE_CHECKING:
+    from src.window.digital.sip_detail_window import SipDetailWindow
+
 
 UI_TEXT = UI_TEXT_ELEMENTS["digital"]["sip_detail_view"]
 
 
-class SipDetailWidget(BaseWidget):
-    open_grid_signal = QtCore.Signal()
-
+class SipDetailWidget(CentralWidget):
     def __init__(self, parent_window: Window, sip: SIP):
         super().__init__(parent_window)
 
-        self.parent_window = parent_window
         self.sip = sip
 
         self.setup_ui()
@@ -34,17 +36,17 @@ class SipDetailWidget(BaseWidget):
         self.setLayout(self.vertical_layout)
 
 
-        self.sip_name_edit = SipNameEditAndStatusWidget(sip=self.sip)
-        self.series_type_selector = SeriesTypeSelectorWidget(sip=self.sip)
+        self.sip_name_edit = SipNameEditAndStatusWidget(parent_window=self.parent_window, sip=self.sip)
+        self.series_type_selector = SeriesTypeSelectorWidget(parent_window=self.parent_window, sip=self.sip)
         self.series_retrieval = SeriesRetrievalWidget(parent_window=self.parent_window, sip=self.sip)
-        self.metadata_file_selector = MetadataFileSelectorWidget()
-        self.folder_structure_button = FolderStructureButton(sip=self.sip)
+        self.metadata_file_selector = MetadataFileSelectorWidget(parent_window=self.parent_window)
+        self.folder_structure_button = FolderStructureButton(parent_window=self.parent_window, sip=self.sip)
         self.folder_structure_button.setEnabled(False)
 
-        self.tag_mapping = TagMappingWidget()
-        self.tag_mapping.setMinimumSize(100, 400)
+        self.tag_mapping_widget = TagMappingWidget(parent_window=self.parent_window)
+        self.tag_mapping_widget.setMinimumSize(100, 400)
 
-        self.open_grid_button = OpenGridButton()
+        self.open_grid_button = OpenGridButton(parent_window=self.parent_window)
         self.open_grid_button.setEnabled(False)
 
 
@@ -53,9 +55,8 @@ class SipDetailWidget(BaseWidget):
         self.vertical_layout.addWidget(self.series_retrieval)
         self.vertical_layout.addWidget(self.metadata_file_selector)
         self.vertical_layout.addWidget(self.folder_structure_button)
-        self.vertical_layout.addWidget(self.tag_mapping)
+        self.vertical_layout.addWidget(self.tag_mapping_widget)
         self.vertical_layout.addWidget(self.open_grid_button)
-
 
     def setup_signals(self) -> None:
         self.open_grid_button.clicked.connect(self.open_grid_handler)
@@ -65,20 +66,19 @@ class SipDetailWidget(BaseWidget):
         self.metadata_file_selector.metadata_path_selected_signal.connect(self.metadata_file_selected_handler)
 
     # Handlers
+    # TODO:
     def open_grid_handler(self) -> None:
         """
             We don't actually open the grid here, but we do prep the values in the sip
         """
-        self.sip.tag_mapping = self.tag_mapping.get_mapping()
-
-        self.open_grid_signal.emit()
+        self.sip.tag_mapping = self.tag_mapping_widget.get_mapping()
 
     def import_template_downloaded_handler(self) -> None:
         self.open_grid_button.setEnabled(True)
 
         # NOTE: this will always have a value here, since we only just downloaded it
         import_df = self.sip.read_import_template()
-        self.tag_mapping.add_to_import_template(import_df.columns)
+        self.tag_mapping_widget.add_to_import_template(import_df.columns)
 
     def metadata_file_selected_handler(self, path: str) -> None:
         self.sip.metadata_path = path
@@ -93,14 +93,14 @@ class SipDetailWidget(BaseWidget):
             if not all_empty
         ]
 
-        self.tag_mapping.add_to_metadata(columns_without_empty_fields)
+        self.tag_mapping_widget.add_to_metadata(columns_without_empty_fields)
         self.folder_structure_button.setEnabled(True)
 
 
 # Components
-class SipNameEditAndStatusWidget(BaseWidget):
-    def __init__(self, sip: SIP):
-        super().__init__()
+class SipNameEditAndStatusWidget(ComponentWidget):
+    def __init__(self, parent_window: Window, sip: SIP):
+        super().__init__(parent_window)
 
         self.sip = sip
 
@@ -129,13 +129,13 @@ class SipNameEditAndStatusWidget(BaseWidget):
             lambda: self.sip.set_name(self.title_edit.text())
         )
 
-class SeriesTypeSelectorWidget(BaseWidget):
+class SeriesTypeSelectorWidget(ComponentWidget):
     selection_changed_signal = QtCore.Signal(SeriesStatus)
 
     SELECTED_TYPE = SeriesStatus.PUBLISHED
 
-    def __init__(self, sip: SIP):
-        super().__init__()
+    def __init__(self, parent_window: Window, sip: SIP):
+        super().__init__(parent_window)
 
         self.sip = sip
 
@@ -179,9 +179,10 @@ class SeriesTypeSelectorWidget(BaseWidget):
         self.selection_changed_signal.emit(self.SELECTED_TYPE)
 
 class SeriesDropdownWidget(QtWidgets.QComboBox, ApplicationMixin):
-    def __init__(self, sip: SIP):
+    def __init__(self, parent_window: Window, sip: SIP):
         super().__init__()
 
+        self.parent_window = parent_window
         self.sip = sip
 
         self.setEditable(True)
@@ -230,14 +231,15 @@ class SeriesDropdownWidget(QtWidgets.QComboBox, ApplicationMixin):
         self.clear_series()
         self.set_series()
 
-class SeriesRetrievalWidget(BaseWidget):
+class SeriesRetrievalWidget(ComponentWidget):
     import_template_retrieved_signal = QtCore.Signal()
 
     def __init__(self, parent_window: Window, sip: SIP):
-        super().__init__()
+        super().__init__(parent_window)
+
+        self.parent_window: SipDetailWindow
 
         self.sip = sip
-        self.parent_window = parent_window 
 
         self.setup_ui()
         self.setup_signals()
@@ -259,16 +261,7 @@ class SeriesRetrievalWidget(BaseWidget):
         self.import_template_retrieval_button.clicked.connect(self.import_template_retrieval_clicked_handler)
 
     def import_template_retrieval_clicked_handler(self) -> None:
-        self.application.work_in_progress_signal.emit(self.parent_window, UI_TEXT["import_template_retrieval_toolbar_text"])
-        self.parent_window.worker = self.application.worker_controller.run_thread(
-            thread_function=lambda: APIController.get_import_template(
-                configuration=self.application.configuration,
-                environment=self.sip.environment,
-                series_id=self.sip.series._id
-            ),
-            thread_is_generator=False
-        )
-        self.parent_window.worker.about_to_finish_signal.connect(lambda: self.application.work_ended_signal.emit(self.parent_window))
+        self.parent_window.start_retrieve_import_template_task()
 
         self.parent_window.worker.result_ready_signal.connect(self.import_template_downloaded_handler)
 
@@ -278,13 +271,13 @@ class SeriesRetrievalWidget(BaseWidget):
         self.import_template_retrieved_signal.emit()
 
 
-class MetadataFileSelectorWidget(BaseWidget):
+class MetadataFileSelectorWidget(ComponentWidget):
     metadata_path_selected_signal = QtCore.Signal(str)
 
     SELECTOR_TYPE = "Metadata Files (*.xlsx)"
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent_window: Window):
+        super().__init__(parent_window)
 
         self.setup_ui()
         self.setup_signals()
@@ -320,83 +313,24 @@ class MetadataFileSelectorWidget(BaseWidget):
         self.metadata_path_selected_signal.emit(metadata_path)
 
 class FolderStructureButton(QtWidgets.QPushButton, ApplicationMixin):
-    def __init__(self, sip: SIP):
+    def __init__(self, parent_window: Window, sip: SIP):
         super().__init__()
 
+        self.parent_window = parent_window
         self.sip = sip
-        self.mapping_widget: FolderMappingWidget = None
 
         self.setText(UI_TEXT["folder_structure_button_text"])
 
         self.setup_signals()
         
     def setup_signals(self) -> None:
-        self.clicked.connect(self.open_folder_mapping_handler)
-
-    def open_folder_mapping_handler(self) -> None:
-        # NOTE: just to make sure we don't have dangling connections
-        if self.mapping_widget is not None:
-            self.mapping_widget.save_button.clicked.disconnect()
-
-        self.folder_structure_widget = FolderStructure()
-        self.mapping_widget = self.folder_structure_widget.mapping
-
-        path_in_sip_map_column = [
-            k for k, v in self.sip.tag_mapping.items()
-            if v == "Path in SIP"
-        ][0]
-        # Only allow columns where not all fields are empty
-        columns_without_empty_fields = [
-            c
-            for c, all_empty in dict(
-                self.sip.read_metadata().eq("").all()
-            ).items()
-            if not all_empty and c != path_in_sip_map_column
-        ]
-
-        self.folder_structure_widget.add_to_metadata(columns_without_empty_fields)
-
-        self.mapping_window = Window(UI_TEXT_ELEMENTS["window_titles"]["folder_structure"])
-        self.mapping_window.setCentralWidget(self.folder_structure_widget)
-
-        self.mapping_widget.save_button.clicked.connect(lambda: self.mapping_closed_handler(path_in_sip_map_column=path_in_sip_map_column))
-        self.mapping_window.show()
-
-    def mapping_closed_handler(self, path_in_sip_map_column: str) -> None:
-        df = self.sip.read_metadata()
-        folder_structure = self.folder_structure_widget.mapping.get_mapping()
-
-        # NOTE: only check for files (anything with an extension)
-        df_sub = df[df[path_in_sip_map_column].str.contains(r"\.[a-zA-Z0-9]+$", regex=True, na=False)][[*folder_structure]].apply(lambda x: x.str.strip())
-
-        if np.any(df_sub.isna()) or np.any(df_sub == ""):
-            self.application.thread_error_signal.emit(
-                UI_TEXT_ELEMENTS["errors"]["sip"]["folder_mapping_error"]["title"],
-                UI_TEXT_ELEMENTS["errors"]["sip"]["folder_mapping_error"]["text"]
-            )
-            return
-
-        # Kamerplanten/groot/monstera.docx
-        # jaar -> dor of niet dor
-        # Kamerplanten/groot/**2022/dor**/monstera.docx
-
-        df["__folder"] = df[path_in_sip_map_column].apply(lambda x: x.rsplit("/", 1)[0])
-        df["__file"] = df[path_in_sip_map_column].apply(lambda x: "" if len(x.rsplit("/", 1)) == 1 else x.rsplit("/", 1)[1])
-
-        folder_mapping = {
-            path_in_sip: mapped_name
-            for path_in_sip, mapped_name in zip(
-                df[path_in_sip_map_column],
-                df[["__folder", *folder_structure, "__file"]].fillna("").astype(str).convert_dtypes().agg("/".join, axis=1),
-            )
-            # NOTE: only do aggregate mapping if it's a stuk (with an extension)
-            if os.path.splitext(path_in_sip)[1] != ""
-        }
-
-        self.sip.folder_mapping = folder_mapping
-
+        self.clicked.connect(
+            lambda: self.application.window_controller.open_folder_mapping_window(sip=self.sip)
+        )
 
 class OpenGridButton(QtWidgets.QPushButton, ApplicationMixin):
-    def __init__(self):
+    def __init__(self, parent_window: Window):
         super().__init__()
         self.setText(UI_TEXT["open_grid_button_text"])
+
+        self.parent_window = parent_window

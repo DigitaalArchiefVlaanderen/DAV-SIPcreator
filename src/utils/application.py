@@ -2,6 +2,7 @@
 Implementation of the main application
 """
 import requests
+from typing import Callable
 
 from PySide6 import QtWidgets, QtCore
 
@@ -9,21 +10,21 @@ from src.controller.config_controller import ConfigController
 from src.controller.main_db_controller import MainDBController
 from src.controller.sip_db_controller import SIPDBController
 from src.controller.worker_controller import WorkerController
+from src.controller.window_controller import WindowController
 
+from src.utils.component_factory import ComponentFactory
+from src.utils.constants import UI_TEXT_ELEMENTS, TI_ENVIRONMENT_NAME, PROD_ENVIRONMENT_NAME
 from src.utils.data_objects.configuration import Configuration
 from src.utils.data_objects.series import Series
-from src.utils.constants import UI_TEXT_ELEMENTS, TI_ENVIRONMENT_NAME, PROD_ENVIRONMENT_NAME
 from src.utils.pyside_helper import Helper
 from src.utils.worker_user.series_retriever import SeriesRetriever
+from src.utils.workers.worker import Worker
 
 from src.widget.dialog.warning_dialog import WarningDialog
 
 from src.window.base_window import Window
 
-from creator.controllers.config_controller import ConfigController as OldConfigController
-from creator.controllers.db_controller import DBController
-from creator.utils.state import State
-from creator.application import SIPStatusThread, BestandsControleLijstController
+from creator.application import BestandsControleLijstController
 
 
 # NOTE: if you're wondering why this even exists
@@ -67,6 +68,9 @@ class Application(QtWidgets.QApplication):
         self.sip_db_controller = SIPDBController()
         self.worker_controller = WorkerController()
         self.series_retriever = SeriesRetriever()
+        self.window_controller = WindowController()
+
+        self.component_factory = ComponentFactory()
 
         self.dialogs: list[QtWidgets.QDialog] = []
 
@@ -171,6 +175,20 @@ class Application(QtWidgets.QApplication):
         d.finished.connect(lambda: self.dialogs.remove(d))
 
         d.open()
+
+    # Task
+    def start_task(self, window: Window, description: str, function: Callable, is_generator: bool) -> Worker:
+        self.work_in_progress_signal.emit(window, description)
+        window.worker = self.worker_controller.run_thread(
+            thread_function=function,
+            thread_is_generator=is_generator
+        )
+        window.worker.about_to_finish_signal.connect(
+            lambda: self.work_ended_signal.emit(window)
+        )
+
+        return window.worker
+
 
     # Handlers
     def error_handler(self, exception: Exception) -> None:

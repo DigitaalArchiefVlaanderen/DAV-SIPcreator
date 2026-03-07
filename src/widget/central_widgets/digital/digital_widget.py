@@ -10,33 +10,30 @@ from PySide6 import QtWidgets, QtCore
 
 from src.utils.base_object import ApplicationMixin
 from src.utils.constants import UI_TEXT_ELEMENTS
-from src.utils.data_objects.sip import SIP, SIPStatus
+from src.utils.data_objects.digital.sip import SIP, SIPStatus
 from src.utils.helper import count_files_from_dirs
 from src.utils.pyside_helper import Helper
 
-from src.widget.base_widget import BaseWidget
-from src.widget.central_widgets.sip_detail_widget import SipDetailWidget
-from src.widget.components.dossier_widget import DossierWidget
+from src.widget.central_widgets.central_widget import CentralWidget
+from src.widget.central_widgets.digital.sip_detail_widget import SipDetailWidget
+from src.widget.components.digital.dossier_widget import DossierWidget
 from src.widget.components.searchable_list_widget import SearchableListWidgetWithSelection, SearchableListWidgetWithDropdown
-from src.widget.components.sip_listitem_widget import SipListitemWidget
-from src.widget.dialog.warning_dialog import WarningDialog
+from src.widget.components.digital.sip_listitem_widget import SipListitemWidget
 
 from src.window.base_window import Window
 
 
-class DigitalWidget(BaseWidget):
+class DigitalWidget(CentralWidget):
     UI_TEXT = UI_TEXT_ELEMENTS["digital"]["main"]
 
     dossier_loaded_signal = QtCore.Signal(list)
     sip_loaded_signal = QtCore.Signal(SIP)
 
     def __init__(self, parent_window: Window):
-        super().__init__()
+        super().__init__(parent_window)
 
-        self.parent_window = parent_window
-
-        self.dossier_loaded_signal.connect(self.dossiers_loaded_handler)
-        self.sip_loaded_signal.connect(self.sip_loaded_handler)
+        self.setup_ui()
+        self.setup_signals()
 
     def setup_ui(self) -> None:
         self.grid_layout = QtWidgets.QGridLayout()
@@ -74,8 +71,10 @@ class DigitalWidget(BaseWidget):
         self.grid_layout.addWidget(self.dossier_list_widget, 1, 0, 1, 2)
         self.grid_layout.addWidget(self.sip_list_widget, 1, 2, 1, 2)
 
+    def setup_signals(self) -> None:
+        self.dossier_loaded_signal.connect(self.dossiers_loaded_handler)
+        self.sip_loaded_signal.connect(self.sip_loaded_handler)
 
-        # Signal setup
         self.add_dossier_button.interaction_finished_signal.connect(lambda d: self.dossier_list_widget.add_widgets([d]))
         self.add_dossier_button.interaction_finished_signal.connect(lambda d: self.application.main_db_controller.write_dossier_paths([d.path]))
         self.add_dossiers_button.interaction_finished_signal.connect(self.dossier_list_widget.add_widgets)
@@ -120,13 +119,24 @@ class DigitalWidget(BaseWidget):
     # Handlers
     # NOTE: this needs to happen here, since we cannot create widgets in a thread
     def dossiers_loaded_handler(self, dossier_paths: list[str]) -> None:
-        dossier_widgets = [DossierWidget(p) for p in dossier_paths]
-
-        self.dossier_list_widget.add_widgets(dossier_widgets, select=False)
+        self.dossier_list_widget.add_widgets(
+            widgets=self.application.component_factory.create_dossier_widgets(
+                parent_window=self.parent_window,
+                dossier_paths=dossier_paths
+            ), 
+            select=False
+        )
 
     # NOTE: this needs to happen here, since we cannot create widgets in a thread
     def sip_loaded_handler(self, sip: SIP) -> None:
-        self.sip_list_widget.add_widgets([SipListitemWidget(parent_window=self.parent_window, sip=sip)])
+        self.sip_list_widget.add_widgets(
+            [
+                self.application.component_factory.create_sip_list_item(
+                    parent_window=self.parent_window,
+                    sip=sip
+                )
+            ]
+        )
     
     def dossier_selection_changed_handler(self) -> None:
         self.start_sip_button.setEnabled(len(self.dossier_list_widget.get_selected_items()) > 0)
@@ -141,22 +151,13 @@ class DigitalWidget(BaseWidget):
         sip = SIP()
         sip.set_dossiers(self.dossier_list_widget.get_selected_items())
 
-        self.sip_detail_window = Window(title=sip.name)
-        sip.name_changed_signal.connect(lambda: self.sip_detail_window.setWindowTitle(sip.name))
+        self.sip_detail_window = self.application.window_controller.open_sip_detail_window(sip=sip)
 
         self.dossier_list_widget.remove_selected_handler()
 
-        self.sip_listitem_widget = SipListitemWidget(parent_window=self.parent_window, sip=sip)
-        self.sip_listitem_widget.open_grid_signal.connect(lambda: self.open_grid_handler(sip=sip))
-        self.sip_list_widget.add_widgets([self.sip_listitem_widget])
+        self.sip_loaded_signal.emit(sip)
 
-        self.sip_detail_widget = SipDetailWidget(parent_window=self.sip_detail_window, sip=sip)
-        self.sip_detail_widget.open_grid_signal.connect(lambda: self.open_grid_handler(sip=sip))
-        self.sip_detail_window.setCentralWidget(self.sip_detail_widget)
-
-        self.sip_detail_window.show()
-
-    # Handlers
+    # TODO
     def open_grid_handler(self, sip: SIP) -> None:
         """
             All the values should already be in place in the sip,

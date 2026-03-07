@@ -7,7 +7,9 @@
             "analog": "Sip Creator analoog"
         },
         "configuration": "Configuratie",
-        "folder_structure": "Mappenstructuur"
+        "digital": {
+            "folder_structure": "Mappenstructuur"
+        }
     },
     "toolbar": {
         "configuration_button": "Configuratie"
@@ -54,6 +56,31 @@
                 "text": "Aan het verwijderen",
                 "priority": 7
             }
+        },
+        "controls": {
+            "open_button_text": "Open",
+            "upload_button_text": "Upload",
+            "edepot_button_text": "E-depot locatie",
+            "remove_button_text": "Verwijder",
+
+            "actions": {
+                "remove": {
+                    "title": "Verwijder files",
+                    "text": "Ben je zeker dat je de SIP en al zijn bijhorende files wilt verwijderen?\nDeze actie kan niet ongedaan gemaakt worden."
+                }
+            }
+        }
+    },
+    "migration": {
+        "main": {
+            "title": "Overdrachtslijsten",
+            "controls": {
+                "import_overdrachtslijst_button": {
+                    "button_text": "Importeer overdrachtslijst",
+                    "dialog_message": "Selecteer overdrachtslijst om te importeren"
+                },
+                "bestandslocatie_button_text": "Bestandslocatie"
+            }
         }
     },
     "digital": {
@@ -77,7 +104,8 @@
                         "title": "Te veel bestanden",
                         "text": "Er zijn te veel bestanden in de geselecteerde dossiers.\n\nMaximum: 9999\n\nAantal gevonden: {amount_of_files}"
                     }
-                }
+                },
+                "bestandslocatie_button_text": "Bestandslocatie"
             },
             "dossier_list": {
                 "select_all": "Selecteer alle dossiers",
@@ -85,28 +113,13 @@
             },
             "sip_list": {
                 "show_all": "alles tonen",
-                "dossiers_title": "Dossiers",
-                "controls": {
-                    "open_button_text": "Open",
-                    "upload_button_text": "Upload",
-                    "bestandslocatie_button_text": "Bestandslocatie",
-                    "edepot_button_text": "E-depot locatie",
-                    "remove_button_text": "Verwijder",
-
-                    "actions": {
-                        "remove": {
-                            "title": "Verwijder files",
-                            "text": "Ben je zeker dat je de SIP en al zijn bijhorende files wilt verwijderen?\nDeze actie kan niet ongedaan gemaakt worden."
-                        }
-                    }
-                }
+                "dossiers_title": "Dossiers"
             }
         },
         "sip_detail_view": {
             "published_series_text": "Gepubliceerde series",
             "submitted_series_text": "Ingediende series",
             "import_template_retrieval_button_text": "Haal importsjabloon op",
-            "import_template_retrieval_toolbar_text": "Bezig met importsjabloon ophalen",
             "metadata_file_button_text": "Selecteer metadata file",
             "metadata_file_path_default_text": "Nog geen pad geselecteerd",
             "metadata_selection_dialog_window": {
@@ -193,7 +206,7 @@
             "title": "Een fout is opgetreden",
             "text": "Een ongekende fout gebeurde '{exception_name}': {exception}"
         },
-        "unexpected_application_type": "Ongekend applicatie type meegegeven"
+        "unexpected_application_type": "Ongekend applicatie type meegegeven '{application_type}'"
     },
     "warnings": {
         "series_still_loading_warning": {
@@ -208,8 +221,10 @@
         "series_retrieval_done": {
             "left_text": "series ==> {ti_env_name}: {ti_amount_of_series} | {prod_env_name}: {prod_amount_of_series}"
         },
-        "digital_background_work": {
-            "right_text": "sips en dossiers aan het inladen..."
+        "digital": {
+            "startup_loading_items_text": "SIPs en dossiers aan het inladen",
+            "import_template_retrieval_text": "Bezig met importsjabloon ophalen",
+            "adding_dossiers_text": "Bezig met dossiers toe te voegen"
         }
     }
 }

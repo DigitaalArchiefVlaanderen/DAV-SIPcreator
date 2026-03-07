@@ -37,6 +37,7 @@ class Worker(QtCore.QObject):
             if self.is_generator:
                 for result in self.function():
                     if self.force_stop:
+                        self.about_to_finish_signal.emit()
                         self.stopped_forcibly_signal.emit()
                         return
 
@@ -45,6 +46,7 @@ class Worker(QtCore.QObject):
                 result = self.function()
 
                 if self.force_stop:
+                    self.about_to_finish_signal.emit()
                     self.stopped_forcibly_signal.emit()
                     return
 

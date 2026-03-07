@@ -1,7 +1,8 @@
 from PySide6 import QtWidgets
 
 from src.utils.constants import UI_TEXT_ELEMENTS
-from src.utils.data_objects.sip import SIP
+
+from src.utils.data_objects.digital.sip import SIP
 
 from src.widget.base_widget import BaseWidget
 
@@ -62,6 +63,7 @@ class DigitalGridView(BaseWidget):
         self.grid_layout.addWidget(self.save_button, 3, 0, 1, 2)
         self.grid_layout.addWidget(self.create_sip_button, 3, 2, 1, 3)
 
+    # TODO
     def setup_signals(self) -> None:
         self.show_bad_rows_checkbox.stateChanged.connect(self._bad_rows_clicked)
         self.show_dossiers_only_checkbox.stateChanged.connect(self._dossiers_only_clicked)

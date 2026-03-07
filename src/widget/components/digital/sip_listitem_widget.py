@@ -4,15 +4,13 @@ Implementation of the listitem for a SIP
 import os
 from contextlib import suppress
 
-import ftplib
 from PySide6 import QtWidgets, QtCore, QtGui
 
 from src.utils.constants import UI_TEXT_ELEMENTS
-from src.utils.data_objects.sip import SIP, SIPStatus
-from src.utils.pyside_helper import Helper
+from utils.data_objects.digital.sip import SIP, SIPStatus
 
 from src.widget.base_widget import BaseWidget
-from src.widget.central_widgets.sip_detail_widget import SipDetailWidget
+from src.widget.central_widgets.digital.sip_detail_widget import SipDetailWidget
 from src.widget.dialog.yes_no_dialog import YesNoDialog
 
 from src.window.base_window import Window
@@ -27,8 +25,8 @@ class SipListitemWidget(QtWidgets.QFrame):
         super().__init__()
 
         self.parent_window = parent_window
-
         self.sip = sip
+
         self.setup_ui()
 
     def setup_ui(self) -> None:

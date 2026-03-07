@@ -20,20 +20,19 @@ if TYPE_CHECKING:
 
 
 class BaseWindow(QtWidgets.QMainWindow):
-    window_close_signal = QtCore.Signal()
+    window_about_to_close_signal = QtCore.Signal()
 
-    def __init__(self, title: str) -> None:
+    def __init__(self) -> None:
         super().__init__()
 
         self.setMinimumWidth(900)
         self.setMinimumHeight(600)
         self.setWindowIcon(get_logo())
-        self.setWindowTitle(title)
 
         self.application: Application = QtWidgets.QApplication.instance()
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
-        self.window_close_signal.emit()
+        self.window_about_to_close_signal.emit()
         super().closeEvent(event)
 
 
@@ -42,8 +41,8 @@ class Window(BaseWindow):
 
     force_stop_worker_signal = QtCore.Signal()
 
-    def __init__(self, title: str) -> None:
-        super().__init__(title)
+    def __init__(self) -> None:
+        super().__init__()
 
         self.toolbar = Toolbar(self)
         self.addToolBar(self.toolbar)

@@ -6,10 +6,10 @@ import sqlite3 as sql
 
 from src.utils.base_object import BaseObject
 from src.utils.constants import UI_TEXT_ELEMENTS, SIP_CREATOR_VERSION
-from src.utils.data_objects.sip import SIP, SIPStatus
+from src.utils.data_objects.digital.sip import SIP, SIPStatus
 from src.utils.pyside_helper import Helper
 
-from src.widget.components.dossier_widget import DossierWidget
+from src.widget.components.digital.dossier_widget import DossierWidget
 
 
 
