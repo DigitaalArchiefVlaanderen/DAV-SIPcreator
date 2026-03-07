@@ -6,7 +6,15 @@ import requests
 
 from src.utils.data_objects.series import Series
 from src.utils.data_objects.sip import SIP
+from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.data_objects.configuration import Configuration, Environment
+
+SIP_STATUS_MAPPING = {
+    "Uploaded": SIPStatus.UPLOADED,
+    "Processing": SIPStatus.PROCESSING,
+    "Accepted": SIPStatus.ACCEPTED,
+    "Rejected": SIPStatus.REJECTED,
+}
 
 
 class APIException(Exception):
@@ -22,7 +30,7 @@ class APIController:
         data: dict = None,
         params: dict = None,
         timeout=10,
-    ) -> dict:
+    ) -> requests.Response:
         response = request_type(
             url, headers=headers, data=data, params=params, timeout=timeout
         )
@@ -253,3 +261,45 @@ class APIController:
                 break
 
             params["page"] = params["page"] + 1
+
+    @staticmethod
+    def get_sip_status(sip: SIP) -> tuple[SIPStatus, str|None]:
+        environment = sip.environment
+        access_token = APIController._get_access_token(environment)
+
+        base_url = environment.api_url
+        endpoint = f"edepot/api/v1/sips/{sip.edepot_sip_id}"
+
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
+
+        response = APIController._perform_request(
+            request_type=requests.get,
+            url=f"{base_url}/{endpoint}",
+            headers=headers,
+        ).json()
+
+        status = SIP_STATUS_MAPPING.get(response["SipStatus"])
+        fail_reason = None
+
+        if status == SIPStatus.REJECTED:
+            fail_reasons = []
+
+            for r in response["RecordRejections"]["Rejection"]:
+                parts = []
+
+                if r["Row"] is not None:
+                    parts.append(f"Rij: {r['Row']}")
+                if r["Path"] is not None:
+                    parts.append(f"Path in SIP: {r['Path']}")
+                if r["Value"] is not None:
+                    parts.append(f"Waarde in veld: {r['Value']}")
+
+                parts.append(r["Motivation"])
+                fail_reasons.append("\n".join(parts))
+
+            fail_reason = "\n\n".join(fail_reasons)
+
+        return status, fail_reason
