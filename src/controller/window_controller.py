@@ -1,3 +1,5 @@
+from PySide6 import QtCore
+
 from src.utils.base_object import BaseObject
 from src.utils.data_objects.sip import SIP
 
@@ -10,6 +12,8 @@ from src.window.digital.sip_detail_window import SipDetailWindow
 
 
 class WindowController(BaseObject):
+    open_digital_grid_signal = QtCore.Signal(SIP)
+
     def __init__(self) -> None:
         super().__init__()
 

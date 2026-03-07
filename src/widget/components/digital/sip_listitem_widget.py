@@ -11,17 +11,15 @@ from src.utils.data_objects.digital.sip import SIP
 from src.utils.data_objects.sip_status import SIPStatus
 
 from src.widget.base_widget import BaseWidget
-from src.widget.central_widgets.digital.sip_detail_widget import SipDetailWidget
 from src.widget.dialog.yes_no_dialog import YesNoDialog
 
 from src.window.base_window import Window
+from src.window.digital.sip_detail_window import SipDetailWindow
 
 
 UI_TEXT = UI_TEXT_ELEMENTS["digital"]["main"]["sip_list"]
 
 class SipListitemWidget(QtWidgets.QFrame):
-    open_grid_signal = QtCore.Signal(SIP)
-
     def __init__(self, parent_window: Window, sip: SIP):
         super().__init__()
 
@@ -40,7 +38,6 @@ class SipListitemWidget(QtWidgets.QFrame):
         self.sip_name_and_status_widget = SipNameAndStatusWidget(sip=self.sip)
         self.dossiers_widget = DossiersWidget(sip=self.sip)
         self.controls_widget = ControlsWidget(parent_window=self.parent_window, sip=self.sip)
-        self.controls_widget.open_grid_signal.connect(lambda: self.open_grid_signal.emit(self.sip))
 
         self.horizontal_layout.addWidget(self.sip_name_and_status_widget)
         self.horizontal_layout.addWidget(self.dossiers_widget)
@@ -128,8 +125,6 @@ class DossiersWidget(QtWidgets.QFrame):
 class ControlsWidget(BaseWidget):
     UI_TEXT = UI_TEXT_ELEMENTS["sip"]["controls"]
 
-    open_grid_signal = QtCore.Signal()
-
     def __init__(self, parent_window: Window, sip: SIP):
         super().__init__()
 
@@ -196,18 +191,11 @@ class ControlsWidget(BaseWidget):
             return
 
         if self.application.digital_sip_db_controller.is_valid_db(self.sip.db_name) \
-                and self.application.digital_sip_db_controller.read_sip_data(self.sip.db_name):
-            self.open_grid_signal.emit()
+                and self.application.digital_sip_db_controller.read_sip_data(self.sip.db_name) is not None:
+            self.application.window_controller.open_digital_grid_signal.emit(self.sip)
             return
 
-        self.sip_detail_window = Window(title=self.sip.name)
-
-        self.sip.name_changed_signal.connect(lambda: self.sip_detail_window.setWindowTitle(self.sip.name))
-
-        self.sip_detail_widget = SipDetailWidget(parent_window=self.parent_window, sip=self.sip)
-        self.sip_detail_widget.open_grid_signal.connect(self.open_grid_signal.emit)
-        self.sip_detail_window.setCentralWidget(self.sip_detail_widget)
-
+        self.sip_detail_window = SipDetailWindow(sip=self.sip)
         self.sip_detail_window.show()
 
     # TODO

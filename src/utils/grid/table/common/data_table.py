@@ -31,10 +31,10 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
     def data_index(self, index) -> tuple[int, int]:
         return self.raw_data.index[index.row()], index.column()
 
-    def rowCount(self) -> int:
+    def rowCount(self, parent=None) -> int:
         return self.raw_data.shape[0]
 
-    def columnCount(self) -> int:
+    def columnCount(self, parent=None) -> int:
         return self.raw_data.shape[1]
     
     # Getting of data or cell formatting based on index and role

@@ -2,6 +2,7 @@ import json
 import os
 from typing import Iterable
 
+import pandas as pd
 import sqlite3 as sql
 
 from src.utils.base_object import BaseObject
@@ -49,7 +50,7 @@ class DigitalSIPDBController(BaseObject):
             series_id = sip.series._id
             series_name = sip.series.get_full_name()
 
-        if sip.data is None:
+        if not sip.grid_data.has_data:
             self.application.thread_error_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_when_db_has_no_data_error"]["title"],
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_when_db_has_no_data_error"]["text"],
@@ -97,22 +98,7 @@ class DigitalSIPDBController(BaseObject):
                 (SIP_CREATOR_VERSION,)
             )
 
-            conn.execute(
-                f"""
-                    CREATE TABLE data (
-                        {',\n'.join(
-                            f"'{column_name}' text" for column_name in sip.data.keys()
-                        )}
-                    )
-                """
-            )
-            conn.executemany(
-                f"""
-                    INSERT INTO data ({', '.join(f"'{column_name}'" for column_name in sip.data.keys())})
-                    VALUES({', '.join('?' for _ in sip.data.keys())})
-                """,
-                zip(*(sip.data[column_name] for column_name in sip.data.keys()))
-            )
+            sip.grid_data.data_as_df.to_sql("data", conn, index=False, dtype="text")
 
     def read_sip_db(self, sip_db_file_name: str) -> tuple[SIP, str, str]:
         """
@@ -125,29 +111,22 @@ class DigitalSIPDBController(BaseObject):
 
             sip = DigitalSIP()
             sip.set_name(name)
-            sip.db_name = sip_db_file_name
+            if sip_db_file_name.startswith("new_"):
+                sip.mark_as_transitioned()
             sip.set_status(SIPStatus[status])
             sip.environment = self.application.configuration.get_environment(environment_name)
 
             sip.edepot_sip_id = edepot_sip_id
-            sip.set_dossiers([DossierWidget(parent_window=None, path=d) for d in json.loads(dossiers_list)])
+            sip.set_dossiers([DossierWidget(path=d) for d in json.loads(dossiers_list)])
             sip.tag_mapping = json.loads(tag_mapping)
             sip.folder_mapping = json.loads(folder_mapping)
 
             return sip, series_id, series_name
 
 
-    def read_sip_data(self, sip_db_file_name: str) -> dict[str, list[str]]:
+    def read_sip_data(self, sip_db_file_name: str) -> pd.DataFrame:
         with self.conn(sip_db_file_name) as conn:
-            cursor = conn.execute("select * from data")
-
-            data_table_columns = [desc[0] for desc in cursor.description]
-            data_table_results = cursor.fetchall()
-
-            return {
-                col: [row[i] for row in data_table_results]
-                for i, col in enumerate(data_table_columns)
-            }
+            return pd.read_sql("select * from data", conn, dtype=str).fillna("")
 
     def g_read_all_sip_dbs(self) -> Iterable[tuple[SIP, str, str]]:
         """
@@ -240,7 +219,7 @@ class DigitalSIPDBController(BaseObject):
     def transition_old_db(self, old_db_file_name: str) -> tuple[str]|None:
         sip, series_id, series_name = self.old_sip_db_controller.read_sip_db(old_db_file_name)
 
-        sip.db_name = Helper().get_new_transitioned_db_name(old_db_file_name)
+        sip.mark_as_transitioned()
 
         if os.path.exists(os.path.join(self.application.configuration.sip_db_location, sip.db_name)):
             return
@@ -344,7 +323,7 @@ class OldDigitalSIPDBController(BaseObject):
             dossier_table_results = conn.execute("select * from dossier").fetchall()
 
             sip.set_dossiers([
-                DossierWidget(parent_window=None, path=path)
+                DossierWidget(path=path)
                 for _, path in dossier_table_results
             ])
 

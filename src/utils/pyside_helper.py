@@ -25,9 +25,6 @@ class Helper(BaseObject):
 
         return next_sip_name
 
-    def get_new_transitioned_db_name(self, old_name: str) -> str:
-        return f"new_{old_name}"
-        
     def wait_for_signal_or_value(
             self,
             signal: QtCore.Signal, value: Any=None, warning_title: str=None,

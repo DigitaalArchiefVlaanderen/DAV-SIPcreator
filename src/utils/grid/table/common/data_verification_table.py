@@ -21,8 +21,8 @@ class CommonDataVerificationTable(DataTable):
         ColumnName.ID_RIJKSREGISTERNUMMER: RRNCheck(),
     }
 
-    def __init__(self, sip: SIP) -> None:
-        super().__init__(sip)
+    def __init__(self, sip: SIP, editable: bool = True) -> None:
+        super().__init__(sip, editable)
 
         self._active_workers: list[tuple[Worker, QtCore.QThread]] = []
 

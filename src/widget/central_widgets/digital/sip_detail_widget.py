@@ -9,7 +9,7 @@ from src.utils.constants import BusinessRules, UI_TEXT_ELEMENTS
 from src.utils.data_objects.series import SeriesStatus
 from src.utils.data_objects.digital.sip import SIP
 
-from src.widget.base_widget import ComponentWidget, ApplicationMixin
+from src.widget.base_widget import BaseWidget, ComponentWidget, ApplicationMixin
 from src.widget.central_widgets.central_widget import CentralWidget
 from src.widget.components.digital.mapping_widget import TagMappingWidget, FolderMappingWidget
 
@@ -26,6 +26,7 @@ class SipDetailWidget(CentralWidget):
     def __init__(self, parent_window: Window, sip: SIP):
         super().__init__(parent_window)
 
+        self.parent_window: SipDetailWindow
         self.sip = sip
 
         self.setup_ui()
@@ -38,15 +39,15 @@ class SipDetailWidget(CentralWidget):
 
         self.sip_name_edit = SipNameEditAndStatusWidget(parent_window=self.parent_window, sip=self.sip)
         self.series_type_selector = SeriesTypeSelectorWidget(parent_window=self.parent_window, sip=self.sip)
-        self.series_retrieval = SeriesRetrievalWidget(parent_window=self.parent_window, sip=self.sip)
+        self.series_retrieval = SeriesRetrievalWidget(sip=self.sip)
         self.metadata_file_selector = MetadataFileSelectorWidget(parent_window=self.parent_window)
-        self.folder_structure_button = FolderStructureButton(parent_window=self.parent_window, sip=self.sip)
+        self.folder_structure_button = FolderStructureButton(sip=self.sip)
         self.folder_structure_button.setEnabled(False)
 
-        self.tag_mapping_widget = TagMappingWidget(parent_window=self.parent_window)
+        self.tag_mapping_widget = TagMappingWidget()
         self.tag_mapping_widget.setMinimumSize(100, 400)
 
-        self.open_grid_button = OpenGridButton(parent_window=self.parent_window)
+        self.open_grid_button = OpenGridButton()
         self.open_grid_button.setEnabled(False)
 
 
@@ -61,17 +62,21 @@ class SipDetailWidget(CentralWidget):
     def setup_signals(self) -> None:
         self.open_grid_button.clicked.connect(self.open_grid_handler)
         self.series_type_selector.selection_changed_signal.connect(self.series_retrieval.series_dropdown.set_series_type)
+        self.series_retrieval.import_template_retrieval_requested_signal.connect(self.import_template_retrieval_requested_handler)
         self.series_retrieval.import_template_retrieved_signal.connect(self.import_template_downloaded_handler)
 
         self.metadata_file_selector.metadata_path_selected_signal.connect(self.metadata_file_selected_handler)
 
     # Handlers
-    # TODO:
     def open_grid_handler(self) -> None:
-        """
-            We don't actually open the grid here, but we do prep the values in the sip
-        """
         self.sip.tag_mapping = self.tag_mapping_widget.get_mapping()
+        self.application.window_controller.open_digital_grid_signal.emit(self.sip)
+
+    def import_template_retrieval_requested_handler(self) -> None:
+        self.parent_window.start_retrieve_import_template_task()
+        self.parent_window.worker.result_ready_signal.connect(
+            self.series_retrieval.import_template_downloaded_handler
+        )
 
     def import_template_downloaded_handler(self) -> None:
         self.open_grid_button.setEnabled(True)
@@ -179,10 +184,9 @@ class SeriesTypeSelectorWidget(ComponentWidget):
         self.selection_changed_signal.emit(self.SELECTED_TYPE)
 
 class SeriesDropdownWidget(QtWidgets.QComboBox, ApplicationMixin):
-    def __init__(self, parent_window: Window, sip: SIP):
+    def __init__(self, sip: SIP):
         super().__init__()
 
-        self.parent_window = parent_window
         self.sip = sip
 
         self.setEditable(True)
@@ -231,13 +235,12 @@ class SeriesDropdownWidget(QtWidgets.QComboBox, ApplicationMixin):
         self.clear_series()
         self.set_series()
 
-class SeriesRetrievalWidget(ComponentWidget):
+class SeriesRetrievalWidget(BaseWidget):
+    import_template_retrieval_requested_signal = QtCore.Signal()
     import_template_retrieved_signal = QtCore.Signal()
 
-    def __init__(self, parent_window: Window, sip: SIP):
-        super().__init__(parent_window)
-
-        self.parent_window: SipDetailWindow
+    def __init__(self, sip: SIP):
+        super().__init__()
 
         self.sip = sip
 
@@ -248,26 +251,19 @@ class SeriesRetrievalWidget(ComponentWidget):
         self.horizontal_layout = QtWidgets.QHBoxLayout()
         self.setLayout(self.horizontal_layout)
 
-
         self.series_dropdown = SeriesDropdownWidget(sip=self.sip)
-
         self.import_template_retrieval_button = QtWidgets.QPushButton(text=UI_TEXT["import_template_retrieval_button_text"])
-
 
         self.horizontal_layout.addWidget(self.series_dropdown, stretch=5)
         self.horizontal_layout.addWidget(self.import_template_retrieval_button)
-        
+
     def setup_signals(self) -> None:
-        self.import_template_retrieval_button.clicked.connect(self.import_template_retrieval_clicked_handler)
-
-    def import_template_retrieval_clicked_handler(self) -> None:
-        self.parent_window.start_retrieve_import_template_task()
-
-        self.parent_window.worker.result_ready_signal.connect(self.import_template_downloaded_handler)
+        self.import_template_retrieval_button.clicked.connect(
+            self.import_template_retrieval_requested_signal.emit
+        )
 
     def import_template_downloaded_handler(self, path: str) -> None:
         self.sip.set_import_template_path(path)
-
         self.import_template_retrieved_signal.emit()
 
 
@@ -313,10 +309,9 @@ class MetadataFileSelectorWidget(ComponentWidget):
         self.metadata_path_selected_signal.emit(metadata_path)
 
 class FolderStructureButton(QtWidgets.QPushButton, ApplicationMixin):
-    def __init__(self, parent_window: Window, sip: SIP):
+    def __init__(self, sip: SIP):
         super().__init__()
 
-        self.parent_window = parent_window
         self.sip = sip
 
         self.setText(UI_TEXT["folder_structure_button_text"])
@@ -329,8 +324,6 @@ class FolderStructureButton(QtWidgets.QPushButton, ApplicationMixin):
         )
 
 class OpenGridButton(QtWidgets.QPushButton, ApplicationMixin):
-    def __init__(self, parent_window: Window):
+    def __init__(self):
         super().__init__()
         self.setText(UI_TEXT["open_grid_button_text"])
-
-        self.parent_window = parent_window

@@ -15,12 +15,13 @@ from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.helper import count_files_from_dirs
 
 from src.widget.central_widgets.central_widget import CentralWidget
-from src.widget.central_widgets.digital.sip_detail_widget import SipDetailWidget
+from src.widget.central_widgets.digital.digital_grid_view import DigitalGridView
 from src.widget.components.digital.dossier_widget import DossierWidget
 from src.widget.components.searchable_list_widget import SearchableListWidgetWithSelection, SearchableListWidgetWithDropdown
 from src.widget.components.digital.sip_listitem_widget import SipListitemWidget
 
 from src.window.base_window import Window
+from src.window.grid_window import GridWindow
 
 
 class DigitalWidget(CentralWidget):
@@ -111,17 +112,15 @@ class DigitalWidget(CentralWidget):
         if sip.environment != self.application.configuration.active_environment:
             return
 
-        self.sip_list_widget.add_widgets(
-            [SipListitemWidget(parent_window=self.parent_window, sip=sip)]
-        )
+        listitem = SipListitemWidget(parent_window=self.parent_window, sip=sip)
+        self.sip_list_widget.add_widgets([listitem])
 
     def environment_changed_handler(self) -> None:
         self.sip_list_widget.clear_widgets()
 
         for sip in self.application.get_sips(SIP):
-            self.sip_list_widget.add_widgets(
-                [SipListitemWidget(parent_window=self.parent_window, sip=sip)]
-            )
+            listitem = SipListitemWidget(parent_window=self.parent_window, sip=sip)
+            self.sip_list_widget.add_widgets([listitem])
 
     def dossier_selection_changed_handler(self) -> None:
         self.start_sip_button.setEnabled(len(self.dossier_list_widget.get_selected_items()) > 0)
@@ -144,16 +143,9 @@ class DigitalWidget(CentralWidget):
 
         self.digital_sip_loaded_handler(sip)
 
-    # TODO
     def open_grid_handler(self, sip: SIP) -> None:
-        """
-            All the values should already be in place in the sip,
-            only some checks are left and then opening the grid
-        """
         if not self.application.digital_sip_db_controller.db_exists(sip.db_name):
-            print("Creating db")
             sip.set_data_from_dossiers()
-
             self.application.digital_sip_db_controller.create_sip_db(sip=sip)
 
         if not self.application.digital_sip_db_controller.is_valid_db(sip.db_name):
@@ -168,12 +160,13 @@ class DigitalWidget(CentralWidget):
             )
             return
 
-        print("valid")
-        from creator.windows.grid_view import GridView
+        if not sip.grid_data.has_data:
+            sip.grid_data.data_as_df = self.application.digital_sip_db_controller.read_sip_data(sip.db_name)
 
-        
-
-        ...
+        self.grid_window = GridWindow(sip=sip)
+        grid_view = DigitalGridView(sip=sip)
+        self.grid_window.setCentralWidget(grid_view)
+        self.grid_window.show()
 
 
 # Controls

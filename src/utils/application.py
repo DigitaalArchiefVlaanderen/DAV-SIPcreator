@@ -108,6 +108,9 @@ class Application(QtWidgets.QApplication):
     def setup_signals(self) -> None:
         self.aboutToQuit.connect(self.worker_controller.close_controller)
         self.series_retriever.error_occurred_signal.connect(self.error_handler)
+        self.window_controller.open_digital_grid_signal.connect(
+            self.window_controller.sip_creator_window.digital_widget.open_grid_handler
+        )
 
         self.work_in_progress_signal.connect(self.start_work_handler)
         self.work_ended_signal.connect(self.stop_work_handler)
