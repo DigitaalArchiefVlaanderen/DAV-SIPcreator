@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import json
 from enum import Enum
@@ -24,6 +25,34 @@ class SaveLocations(Enum):
     OVERDRACHTSLIJSTEN_FOLDER = "overdrachtslijsten"
     
     ANALOOG_FOLDER = "analoog"
+
+class ColumnName(Enum):
+    PATH_IN_SIP = "Path in SIP"
+    TYPE = "Type"
+    DOSSIER_REF = "DossierRef"
+    ANALOOG = "Analoog?"
+    NAAM = "Naam"
+    BESCHRIJVING = "Beschrijving"
+    DOSSIERCODE_BRON = "Dossiercode_bron"
+    STUKREFERENTIE_BRON = "Stukreferentie_Bron"
+    OPENINGSDATUM = "Openingsdatum"
+    SLUITINGSDATUM = "Sluitingsdatum"
+    ID_BIS_RIJKSREGISTERNUMMER = "ID_BIS-rijksregisternummer"
+    ID_RIJKSREGISTERNUMMER = "ID_Rijksregisternummer"
+    ID_NAAM = "ID_Naam"
+    KBO_NUMMER = "KBO_nummer"
+    OVO_CODE = "OVO_code"
+    ORGANISATIENAAM = "Organisatienaam"
+    TREFWOORDEN_VRIJ = "Trefwoorden_vrij"
+    OPMERKINGEN = "Opmerkingen"
+    AUTEUR = "Auteur"
+    TAAL = "Taal"
+    ID_BESCHRIJVING = "ID Beschrijving"
+    ID_VERPAKKING = "ID Verpakking"
+    ORIGINEEL_DOOSNUMMER = "Origineel Doosnummer"
+    LEGACY_LOCATIE_ID = "Legacy locatie ID"
+    LEGACY_RANGE = "Legacy range"
+    VERPAKKINGSTYPE = "Verpakkingstype"
 
 class BusinessRules:
     SIP_TITLE_MAX_LENGTH: int = 185
@@ -64,3 +93,7 @@ BASE_SIP_NAME = "SIP {number}"
 
 CHECKABLE_SIP_STATUSES = (SIPStatus.UPLOADED, SIPStatus.PROCESSING)
 POLL_INTERVAL_SECONDS = 10
+
+# Grid checks constants
+RRN_LOOSE_PATTERN = re.compile(r"^\d{11}$")
+RRN_STRICT_PATTERN = re.compile(r"^\d{2}\.\d{2}\.\d{2}-\d{3}\.\d{2}$")

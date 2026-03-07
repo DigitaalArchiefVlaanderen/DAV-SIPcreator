@@ -256,5 +256,11 @@
             "import_template_retrieval_text": "Bezig met importsjabloon ophalen",
             "adding_dossiers_text": "Bezig met dossiers toe te voegen"
         }
+    },
+    "grid_checks": {
+        "common": {
+            "rrn_format_error": "Rijksregisternummer moet van vorm xx.xx.xx-xxx.xx zijn, of 11 cijfers na elkaar zijn",
+            "rrn_invalid_error": "Ingegeven rijksregisternummer is niet mogelijk"
+        }
     }
 }
