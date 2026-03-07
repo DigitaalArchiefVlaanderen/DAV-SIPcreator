@@ -194,6 +194,18 @@
             "folder_mapping_error": {
                 "title": "Mappenstructuur mapping fout",
                 "text": "Alle kolommen die gebruikt worden voor de mappenstructuur moeten verplicht een waarde hebben."
+            },
+            "folder_structure_new_path_error": {
+                "title": "Folderstructuur fout",
+                "text": "Verandering in folderstructuur gevonden.\n\n'{path}' was niet aanwezig bij het aanmaken van de SIP."
+            },
+            "folder_structure_duplicate_path_error": {
+                "title": "Folderstructuur fout",
+                "text": "Duplicate path_in_sip gevonden: '{path_in_sip}'"
+            },
+            "folder_structure_missing_path_error": {
+                "title": "Folderstructuur fout",
+                "text": "Verandering in folderstructuur gevonden.\n\n'{path_in_sip}' was aanwezig bij het aanmaken van de SIP, maar is niet meer aanwezig."
             }
         },
         "series": {
