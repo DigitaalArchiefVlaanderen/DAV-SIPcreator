@@ -55,23 +55,36 @@ class FileController(BaseObject):
         wb.save(path)
         wb.close()
 
-    @staticmethod
-    def _check_sip_folder_structure(sip_folder_structure: dict, df: pd.DataFrame) -> None:
+    def _is_sip_folder_structure_valid(self, sip_folder_structure: dict, df: pd.DataFrame) -> bool:
         folder_paths = set()
 
         for row in sip_folder_structure.values():
             path_in_sip, path = row["Path in SIP"], row["path"]
 
             if sum(df["Path in SIP"] == path_in_sip) == 0:
-                raise ValueError(UI_TEXT["folder_structure_new_path_error"]["text"].format(path=path))
+                self.application.thread_error_signal.emit(
+                    UI_TEXT["folder_structure_new_path_error"]["title"],
+                    UI_TEXT["folder_structure_new_path_error"]["text"].format(path=path),
+                )
+                return False
             elif sum(df["Path in SIP"] == path_in_sip) > 1:
-                raise ValueError(UI_TEXT["folder_structure_duplicate_path_error"]["text"].format(path_in_sip=path_in_sip))
+                self.application.thread_error_signal.emit(
+                    UI_TEXT["folder_structure_duplicate_path_error"]["title"],
+                    UI_TEXT["folder_structure_duplicate_path_error"]["text"].format(path_in_sip=path_in_sip),
+                )
+                return False
 
             folder_paths.add(path_in_sip)
 
         for _, row in df.iterrows():
             if row["Path in SIP"] not in folder_paths:
-                raise ValueError(UI_TEXT["folder_structure_missing_path_error"]["text"].format(path_in_sip=row["Path in SIP"]))
+                self.application.thread_error_signal.emit(
+                    UI_TEXT["folder_structure_missing_path_error"]["title"],
+                    UI_TEXT["folder_structure_missing_path_error"]["text"].format(path_in_sip=row["Path in SIP"]),
+                )
+                return False
+
+        return True
 
     @staticmethod
     def _filter_df(df: pd.DataFrame) -> pd.DataFrame:
@@ -107,10 +120,11 @@ class FileController(BaseObject):
 
         df = FileController._filter_df(sip.grid_data.data_as_df)
 
-        FileController._check_sip_folder_structure(
+        if not self._is_sip_folder_structure_valid(
             sip_folder_structure=filtered_folder_structure,
             df=df
-        )
+        ):
+            return
 
         temp_excel_location = os.path.join(
             configuration.import_templates_location,

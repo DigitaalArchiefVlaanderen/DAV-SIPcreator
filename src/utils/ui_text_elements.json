@@ -208,6 +208,24 @@
                 "text": "Verandering in folderstructuur gevonden.\n\n'{path_in_sip}' was aanwezig bij het aanmaken van de SIP, maar is niet meer aanwezig."
             }
         },
+        "upload": {
+            "missing_ftps_credentials_error": {
+                "title": "Connectie fout",
+                "text": "Je FTPS connectie gegevens staan niet in orde voor omgeving '{environment_name}'"
+            },
+            "missing_files_error": {
+                "title": "Missende bestanden",
+                "text": "De zip of sidecar is niet aanwezig, upload kan niet verder gaan."
+            },
+            "ftps_login_error": {
+                "title": "Connectie fout",
+                "text": "Je FTPS connectie login gegevens staan niet in orde voor omgeving '{environment_name}'"
+            },
+            "ftps_url_error": {
+                "title": "Connectie fout",
+                "text": "Je FTPS connectie url staat niet in orde voor omgeving '{environment_name}'"
+            }
+        },
         "series": {
             "series_not_found_error": {
                 "title": "Serie niet gevonden",
