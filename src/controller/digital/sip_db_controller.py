@@ -7,6 +7,7 @@ import sqlite3 as sql
 from src.utils.base_object import BaseObject
 from src.utils.constants import UI_TEXT_ELEMENTS, SIP_CREATOR_VERSION
 from src.utils.data_objects.sip import SIP
+from src.utils.data_objects.digital.sip import SIP as DigitalSIP
 from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.pyside_helper import Helper
 
@@ -14,12 +15,12 @@ from src.widget.components.digital.dossier_widget import DossierWidget
 
 
 
-class SIPDBController(BaseObject):
+class DigitalSIPDBController(BaseObject):
     def __init__(self) -> None:
         super().__init__()
 
         # NOTE: this exists to transition old dbs to new ones
-        self.old_sip_db_controller = OldSIPDBController()
+        self.old_sip_db_controller = OldDigitalSIPDBController()
 
     def conn(self, sip_db_file_name: str) -> sql.Connection:
         return sql.connect(
@@ -28,8 +29,8 @@ class SIPDBController(BaseObject):
                 sip_db_file_name
             )
         )
-    
-    def create_sip_db(self, sip: SIP) -> None:
+
+    def create_sip_db(self, sip: SIP, series_id: str = None, series_name: str = None) -> None:
         if os.path.exists((db_path := os.path.join(self.application.configuration.sip_db_location, sip.db_name))):
             self.application.thread_error_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_already_exists_error"]["title"],
@@ -37,13 +38,17 @@ class SIPDBController(BaseObject):
             )
             return
 
-        Helper().wait_for_series_loaded(custom_signal=sip.series_changed_signal, warn=False)
-        if sip.series is None:
-            self.application.thread_error_signal.emit(
-                UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_when_db_has_no_series_error"]["title"],
-                UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_when_db_has_no_series_error"]["text"],
-            )
-            return
+        if series_id is None or series_name is None:
+            Helper().wait_for_series_loaded(custom_signal=sip.series_changed_signal, warn=False)
+            if sip.series is None:
+                self.application.thread_error_signal.emit(
+                    UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_when_db_has_no_series_error"]["title"],
+                    UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_when_db_has_no_series_error"]["text"],
+                )
+                return
+            series_id = sip.series._id
+            series_name = sip.series.get_full_name()
+
         if sip.data is None:
             self.application.thread_error_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_when_db_has_no_data_error"]["title"],
@@ -72,8 +77,8 @@ class SIPDBController(BaseObject):
                 sip.name,
                 sip.status.name,
                 sip.environment.name,
-                sip.series._id,
-                sip.series.get_full_name(),
+                series_id,
+                series_name,
                 sip.edepot_sip_id or "",
                 json.dumps([d.path for d in sip.dossiers]),
                 json.dumps(sip.tag_mapping),
@@ -117,21 +122,20 @@ class SIPDBController(BaseObject):
         with self.conn(sip_db_file_name) as conn:
             result = conn.execute("SELECT name, status, environment_name, series_id, series_name, edepot_sip_id, dossiers_list, tag_mapping, folder_mapping FROM sip;").fetchone()
             name, status, environment_name, series_id, series_name, edepot_sip_id, dossiers_list, tag_mapping, folder_mapping = result\
-            
-            sip = SIP()
-            # NOTE: order is important here, since set_name sets db_name as well
+
+            sip = DigitalSIP()
             sip.set_name(name)
             sip.db_name = sip_db_file_name
             sip.set_status(SIPStatus[status])
             sip.environment = self.application.configuration.get_environment(environment_name)
 
             sip.edepot_sip_id = edepot_sip_id
-            sip.set_dossiers([DossierWidget(d) for d in json.loads(dossiers_list)])
+            sip.set_dossiers([DossierWidget(parent_window=None, path=d) for d in json.loads(dossiers_list)])
             sip.tag_mapping = json.loads(tag_mapping)
             sip.folder_mapping = json.loads(folder_mapping)
 
             return sip, series_id, series_name
-        
+
 
     def read_sip_data(self, sip_db_file_name: str) -> dict[str, list[str]]:
         with self.conn(sip_db_file_name) as conn:
@@ -155,7 +159,7 @@ class SIPDBController(BaseObject):
 
         for file in os.listdir(self.application.configuration.sip_db_location):
             is_valid = self.is_valid_db(file)
-            
+
             # NOTE: this means it's an old db that is already transitioned
             # The user simply left the old db file in place, but we are going to ignore it
             # The amount of code that needs to be written for user error is getting to me :)
@@ -183,7 +187,7 @@ class SIPDBController(BaseObject):
 
         if not sip_db_file_name.endswith(".db"):
             return False
-        
+
         try:
             conn = self.conn(sip_db_file_name)
             conn.close()
@@ -208,7 +212,7 @@ class SIPDBController(BaseObject):
 
             columns = {
                 column_name: data_type.lower()
-                for _, column_name, data_type, *_ in 
+                for _, column_name, data_type, *_ in
                 conn.execute(f"PRAGMA table_info(sip);").fetchall()
             }
 
@@ -226,7 +230,7 @@ class SIPDBController(BaseObject):
                 # NOTE: missing column
                 if column not in columns:
                     return False
-                
+
                 # NOTE: bad data_type
                 if data_type != columns[column]:
                     return False
@@ -234,15 +238,14 @@ class SIPDBController(BaseObject):
         return True
 
     def transition_old_db(self, old_db_file_name: str) -> tuple[str]|None:
-        sip, *_ = self.old_sip_db_controller.read_sip_db(old_db_file_name)
+        sip, series_id, series_name = self.old_sip_db_controller.read_sip_db(old_db_file_name)
 
         sip.db_name = Helper().get_new_transitioned_db_name(old_db_file_name)
 
         if os.path.exists(os.path.join(self.application.configuration.sip_db_location, sip.db_name)):
-            # Assume we have already transitioned it, don't do it again
             return
 
-        self.create_sip_db(sip=sip)
+        self.create_sip_db(sip=sip, series_id=series_id, series_name=series_name)
 
         return sip.db_name
 
@@ -250,7 +253,7 @@ class SIPDBController(BaseObject):
         for sip_db_file_name in self.old_sip_db_controller.g_read_all_sip_db_names():
             self.transition_old_db(sip_db_file_name)
 
-class OldSIPDBController(BaseObject):
+class OldDigitalSIPDBController(BaseObject):
     # NOTE: "data" table is not mentioned here
     TABLES = {
         "SIP": {
@@ -282,10 +285,10 @@ class OldSIPDBController(BaseObject):
     def is_valid_db(self, sip_db_file_name: str) -> bool:
         if not os.path.exists(os.path.join(self.application.configuration.old_sip_db_location, sip_db_file_name)):
             return False
-        
+
         if not sip_db_file_name.endswith(".db"):
             return False
-        
+
         try:
             conn = self.conn(sip_db_file_name)
             conn.close()
@@ -307,7 +310,7 @@ class OldSIPDBController(BaseObject):
                         continue
 
                     return False
-                
+
 
                 columns = {column_name: data_type for column_name, data_type, *_ in conn.execute(f"PRAGMA table_info({table});").fetchall()}
 
@@ -315,11 +318,11 @@ class OldSIPDBController(BaseObject):
                     # NOTE: missing column
                     if column not in columns:
                         return False
-                    
+
                     # NOTE: bad data_type
                     if data_type != columns[column].upper():
                         return False
-                    
+
         return True
 
     def read_sip_db(self, sip_db_file_name: str) -> tuple[SIP, str, str]:
@@ -328,7 +331,7 @@ class OldSIPDBController(BaseObject):
 
             environment_name, sip_status_label, series_json, _, tag_mapping, folder_mapping, edepot_sip_id = sip_table_results
 
-            sip = SIP()
+            sip = DigitalSIP()
             sip.set_name(os.path.splitext(sip_db_file_name)[0])
             sip.environment = self.application.configuration.get_environment(environment_name)
             sip.set_status(SIPStatus[sip_status_label])
@@ -341,7 +344,7 @@ class OldSIPDBController(BaseObject):
             dossier_table_results = conn.execute("select * from dossier").fetchall()
 
             sip.set_dossiers([
-                DossierWidget(path)
+                DossierWidget(parent_window=None, path=path)
                 for _, path in dossier_table_results
             ])
 
@@ -359,7 +362,7 @@ class OldSIPDBController(BaseObject):
             sip.data = data
 
             return sip, json.loads(series_json)["Id"], json.loads(series_json)["Content"]["Name"]
-    
+
     def g_read_all_sip_db_names(self) -> Iterable[str]:
         """
         Generates all the old sip dbs

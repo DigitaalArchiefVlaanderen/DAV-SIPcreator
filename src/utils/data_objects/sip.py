@@ -8,7 +8,6 @@ from src.utils.data_objects.configuration import Environment
 from src.utils.data_objects.grid_data import GridData
 from src.utils.data_objects.series import Series
 from src.utils.data_objects.sip_status import SIPStatus
-from src.utils.pyside_helper import Helper
 
 
 class SIP(BaseObject):
@@ -47,8 +46,7 @@ class SIP(BaseObject):
         self.status_changed_signal.emit()
     
     @property
-    def series(self) -> Series:
-        Helper().wait_for_series_loaded(custom_signal=self.series_changed_signal)
+    def series(self) -> Series | None:
         return self.__series
 
     def set_series(self, series: Series) -> None:

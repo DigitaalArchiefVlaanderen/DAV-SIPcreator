@@ -8,8 +8,8 @@ from src.utils.worker_user.worker_user import WorkerUser
 from src.utils.workers.worker import Worker
 
 
-class SIPRetriever(WorkerUser):
-    sip_loaded_signal = QtCore.Signal(SIP)
+class DigitalSIPRetriever(WorkerUser):
+    digital_sip_loaded_signal = QtCore.Signal(SIP)
     error_occurred_signal = QtCore.Signal(Exception)
 
     def __init__(self):
@@ -19,7 +19,7 @@ class SIPRetriever(WorkerUser):
 
     def run(self) -> None:
         self.worker = self.application.worker_controller.run_thread(
-            thread_function=self._load_sips,
+            thread_function=self._load_digital_sips,
             thread_is_generator=True
         )
 
@@ -28,23 +28,19 @@ class SIPRetriever(WorkerUser):
 
         self.worker.error_encountered_signal.connect(self.error_occurred_signal.emit)
 
-    def _load_sips(self) -> Iterator[None]:
+    def _load_digital_sips(self) -> Iterator[None]:
         pending_series_info: list[tuple[SIP, str, str, str]] = []
 
-        for sip, series_id, series_name in self.application.sip_db_controller.g_read_all_sip_dbs():
+        for sip, series_id, series_name in self.application.digital_sip_db_controller.g_read_all_sip_dbs():
             self.application.add_sip(sip)
-            self.sip_loaded_signal.emit(sip)
+            self.digital_sip_loaded_signal.emit(sip)
             pending_series_info.append((sip, sip.environment.name, series_id, series_name))
             yield
 
         Helper().wait_for_series_loaded(warn=False)
 
         for sip, env_name, series_id, series_name in pending_series_info:
-            try:
-                sip.set_series(
-                    self.application.get_series_by_id_or_name(
-                        env_name, series_id, series_name
-                    )
-                )
-            except Exception:
-                pass
+            series = self.application.get_series_by_id_or_name(
+                env_name, series_id, series_name, warn=False
+            )
+            sip.set_series(series)

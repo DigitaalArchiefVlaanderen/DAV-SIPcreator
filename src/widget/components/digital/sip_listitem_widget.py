@@ -126,7 +126,7 @@ class DossiersWidget(QtWidgets.QFrame):
         self.vertical_layout.addWidget(self.dossiers_scrollarea)
 
 class ControlsWidget(BaseWidget):
-    UI_TEXT = UI_TEXT["controls"]
+    UI_TEXT = UI_TEXT_ELEMENTS["sip"]["controls"]
 
     open_grid_signal = QtCore.Signal()
 
@@ -150,9 +150,6 @@ class ControlsWidget(BaseWidget):
         self.upload_button = QtWidgets.QPushButton(text=self.UI_TEXT["upload_button_text"])
         self.upload_button.setEnabled(False)
 
-        self.bestandslocatie_button = QtWidgets.QPushButton(text=self.UI_TEXT["bestandslocatie_button_text"])
-        self.bestandslocatie_button.setEnabled(False)
-
         self.edepot_button = QtWidgets.QPushButton(text=self.UI_TEXT["edepot_button_text"])
         self.edepot_button.setEnabled(False)
 
@@ -161,7 +158,6 @@ class ControlsWidget(BaseWidget):
 
         self.vertical_layout.addWidget(self.open_button)
         self.vertical_layout.addWidget(self.upload_button)
-        self.vertical_layout.addWidget(self.bestandslocatie_button)
         self.vertical_layout.addWidget(self.edepot_button)
         self.vertical_layout.addWidget(self.remove_button)
         self.vertical_layout.addStretch()
@@ -169,29 +165,38 @@ class ControlsWidget(BaseWidget):
     def setup_signals(self) -> None:
         # SIP signals
         self.sip.status_changed_signal.connect(self.sip_status_changed_handler)
+        # NOTE: in case of the series now having been added, we may want to change the button availabilities
+        self.sip.series_changed_signal.connect(self.sip_status_changed_handler)
 
         # Control signals
-        # Open detail view or grid (depending on which steps have been done)
         self.open_button.clicked.connect(self.open_button_clicked_handler)
-
-        # Upload action
         self.upload_button.clicked.connect(self.upload_button_clicked_handler)
-
-        # Open location to the sip (the zip file, not the db)
-        self.bestandslocatie_button.clicked.connect(
-            lambda: os.startfile(self.application.configuration.sips_location)
-        )
-
-        # Open link to edepot
         self.edepot_button.clicked.connect(self.sip.open_edepot_url)
-
-        # Remove the sip
         self.remove_button.clicked.connect(self.remove_button_clicked_handler)
 
+        # NOTE: we want to check if the user is trying to open a sip while the series are still loading
+        self._pending_open = False
+        self.application.series_retriever.finished_signal.connect(self.series_retrieval_finished_handler)
+
     # Handlers
+    def series_retrieval_finished_handler(self) -> None:
+        if self._pending_open:
+            self._pending_open = False
+
+            self.open_button_clicked_handler()
+
     def open_button_clicked_handler(self) -> None:
-        if self.application.sip_db_controller.is_valid_db(self.sip.db_name) \
-                and self.application.sip_db_controller.read_sip_data(self.sip.db_name):
+        if self.application.series_retrieval_busy:
+            self._pending_open = True
+
+            self.application.thread_error_signal.emit(
+                UI_TEXT_ELEMENTS["warnings"]["series_still_loading_warning"]["title"],
+                UI_TEXT_ELEMENTS["warnings"]["series_still_loading_warning"]["text"]
+            )
+            return
+
+        if self.application.digital_sip_db_controller.is_valid_db(self.sip.db_name) \
+                and self.application.digital_sip_db_controller.read_sip_data(self.sip.db_name):
             self.open_grid_signal.emit()
             return
 
@@ -210,35 +215,32 @@ class ControlsWidget(BaseWidget):
         ...
 
     def sip_status_changed_handler(self) -> None:
+        has_series = self.sip.series is not None
+
         match self.sip.status:
             case SIPStatus.IN_PROGRESS:
                 self.open_button.setEnabled(True)
                 self.upload_button.setEnabled(False)
-                self.bestandslocatie_button.setEnabled(False)
                 self.edepot_button.setEnabled(False)
                 self.remove_button.setEnabled(True)
             case SIPStatus.SIP_CREATED:
                 self.open_button.setEnabled(True)
-                self.upload_button.setEnabled(True)
-                self.bestandslocatie_button.setEnabled(True)
+                self.upload_button.setEnabled(has_series)
                 self.edepot_button.setEnabled(False)
                 self.remove_button.setEnabled(True)
             case SIPStatus.UPLOADING | SIPStatus.UPLOADED:
                 self.open_button.setEnabled(False)
                 self.upload_button.setEnabled(False)
-                self.bestandslocatie_button.setEnabled(True)
                 self.edepot_button.setEnabled(False)
                 self.remove_button.setEnabled(True)
             case SIPStatus.PROCESSING | SIPStatus.ACCEPTED | SIPStatus.REJECTED:
                 self.open_button.setEnabled(False)
                 self.upload_button.setEnabled(False)
-                self.bestandslocatie_button.setEnabled(True)
                 self.edepot_button.setEnabled(True)
                 self.remove_button.setEnabled(True)
             case SIPStatus.DELETED:
                 self.open_button.setEnabled(False)
                 self.upload_button.setEnabled(False)
-                self.bestandslocatie_button.setEnabled(False)
                 self.edepot_button.setEnabled(False)
                 self.remove_button.setEnabled(False)
             case x:

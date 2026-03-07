@@ -10,7 +10,8 @@ from PySide6 import QtWidgets, QtCore
 
 from src.utils.base_object import ApplicationMixin
 from src.utils.constants import UI_TEXT_ELEMENTS
-from src.utils.data_objects.digital.sip import SIP, SIPStatus
+from src.utils.data_objects.digital.sip import SIP
+from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.helper import count_files_from_dirs
 
 from src.widget.central_widgets.central_widget import CentralWidget
@@ -41,7 +42,9 @@ class DigitalWidget(CentralWidget):
         self.add_dossier_button = AddDossierButton()
         self.add_dossiers_button = AddDossiersButton()
         self.start_sip_button = StartSIPButton()
-        
+        self.sip_zips_locatie_button = QtWidgets.QPushButton(text=self.UI_TEXT["controls"]["sip_zips_locatie_button_text"])
+        self.sip_databases_locatie_button = QtWidgets.QPushButton(text=self.UI_TEXT["controls"]["sip_databases_locatie_button_text"])
+
         # Lists
         self.dossier_list_widget = SearchableListWidgetWithSelection(search_field="label_text")
         self.dossier_list_widget.setup_ui(
@@ -65,14 +68,16 @@ class DigitalWidget(CentralWidget):
 
         self.grid_layout.addWidget(self.add_dossier_button, 0, 0)
         self.grid_layout.addWidget(self.add_dossiers_button, 0, 1)
-        self.grid_layout.addWidget(self.start_sip_button, 0, 2, 1, 2)
-        self.grid_layout.addWidget(self.dossier_list_widget, 1, 0, 1, 2)
-        self.grid_layout.addWidget(self.sip_list_widget, 1, 2, 1, 2)
+        self.grid_layout.addWidget(self.sip_zips_locatie_button, 0, 2)
+        self.grid_layout.addWidget(self.sip_databases_locatie_button, 0, 3)
+        self.grid_layout.addWidget(self.start_sip_button, 1, 2, 1, 2)
+        self.grid_layout.addWidget(self.dossier_list_widget, 2, 0, 1, 2)
+        self.grid_layout.addWidget(self.sip_list_widget, 2, 2, 1, 2)
 
     def setup_signals(self) -> None:
         self.dossier_loaded_signal.connect(self.dossiers_loaded_handler)
 
-        self.application.sip_loaded_signal.connect(self.sip_loaded_handler)
+        self.application.digital_sip_loaded_signal.connect(self.digital_sip_loaded_handler)
         self.application.application_environment_changed_signal.connect(self.environment_changed_handler)
 
         self.add_dossier_button.interaction_finished_signal.connect(lambda d: self.dossier_list_widget.add_widgets([d]))
@@ -83,6 +88,9 @@ class DigitalWidget(CentralWidget):
         self.dossier_list_widget.selection_changed_signal.connect(self.dossier_selection_changed_handler)
         self.start_sip_button.clicked.connect(lambda: self.start_sip_button.button_click_handler(selected_dossiers=self.dossier_list_widget.get_selected_items()))
         self.start_sip_button.interaction_finished_signal.connect(self.start_sip_handler)
+
+        self.sip_zips_locatie_button.clicked.connect(lambda: os.startfile(self.application.configuration.sips_location))
+        self.sip_databases_locatie_button.clicked.connect(lambda: os.startfile(self.application.configuration.sip_db_location))
 
     # Initial load, should get triggered from the parent window
     # NOTE: only loads the dossiers, the SIPs are loaded on application level
@@ -99,10 +107,7 @@ class DigitalWidget(CentralWidget):
             select=False
         )
 
-    def sip_loaded_handler(self, sip: SIP) -> None:
-        if not isinstance(sip, SIP):
-            return
-
+    def digital_sip_loaded_handler(self, sip: SIP) -> None:
         if sip.environment != self.application.configuration.active_environment:
             return
 
@@ -137,7 +142,7 @@ class DigitalWidget(CentralWidget):
 
         self.dossier_list_widget.remove_selected_handler()
 
-        self.sip_loaded_handler(sip)
+        self.digital_sip_loaded_handler(sip)
 
     # TODO
     def open_grid_handler(self, sip: SIP) -> None:
@@ -145,13 +150,13 @@ class DigitalWidget(CentralWidget):
             All the values should already be in place in the sip,
             only some checks are left and then opening the grid
         """
-        if not self.application.sip_db_controller.db_exists(sip.db_name):
+        if not self.application.digital_sip_db_controller.db_exists(sip.db_name):
             print("Creating db")
             sip.set_data_from_dossiers()
 
-            self.application.sip_db_controller.create_sip_db(sip=sip)
+            self.application.digital_sip_db_controller.create_sip_db(sip=sip)
 
-        if not self.application.sip_db_controller.is_valid_db(sip.db_name):
+        if not self.application.digital_sip_db_controller.is_valid_db(sip.db_name):
             self.application.thread_error_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["sip"]["invalid_database_error"]["title"],
                 UI_TEXT_ELEMENTS["errors"]["sip"]["invalid_database_error"]["text"].format(

@@ -76,8 +76,8 @@ class SeriesRetriever(WorkerUser):
         self.RETRIEVAL_DONE[environment_name] = True
 
         if all(self.RETRIEVAL_DONE.values()):
-            self.finished_signal.emit()
             self.application.series_retrieval_busy = False
+            self.finished_signal.emit()
 
     def force_stop_handler(self, environment_name: str) -> None:
         worker: Worker = None

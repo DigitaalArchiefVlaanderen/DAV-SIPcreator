@@ -1,8 +1,12 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 from PySide6 import QtWidgets
 
 from src.utils.base_object import ApplicationMixin
 
-from src.window.base_window import Window
+if TYPE_CHECKING:
+    from src.window.base_window import Window
 
 
 class BaseWidget(QtWidgets.QWidget, ApplicationMixin):

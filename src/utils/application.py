@@ -8,7 +8,7 @@ from PySide6 import QtWidgets, QtCore
 
 from src.controller.config_controller import ConfigController
 from src.controller.main_db_controller import MainDBController
-from src.controller.sip_db_controller import SIPDBController
+from src.controller.digital.sip_db_controller import DigitalSIPDBController
 from src.controller.worker_controller import WorkerController
 from src.controller.window_controller import WindowController
 
@@ -18,7 +18,7 @@ from src.utils.data_objects.series import Series
 from src.utils.data_objects.sip import SIP
 from src.utils.pyside_helper import Helper
 from src.utils.worker_user.series_retriever import SeriesRetriever
-from src.utils.worker_user.sip_retriever import SIPRetriever
+from src.utils.worker_user.digital.sip_retriever import DigitalSIPRetriever
 from src.utils.workers.worker import Worker
 
 from src.widget.dialog.warning_dialog import WarningDialog
@@ -48,7 +48,7 @@ class Application(QtWidgets.QApplication):
     series_updated_signal = QtCore.Signal()
     force_stop_series_retrieval_signal = QtCore.Signal(str, arguments=["environment_name"])
 
-    sip_loaded_signal = QtCore.Signal(object)
+    digital_sip_loaded_signal = QtCore.Signal(object)
 
     work_in_progress_signal = QtCore.Signal((Window, str), arguments=["window", "description"])
     work_ended_signal = QtCore.Signal(Window)
@@ -68,10 +68,10 @@ class Application(QtWidgets.QApplication):
         }
 
         self.main_db_controller = MainDBController()
-        self.sip_db_controller = SIPDBController()
+        self.digital_sip_db_controller = DigitalSIPDBController()
         self.worker_controller = WorkerController()
         self.series_retriever = SeriesRetriever()
-        self.sip_retriever = SIPRetriever()
+        self.digital_sip_retriever = DigitalSIPRetriever()
         self.window_controller = WindowController()
 
         self.sips: dict[type[SIP], dict[str, list[SIP]]] = {}
@@ -122,7 +122,7 @@ class Application(QtWidgets.QApplication):
     # Utils
     def register_window(self, window: Window) -> None:
         self.windows.append(window)
-        window.window_close_signal.connect(lambda: self.windows.remove(window))
+        window.window_about_to_close_signal.connect(lambda: self.windows.remove(window))
 
         if window.IS_MAIN:
             self.series_updated_signal.connect(
@@ -151,9 +151,9 @@ class Application(QtWidgets.QApplication):
         self.series_retriever.run(worker_controller=self.worker_controller)
 
     def load_sips(self) -> None:
-        self.sip_retriever.sip_loaded_signal.connect(self.sip_loaded_signal.emit)
-        self.sip_retriever.error_occurred_signal.connect(self.error_handler)
-        self.sip_retriever.run()
+        self.digital_sip_retriever.digital_sip_loaded_signal.connect(self.digital_sip_loaded_signal.emit)
+        self.digital_sip_retriever.error_occurred_signal.connect(self.error_handler)
+        self.digital_sip_retriever.run()
 
     def add_sip(self, sip: SIP) -> None:
         sip_type = type(sip)
@@ -169,7 +169,7 @@ class Application(QtWidgets.QApplication):
 
         return self.sips.get(sip_type, {}).get(env, [])
 
-    def get_series_by_id_or_name(self, environment_name: str, series_id: str, series_name: str) -> Series:
+    def get_series_by_id_or_name(self, environment_name: str, series_id: str, series_name: str, warn: bool = True) -> Series | None:
         for series in self.series[environment_name]:
             if series._id == series_id:
                 return series
@@ -178,16 +178,17 @@ class Application(QtWidgets.QApplication):
             elif series.name == series_name:
                 return series
 
-        self.thread_error_signal.emit(
-            UI_ERROR_TEXT["series"]["series_not_found_error"]["title"],
-            UI_ERROR_TEXT["series"]["series_not_found_error"]["text"].format(
-                series_id=series_id,
-                series_name=series_name,
-                environment_name=environment_name
+        if warn:
+            self.thread_error_signal.emit(
+                UI_ERROR_TEXT["series"]["series_not_found_error"]["title"],
+                UI_ERROR_TEXT["series"]["series_not_found_error"]["text"].format(
+                    series_id=series_id,
+                    series_name=series_name,
+                    environment_name=environment_name
+                )
             )
-        )
 
-        raise IgnorableException()
+        return None
 
     def warn_user(self, title: str, text: str) -> None:
         d = WarningDialog(

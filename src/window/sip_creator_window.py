@@ -27,7 +27,7 @@ class SipCreatorWindow(MainWindow):
         match self.application.configuration.active_type:
             case "digitaal":
                 central_widget = self.digital_widget
-                worker_description = UI_TEXT_ELEMENTS["toolbar_info"]["digital_background_work_text"]
+                worker_description = UI_TEXT_ELEMENTS["toolbar_info"]["digital"]["startup_loading_items_text"]
                 self.setWindowTitle(UI_TEXT_ELEMENTS["window_titles"]["main"]["digital"])
             case t:
                 raise ValueError(

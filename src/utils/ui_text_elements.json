@@ -105,7 +105,8 @@
                         "text": "Er zijn te veel bestanden in de geselecteerde dossiers.\n\nMaximum: 9999\n\nAantal gevonden: {amount_of_files}"
                     }
                 },
-                "bestandslocatie_button_text": "Bestandslocatie"
+                "sip_zips_locatie_button_text": "SIP zips locatie",
+                "sip_databases_locatie_button_text": "SIP databases locatie"
             },
             "dossier_list": {
                 "select_all": "Selecteer alle dossiers",
@@ -129,6 +130,7 @@
             "open_grid_button_text": "Open metadata grid"
         },
         "grid": {
+            "series_not_found_text": "! Serie bestaat niet voor huidige configuratie !",
             "default_sorting_button_text": "Reset sortering",
             "name_extension_checkbox_text": "Verwijder file-extensie uit 'Naam' kolom",
             "bad_rows_checkbox_text": "Toon enkel rijen met fouten",
