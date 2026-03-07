@@ -7,7 +7,8 @@ from contextlib import suppress
 from PySide6 import QtWidgets, QtCore, QtGui
 
 from src.utils.constants import UI_TEXT_ELEMENTS
-from utils.data_objects.digital.sip import SIP, SIPStatus
+from src.utils.data_objects.digital.sip import SIP
+from src.utils.data_objects.sip_status import SIPStatus
 
 from src.widget.base_widget import BaseWidget
 from src.widget.central_widgets.digital.sip_detail_widget import SipDetailWidget

@@ -5,7 +5,7 @@ import json
 import requests
 
 from src.utils.data_objects.series import Series
-from src.utils.data_objects.digital.sip import SIP
+from src.utils.data_objects.sip import SIP
 from src.utils.data_objects.configuration import Configuration, Environment
 
 

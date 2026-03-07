@@ -1,5 +1,5 @@
 from src.utils.base_object import BaseObject
-from src.utils.data_objects.digital.sip import SIP
+from src.utils.data_objects.sip import SIP
 
 from src.window.base_window import Window
 from src.window.configuration_window import ConfigurationWindow

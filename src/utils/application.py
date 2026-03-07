@@ -12,7 +12,6 @@ from src.controller.sip_db_controller import SIPDBController
 from src.controller.worker_controller import WorkerController
 from src.controller.window_controller import WindowController
 
-from src.utils.component_factory import ComponentFactory
 from src.utils.constants import UI_TEXT_ELEMENTS, TI_ENVIRONMENT_NAME, PROD_ENVIRONMENT_NAME
 from src.utils.data_objects.configuration import Configuration
 from src.utils.data_objects.series import Series
@@ -69,8 +68,6 @@ class Application(QtWidgets.QApplication):
         self.worker_controller = WorkerController()
         self.series_retriever = SeriesRetriever()
         self.window_controller = WindowController()
-
-        self.component_factory = ComponentFactory()
 
         self.dialogs: list[QtWidgets.QDialog] = []
 

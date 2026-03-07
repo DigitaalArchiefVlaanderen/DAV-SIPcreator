@@ -59,7 +59,7 @@ class SIP(BaseObject):
     
     @property
     def sidecar_file_name(self) -> str:
-        return f"{self.series._id}-{self.name}-SIPC.zip"
+        return f"{self.series._id}-{self.name}-SIPC.xml"
 
     def open_edepot_url(self) -> str:
         return os.startfile(f"{self.environment.api_url}/input/processing-list/{self.edepot_sip_id}")

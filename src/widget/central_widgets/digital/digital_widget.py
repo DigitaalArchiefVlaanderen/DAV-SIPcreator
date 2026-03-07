@@ -120,22 +120,14 @@ class DigitalWidget(CentralWidget):
     # NOTE: this needs to happen here, since we cannot create widgets in a thread
     def dossiers_loaded_handler(self, dossier_paths: list[str]) -> None:
         self.dossier_list_widget.add_widgets(
-            widgets=self.application.component_factory.create_dossier_widgets(
-                parent_window=self.parent_window,
-                dossier_paths=dossier_paths
-            ), 
+            widgets=[DossierWidget(path=p) for p in dossier_paths],
             select=False
         )
 
     # NOTE: this needs to happen here, since we cannot create widgets in a thread
     def sip_loaded_handler(self, sip: SIP) -> None:
         self.sip_list_widget.add_widgets(
-            [
-                self.application.component_factory.create_sip_list_item(
-                    parent_window=self.parent_window,
-                    sip=sip
-                )
-            ]
+            [SipListitemWidget(parent_window=self.parent_window, sip=sip)]
         )
     
     def dossier_selection_changed_handler(self) -> None:
