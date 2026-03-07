@@ -5,6 +5,8 @@ from enum import Enum
 
 from PySide6 import QtGui
 
+from src.utils.data_objects.sip_status import SIPStatus
+
 
 SIP_CREATOR_VERSION = "3.0.0.2b"
 
@@ -59,3 +61,6 @@ FILE_REGEXES_TO_IGNORE = [
 
 MAIN_DB_LOCATION = "sqlite.db"
 BASE_SIP_NAME = "SIP {number}"
+
+CHECKABLE_SIP_STATUSES = (SIPStatus.UPLOADED, SIPStatus.PROCESSING)
+POLL_INTERVAL_SECONDS = 10

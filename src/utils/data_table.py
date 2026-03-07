@@ -51,16 +51,14 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
         self.sip = sip
         self.raw_data: DataFrame = self.sip.grid_data.data_as_df
 
-        self.markings: dict[tuple[int, int], tuple[CellColor, str]] = []
-
+        self.markings: dict[tuple[int, int], tuple[CellColor, str]] = {}
 
     def data_index(self, index) -> tuple[int, int]:
         return self.raw_data.index[index.row()], index.column()
 
-
     def rowCount(self) -> int:
         return self.raw_data.shape[0]
-    
+
     def columnCount(self) -> int:
         return self.raw_data.shape[1]
     
@@ -69,31 +67,21 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
         if not index.isValid():
             return
 
-        value = self.raw_data.iloc[index.row(), index.column()]
+        if role in (QtCore.Qt.ItemDataRole.DisplayRole, QtCore.Qt.ItemDataRole.EditRole):
+            return self.raw_data.iloc[index.row(), index.column()]
 
         marking = self.markings.get(self.data_index(index))
 
-        if role in (QtCore.Qt.ItemDataRole.DisplayRole, QtCore.Qt.ItemDataRole.EditRole):
-            return value
-        
         if not marking:
             return
 
-        if role == QtCore.Qt.ItemDataRole.BackgroundRole:
-            color = marking[0]
+        color, tooltip = marking
 
-            if color:
-                return color.value
+        if role == QtCore.Qt.ItemDataRole.BackgroundRole and color:
+            return color.value
 
-            # Mark grey if not editable
-            if QtCore.Qt.ItemFlag.ItemIsEditable.name not in self.flags(index).name:
-                return CellColor.GREY.value
-
-        elif role == QtCore.Qt.ItemDataRole.ToolTipRole:
-            tooltip = marking[1]
-
-            if tooltip:
-                return tooltip
+        if role == QtCore.Qt.ItemDataRole.ToolTipRole and tooltip:
+            return tooltip
 
     def headerData(self, section, orientation, role):
         # section is the index of the column/row.
@@ -105,13 +93,10 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
                 return str(self.raw_data.index[section])
 
     def flags(self, index):
-        if (
-            self.markings.get(self.data_index(index))[0]
-            in (CellColor.YELLOW, CellColor.GREY)
-        ):
-            return (
-                QtCore.Qt.ItemFlag.ItemIsSelectable | QtCore.Qt.ItemFlag.ItemIsEnabled
-            )
+        marking = self.markings.get(self.data_index(index))
+
+        if marking and marking[0] in (CellColor.YELLOW, CellColor.GREY):
+            return QtCore.Qt.ItemFlag.ItemIsSelectable | QtCore.Qt.ItemFlag.ItemIsEnabled
 
         return (
             QtCore.Qt.ItemFlag.ItemIsSelectable
