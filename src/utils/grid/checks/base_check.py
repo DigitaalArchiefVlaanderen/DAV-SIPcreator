@@ -19,6 +19,8 @@ class CellRange:
 
 
 CellIssue = tuple[QtCore.QModelIndex, str]
+# NOTE: row, col, value, cell_tooltip, wide_tooltip
+BulkResult = tuple[int, int, str, str | None, str | None]
 
 
 class BaseCheck:
@@ -26,4 +28,8 @@ class BaseCheck:
         return value
 
     def check_wide(self, raw_data: DataFrame, index: QtCore.QModelIndex, value: str) -> list[CellIssue]:
+        return []
+
+    # NOTE: this is for pastes/initial load of data
+    def check_bulk(self, raw_data: DataFrame, col: int, changed_range: CellRange) -> list[BulkResult]:
         return []
