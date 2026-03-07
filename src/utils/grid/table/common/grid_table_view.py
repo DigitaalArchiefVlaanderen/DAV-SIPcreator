@@ -4,7 +4,7 @@ import io
 from PySide6 import QtWidgets, QtCore, QtGui
 
 from src.utils.base_object import ApplicationMixin
-from src.utils.grid.table.proxy_model import SortFilterProxyModel
+from src.utils.grid.table.common.proxy_model import SortFilterProxyModel
 
 
 class GridTableView(QtWidgets.QTableView, ApplicationMixin):
