@@ -74,8 +74,9 @@ class SIP(CommonSIP):
         return self.folder_mapping.get(location, location)
 
     def _get_dossier_structure(self, dossier: DossierWidget) -> dict[str, str]:
+        dossier_name = os.path.basename(dossier.path)
         return {
-            (path_in_sip := self._map_file_location_to_sip_location(dossier.path)): {
+            (path_in_sip := self._map_file_location_to_sip_location(dossier_name)): {
                 "path": dossier.path,
 
                 "Path in SIP": path_in_sip,
@@ -125,8 +126,9 @@ class SIP(CommonSIP):
         return structure
 
     def _get_file_structure(self, dossier: DossierWidget) -> dict[str, str]:
+        dossier_name = os.path.basename(dossier.path)
         return {
-                (path_in_sip := self._map_file_location_to_sip_location(f'{dossier.path}/{relative_location}')): {
+                (path_in_sip := self._map_file_location_to_sip_location(f'{dossier_name}/{relative_location}')): {
                     "path": (real_path := os.path.join(dossier.path, relative_location)),
 
                     "Path in SIP": path_in_sip,
@@ -223,4 +225,4 @@ class SIP(CommonSIP):
         df.loc[df.Type == "dossier", "Openingsdatum"] = open_dates_df.Openingsdatum
         df.loc[df.Type == "dossier", "Sluitingsdatum"] = close_dates_df.Sluitingsdatum
 
-        self.grid_data.data_as_df = df
+        self.grid_data.data_as_df = df.fillna("")
