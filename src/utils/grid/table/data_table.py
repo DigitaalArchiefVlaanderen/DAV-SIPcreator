@@ -19,11 +19,12 @@ class MarkingSource(Enum):
 
 
 class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
-    def __init__(self, sip: SIP) -> None:
+    def __init__(self, sip: SIP, editable: bool = True) -> None:
         super().__init__()
 
         self.sip = sip
         self.raw_data: DataFrame = self.sip.grid_data.data_as_df
+        self.editable = editable
 
         self.markings: dict[tuple[int, int, MarkingSource], tuple[CellColor, str]] = {}
 
@@ -74,16 +75,17 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
         return self.markings.get((row, col, MarkingSource.CELL))
 
     def flags(self, index):
+        base_flags = QtCore.Qt.ItemFlag.ItemIsSelectable | QtCore.Qt.ItemFlag.ItemIsEnabled
+
+        if not self.editable:
+            return base_flags
+
         marking = self._resolve_marking(index)
 
         if marking and marking[0] in (CellColor.YELLOW, CellColor.GREY):
-            return QtCore.Qt.ItemFlag.ItemIsSelectable | QtCore.Qt.ItemFlag.ItemIsEnabled
+            return base_flags
 
-        return (
-            QtCore.Qt.ItemFlag.ItemIsSelectable
-            | QtCore.Qt.ItemFlag.ItemIsEnabled
-            | QtCore.Qt.ItemFlag.ItemIsEditable
-        )
+        return base_flags | QtCore.Qt.ItemFlag.ItemIsEditable
 
 
     def disable_column(self, column_name: str, tooltip: str="") -> "DataTable":

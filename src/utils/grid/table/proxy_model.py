@@ -2,7 +2,7 @@ from enum import Enum
 
 from PySide6 import QtCore
 
-from src.utils.data_table import DataTable
+from src.utils.grid.table.data_table import DataTable
 
 
 class TableFilter(Enum):

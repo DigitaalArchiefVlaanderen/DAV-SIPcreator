@@ -4,7 +4,7 @@ from PySide6 import QtCore
 
 from src.utils.constants import ColumnName
 from src.utils.data_objects.sip import SIP
-from src.utils.data_table import DataTable, MarkingSource
+from src.utils.grid.table.data_table import DataTable, MarkingSource
 from src.utils.grid.checks import BaseCheck, CellIssue, RRNCheck
 from src.utils.workers.worker import Worker
 
