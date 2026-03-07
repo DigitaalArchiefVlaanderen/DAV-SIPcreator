@@ -15,8 +15,10 @@ from src.controller.window_controller import WindowController
 from src.utils.constants import UI_TEXT_ELEMENTS, TI_ENVIRONMENT_NAME, PROD_ENVIRONMENT_NAME
 from src.utils.data_objects.configuration import Configuration
 from src.utils.data_objects.series import Series
+from src.utils.data_objects.sip import SIP
 from src.utils.pyside_helper import Helper
 from src.utils.worker_user.series_retriever import SeriesRetriever
+from src.utils.worker_user.sip_retriever import SIPRetriever
 from src.utils.workers.worker import Worker
 
 from src.widget.dialog.warning_dialog import WarningDialog
@@ -46,6 +48,8 @@ class Application(QtWidgets.QApplication):
     series_updated_signal = QtCore.Signal()
     force_stop_series_retrieval_signal = QtCore.Signal(str, arguments=["environment_name"])
 
+    sip_loaded_signal = QtCore.Signal(object)
+
     work_in_progress_signal = QtCore.Signal((Window, str), arguments=["window", "description"])
     work_ended_signal = QtCore.Signal(Window)
 
@@ -67,7 +71,10 @@ class Application(QtWidgets.QApplication):
         self.sip_db_controller = SIPDBController()
         self.worker_controller = WorkerController()
         self.series_retriever = SeriesRetriever()
+        self.sip_retriever = SIPRetriever()
         self.window_controller = WindowController()
+
+        self.sips: dict[type[SIP], dict[str, list[SIP]]] = {}
 
         self.dialogs: list[QtWidgets.QDialog] = []
 
@@ -77,6 +84,7 @@ class Application(QtWidgets.QApplication):
         # NOTE: these things need to happen at startup
         self.configuration.create_locations()
         self.get_series()
+        self.load_sips()
 
         # self.reset_bestandscontrole_location()
 
@@ -141,6 +149,25 @@ class Application(QtWidgets.QApplication):
 
     def get_series(self) -> None:
         self.series_retriever.run(worker_controller=self.worker_controller)
+
+    def load_sips(self) -> None:
+        self.sip_retriever.sip_loaded_signal.connect(self.sip_loaded_signal.emit)
+        self.sip_retriever.error_occurred_signal.connect(self.error_handler)
+        self.sip_retriever.run()
+
+    def add_sip(self, sip: SIP) -> None:
+        sip_type = type(sip)
+
+        if sip_type not in self.sips:
+            self.sips[sip_type] = {}
+
+        env_name = sip.environment.name
+        self.sips[sip_type].setdefault(env_name, []).append(sip)
+
+    def get_sips(self, sip_type: type[SIP], environment_name: str = None) -> list[SIP]:
+        env = environment_name or self.configuration.active_environment_name
+
+        return self.sips.get(sip_type, {}).get(env, [])
 
     def get_series_by_id_or_name(self, environment_name: str, series_id: str, series_name: str) -> Series:
         for series in self.series[environment_name]:

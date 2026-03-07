@@ -12,7 +12,6 @@ from src.utils.base_object import ApplicationMixin
 from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.data_objects.digital.sip import SIP, SIPStatus
 from src.utils.helper import count_files_from_dirs
-from src.utils.pyside_helper import Helper
 
 from src.widget.central_widgets.central_widget import CentralWidget
 from src.widget.central_widgets.digital.sip_detail_widget import SipDetailWidget
@@ -27,7 +26,6 @@ class DigitalWidget(CentralWidget):
     UI_TEXT = UI_TEXT_ELEMENTS["digital"]["main"]
 
     dossier_loaded_signal = QtCore.Signal(list)
-    sip_loaded_signal = QtCore.Signal(SIP)
 
     def __init__(self, parent_window: Window):
         super().__init__(parent_window)
@@ -73,7 +71,9 @@ class DigitalWidget(CentralWidget):
 
     def setup_signals(self) -> None:
         self.dossier_loaded_signal.connect(self.dossiers_loaded_handler)
-        self.sip_loaded_signal.connect(self.sip_loaded_handler)
+
+        self.application.sip_loaded_signal.connect(self.sip_loaded_handler)
+        self.application.application_environment_changed_signal.connect(self.environment_changed_handler)
 
         self.add_dossier_button.interaction_finished_signal.connect(lambda d: self.dossier_list_widget.add_widgets([d]))
         self.add_dossier_button.interaction_finished_signal.connect(lambda d: self.application.main_db_controller.write_dossier_paths([d.path]))
@@ -85,36 +85,11 @@ class DigitalWidget(CentralWidget):
         self.start_sip_button.interaction_finished_signal.connect(self.start_sip_handler)
 
     # Initial load, should get triggered from the parent window
+    # NOTE: only loads the dossiers, the SIPs are loaded on application level
     def load_items(self) -> Iterable[None]:
         dossier_paths = self.application.main_db_controller.read_dossier_paths()
         self.dossier_loaded_signal.emit(dossier_paths)
-
-        # NOTE: this is a bit ugly but it will have to do
-        # We need some data from the db, which happens in the background
-        # But to fully make the sip, we also need to verify the data vs the API
-        # Which also happens in the background
-        # And to avoid either one having to wait for the other (since we need UI updates)
-        # We just pass the necessary info to here, then wait after we've done the UI updates
-        sip_items: list[tuple[SIP, str, str]] = []
-
-        for sip, series_id, series_name in self.application.sip_db_controller.g_read_all_sip_dbs():
-            self.sip_loaded_signal.emit(sip)
-            sip_items.append((sip, series_id, series_name))
-
-            # NOTE: I know this looks really strange, but we don't actually need to yield anything
-            # This is setup since this will be used in a thread, in which case we can use it as a generator
-            # Which tends to work better
-            yield
-
-        Helper().wait_for_series_loaded(warn=False)
-        for sip, series_id, series_name in sip_items:
-            sip.set_series(
-                self.application.get_series_by_id_or_name(
-                    sip.environment.name, 
-                    series_id,
-                    series_name
-                )
-            )
+        yield
 
     # Handlers
     # NOTE: this needs to happen here, since we cannot create widgets in a thread
@@ -124,12 +99,25 @@ class DigitalWidget(CentralWidget):
             select=False
         )
 
-    # NOTE: this needs to happen here, since we cannot create widgets in a thread
     def sip_loaded_handler(self, sip: SIP) -> None:
+        if not isinstance(sip, SIP):
+            return
+
+        if sip.environment != self.application.configuration.active_environment:
+            return
+
         self.sip_list_widget.add_widgets(
             [SipListitemWidget(parent_window=self.parent_window, sip=sip)]
         )
-    
+
+    def environment_changed_handler(self) -> None:
+        self.sip_list_widget.clear_widgets()
+
+        for sip in self.application.get_sips(SIP):
+            self.sip_list_widget.add_widgets(
+                [SipListitemWidget(parent_window=self.parent_window, sip=sip)]
+            )
+
     def dossier_selection_changed_handler(self) -> None:
         self.start_sip_button.setEnabled(len(self.dossier_list_widget.get_selected_items()) > 0)
 
@@ -143,11 +131,13 @@ class DigitalWidget(CentralWidget):
         sip = SIP()
         sip.set_dossiers(self.dossier_list_widget.get_selected_items())
 
+        self.application.add_sip(sip)
+
         self.sip_detail_window = self.application.window_controller.open_sip_detail_window(sip=sip)
 
         self.dossier_list_widget.remove_selected_handler()
 
-        self.sip_loaded_signal.emit(sip)
+        self.sip_loaded_handler(sip)
 
     # TODO
     def open_grid_handler(self, sip: SIP) -> None:

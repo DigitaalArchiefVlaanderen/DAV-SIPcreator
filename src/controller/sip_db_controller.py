@@ -171,10 +171,7 @@ class SIPDBController(BaseObject):
                 )
                 continue
 
-            sip, series_id, series_title = self.read_sip_db(file)
-
-            if sip.environment == self.application.configuration.active_environment:
-                yield sip, series_id, series_title
+            yield self.read_sip_db(file)
 
     # Helpers
     def db_exists(self, sip_db_file_name: str) -> bool:
