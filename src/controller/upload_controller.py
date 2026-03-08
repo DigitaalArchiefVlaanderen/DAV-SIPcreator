@@ -14,14 +14,14 @@ class UploadController(BaseObject):
     # NOTE: we take the locations in here, since the exact location will depend on the application-type as well
     def _validate_upload(self, sip: SIP, sip_location: str, sidecar_location: str) -> bool:
         if not sip.environment.has_ftps_credentials():
-            self.application.thread_error_signal.emit(
+            self.application.notify_user_signal.emit(
                 UI_TEXT["missing_ftps_credentials_error"]["title"],
                 UI_TEXT["missing_ftps_credentials_error"]["text"].format(environment_name=sip.environment.name),
             )
             return False
 
         if not os.path.exists(sip_location) or not os.path.exists(sidecar_location):
-            self.application.thread_error_signal.emit(
+            self.application.notify_user_signal.emit(
                 UI_TEXT["missing_files_error"]["title"],
                 UI_TEXT["missing_files_error"]["text"],
             )
@@ -34,13 +34,13 @@ class UploadController(BaseObject):
                 sip.environment.ftps_password,
             )
         except ftplib.error_perm:
-            self.application.thread_error_signal.emit(
+            self.application.notify_user_signal.emit(
                 UI_TEXT["ftps_login_error"]["title"],
                 UI_TEXT["ftps_login_error"]["text"].format(environment_name=sip.environment.name),
             )
             return False
         except socket.gaierror:
-            self.application.thread_error_signal.emit(
+            self.application.notify_user_signal.emit(
                 UI_TEXT["ftps_url_error"]["title"],
                 UI_TEXT["ftps_url_error"]["text"].format(environment_name=sip.environment.name),
             )

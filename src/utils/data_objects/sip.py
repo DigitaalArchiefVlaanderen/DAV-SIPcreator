@@ -27,6 +27,7 @@ class SIP(BaseObject):
         self._is_transitioned: bool = False
 
         self.edepot_sip_id: str = None
+        self.saved_series_name: str = None
 
         self.grid_data: GridData = GridData()
 
@@ -73,6 +74,7 @@ class SIP(BaseObject):
     def __eq__(self, other):
         if not isinstance(other, SIP):
             return NotImplemented
+
         return self.__id == other.__id
 
     def __hash__(self):

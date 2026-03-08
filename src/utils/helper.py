@@ -3,10 +3,7 @@ Some basic helper functions that have no place anywhere else
 """
 import os
 import re
-import time
 from typing import Any
-
-from PySide6 import QtCore
 
 from src.utils.constants import FILE_REGEXES_TO_IGNORE
 

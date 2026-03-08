@@ -33,7 +33,7 @@ class DigitalSIPDBController(BaseObject):
 
     def create_sip_db(self, sip: SIP, series_id: str = None, series_name: str = None) -> None:
         if os.path.exists((db_path := os.path.join(self.application.configuration.sip_db_location, sip.db_name))):
-            self.application.thread_error_signal.emit(
+            self.application.notify_user_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_already_exists_error"]["title"],
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_already_exists_error"]["text"].format(db_apth=db_path),
             )
@@ -41,17 +41,19 @@ class DigitalSIPDBController(BaseObject):
 
         if series_id is None or series_name is None:
             Helper().wait_for_series_loaded(custom_signal=sip.series_changed_signal, warn=False)
+
             if sip.series is None:
-                self.application.thread_error_signal.emit(
+                self.application.notify_user_signal.emit(
                     UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_when_db_has_no_series_error"]["title"],
                     UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_when_db_has_no_series_error"]["text"],
                 )
                 return
+    
             series_id = sip.series._id
             series_name = sip.series.get_full_name()
 
         if not sip.grid_data.has_data:
-            self.application.thread_error_signal.emit(
+            self.application.notify_user_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_when_db_has_no_data_error"]["title"],
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_when_db_has_no_data_error"]["text"],
             )
@@ -117,12 +119,17 @@ class DigitalSIPDBController(BaseObject):
             sip.environment = self.application.configuration.get_environment(environment_name)
 
             sip.edepot_sip_id = edepot_sip_id
+            sip.saved_series_name = series_name
             sip.set_dossiers([DossierWidget(path=d) for d in json.loads(dossiers_list)])
             sip.tag_mapping = json.loads(tag_mapping)
             sip.folder_mapping = json.loads(folder_mapping)
 
             return sip, series_id, series_name
 
+
+    def save_data(self, sip: SIP) -> None:
+        with self.conn(sip.db_name) as conn:
+            sip.grid_data.data_as_df.to_sql("data", conn, if_exists="replace", index=False, dtype="text")
 
     def read_sip_data(self, sip_db_file_name: str) -> pd.DataFrame:
         with self.conn(sip_db_file_name) as conn:
@@ -146,7 +153,7 @@ class DigitalSIPDBController(BaseObject):
                 continue
 
             if not is_valid:
-                self.application.thread_error_signal.emit(
+                self.application.notify_user_signal.emit(
                     UI_TEXT_ELEMENTS["errors"]["sip"]["invalid_database_error"]["title"],
                     UI_TEXT_ELEMENTS["errors"]["sip"]["invalid_database_error"]["text"].format(
                         db_path=os.path.join(self.application.configuration.old_sip_db_location, file)
@@ -185,6 +192,7 @@ class DigitalSIPDBController(BaseObject):
 
             if not "data" in db_tables:
                 return False
+
             if not "sip" in db_tables:
                 return False
 
@@ -348,7 +356,7 @@ class OldDigitalSIPDBController(BaseObject):
         """
         for file in os.listdir(self.application.configuration.old_sip_db_location):
             if not self.is_valid_db(file):
-                self.application.thread_error_signal.emit(
+                self.application.notify_user_signal.emit(
                     UI_TEXT_ELEMENTS["errors"]["sip"]["invalid_database_error"]["title"],
                     UI_TEXT_ELEMENTS["errors"]["sip"]["invalid_database_error"]["text"].format(
                         db_path=os.path.join(self.application.configuration.old_sip_db_location, file)

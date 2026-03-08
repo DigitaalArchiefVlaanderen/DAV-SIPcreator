@@ -37,7 +37,7 @@ class Helper(BaseObject):
         signal.connect(loop.quit)
 
         if warn and warning_title and warning_text:
-            self.application.thread_error_signal.emit(
+            self.application.notify_user_signal.emit(
                 warning_title,
                 warning_text
             )

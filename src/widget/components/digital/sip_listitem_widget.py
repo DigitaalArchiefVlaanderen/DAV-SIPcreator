@@ -169,27 +169,8 @@ class ControlsWidget(BaseWidget):
         self.edepot_button.clicked.connect(self.sip.open_edepot_url)
         self.remove_button.clicked.connect(self.remove_button_clicked_handler)
 
-        # NOTE: we want to check if the user is trying to open a sip while the series are still loading
-        self._pending_open = False
-        self.application.series_retriever.finished_signal.connect(self.series_retrieval_finished_handler)
-
     # Handlers
-    def series_retrieval_finished_handler(self) -> None:
-        if self._pending_open:
-            self._pending_open = False
-
-            self.open_button_clicked_handler()
-
     def open_button_clicked_handler(self) -> None:
-        if self.application.series_retrieval_busy:
-            self._pending_open = True
-
-            self.application.thread_error_signal.emit(
-                UI_TEXT_ELEMENTS["warnings"]["series_still_loading_warning"]["title"],
-                UI_TEXT_ELEMENTS["warnings"]["series_still_loading_warning"]["text"]
-            )
-            return
-
         if self.application.digital_sip_db_controller.is_valid_db(self.sip.db_name) \
                 and self.application.digital_sip_db_controller.read_sip_data(self.sip.db_name) is not None:
             self.application.window_controller.open_digital_grid_signal.emit(self.sip)

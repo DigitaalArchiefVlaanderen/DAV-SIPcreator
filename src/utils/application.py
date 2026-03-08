@@ -53,7 +53,7 @@ class Application(QtWidgets.QApplication):
     work_in_progress_signal = QtCore.Signal((Window, str), arguments=["window", "description"])
     work_ended_signal = QtCore.Signal(Window)
 
-    thread_error_signal = QtCore.Signal((str, str), arguments=["title", "text"])
+    notify_user_signal = QtCore.Signal((str, str), arguments=["title", "text"])
 
     def __init__(self) -> None:
         super().__init__()
@@ -115,7 +115,7 @@ class Application(QtWidgets.QApplication):
         self.work_in_progress_signal.connect(self.start_work_handler)
         self.work_ended_signal.connect(self.stop_work_handler)
 
-        self.thread_error_signal.connect(lambda title, text: self.warn_user(title, text))
+        self.notify_user_signal.connect(lambda title, text: self.warn_user(title, text))
 
 
     @property
@@ -176,13 +176,15 @@ class Application(QtWidgets.QApplication):
         for series in self.series[environment_name]:
             if series._id == series_id:
                 return series
+
             if series.get_full_name() == series_name:
                 return series
+
             elif series.name == series_name:
                 return series
 
         if warn:
-            self.thread_error_signal.emit(
+            self.notify_user_signal.emit(
                 UI_ERROR_TEXT["series"]["series_not_found_error"]["title"],
                 UI_ERROR_TEXT["series"]["series_not_found_error"]["text"].format(
                     series_id=series_id,
@@ -240,7 +242,7 @@ class Application(QtWidgets.QApplication):
             title = title_and_text["title"]
             text = title_and_text["text"]
 
-        self.thread_error_signal.emit(
+        self.notify_user_signal.emit(
             title,
             text
         )

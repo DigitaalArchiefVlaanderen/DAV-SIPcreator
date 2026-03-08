@@ -1,8 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-import numpy as np
-import os
 from PySide6 import QtWidgets, QtGui, QtCore
 
 from src.utils.constants import BusinessRules, UI_TEXT_ELEMENTS
@@ -11,7 +9,7 @@ from src.utils.data_objects.digital.sip import SIP
 
 from src.widget.base_widget import BaseWidget, ComponentWidget, ApplicationMixin
 from src.widget.central_widgets.central_widget import CentralWidget
-from src.widget.components.digital.mapping_widget import TagMappingWidget, FolderMappingWidget
+from src.widget.components.digital.mapping_widget import TagMappingWidget
 
 from src.window.base_window import Window
 
@@ -70,7 +68,10 @@ class SipDetailWidget(CentralWidget):
     # Handlers
     def open_grid_handler(self) -> None:
         self.sip.tag_mapping = self.tag_mapping_widget.get_mapping()
+
         self.application.window_controller.open_digital_grid_signal.emit(self.sip)
+
+        self.parent_window.close()
 
     def import_template_retrieval_requested_handler(self) -> None:
         self.parent_window.start_retrieve_import_template_task()

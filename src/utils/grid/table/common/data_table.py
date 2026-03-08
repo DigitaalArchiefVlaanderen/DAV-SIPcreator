@@ -4,6 +4,7 @@ from pandas import DataFrame
 from PySide6 import QtCore, QtGui
 
 from src.utils.base_object import ApplicationMixin
+from src.utils.constants import ColumnName
 from src.utils.data_objects.sip import SIP
 
 
@@ -27,6 +28,7 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
         self.editable = editable
 
         self.markings: dict[tuple[int, int, MarkingSource], tuple[CellColor, str]] = {}
+        self.should_filter_name_column: bool = False
 
     def data_index(self, index) -> tuple[int, int]:
         return self.raw_data.index[index.row()], index.column()
@@ -43,7 +45,16 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
             return
 
         if role in (QtCore.Qt.ItemDataRole.DisplayRole, QtCore.Qt.ItemDataRole.EditRole):
-            return self.raw_data.iloc[index.row(), index.column()]
+            value = self.raw_data.iloc[index.row(), index.column()]
+
+            if (
+                self.should_filter_name_column
+                and ColumnName.NAAM.value in self.raw_data.columns
+                and index.column() == self.raw_data.columns.get_loc(ColumnName.NAAM.value)
+            ):
+                value, *_ = value.rsplit(".", 1)
+
+            return value
 
         marking = self._resolve_marking(index)
 
@@ -70,8 +81,10 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
     def _resolve_marking(self, index) -> tuple[CellColor, str] | None:
         row, col = self.data_index(index)
         wide = self.markings.get((row, col, MarkingSource.WIDE))
+
         if wide:
             return wide
+
         return self.markings.get((row, col, MarkingSource.CELL))
 
     def flags(self, index):
@@ -87,9 +100,9 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
 
         return base_flags | QtCore.Qt.ItemFlag.ItemIsEditable
 
-
     def disable_column(self, column_name: str, tooltip: str="") -> "DataTable":
         col = self.raw_data.columns.get_loc(column_name)
+
         self.markings.update(
             {
                 (row, col, MarkingSource.CELL): (CellColor.GREY, tooltip)
@@ -102,6 +115,7 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
     def unmark_cell(self, index, source: MarkingSource = MarkingSource.CELL) -> None:
         row, col = self.data_index(index)
         key = (row, col, source)
+
         if key in self.markings:
             del self.markings[key]
 
@@ -110,6 +124,18 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
         color = CellColor.YELLOW if warning else CellColor.RED
         self.markings[(row, col, source)] = (color, tooltip)
 
+    def filter_name_column(self, active: bool) -> None:
+        self.should_filter_name_column = active
+
+        if ColumnName.NAAM.value not in self.raw_data.columns:
+            return
+
+        name_column = self.raw_data.columns.get_loc(ColumnName.NAAM.value)
+
+        self.dataChanged.emit(
+            self.index(0, name_column),
+            self.index(self.rowCount() - 1, name_column),
+        )
 
     @property
     def has_bad_rows(self) -> bool:

@@ -13,10 +13,6 @@ class GridTableView(QtWidgets.QTableView, ApplicationMixin):
 
         self.setSortingEnabled(True)
 
-        # NOTE: clicking the corner button resets sorting
-        corner: QtWidgets.QPushButton = self.findChild(QtWidgets.QAbstractButton)
-        corner.clicked.connect(self.reset_sorting)
-
     def reset_sorting(self) -> None:
         proxy = self.model(proxy=True)
 

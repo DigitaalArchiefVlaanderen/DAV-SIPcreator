@@ -149,7 +149,7 @@ class DigitalWidget(CentralWidget):
             self.application.digital_sip_db_controller.create_sip_db(sip=sip)
 
         if not self.application.digital_sip_db_controller.is_valid_db(sip.db_name):
-            self.application.thread_error_signal.emit(
+            self.application.notify_user_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["sip"]["invalid_database_error"]["title"],
                 UI_TEXT_ELEMENTS["errors"]["sip"]["invalid_database_error"]["text"].format(
                     db_path=os.path.join(
@@ -226,7 +226,7 @@ class AddDossiersButton(QtWidgets.QPushButton, ApplicationMixin):
         estimated_seconds = len(paths) // 800
 
         if estimated_seconds > 2:
-            self.application.thread_error_signal.emit(
+            self.application.notify_user_signal.emit(
                 self.UI_TEXT["actions_takes_long_warning"]["title"],
                 self.UI_TEXT["actions_takes_long_warning"]["text"].format(estimated_seconds=estimated_seconds)
             )
@@ -249,7 +249,7 @@ class StartSIPButton(QtWidgets.QPushButton, ApplicationMixin):
         amount_of_files = count_files_from_dirs([d.path for d in selected_dossiers])
 
         if amount_of_files > 9999:
-            self.application.thread_error_signal.emit(
+            self.application.notify_user_signal.emit(
                 self.UI_TEXT["too_many_files_warning"]["title"],
                 self.UI_TEXT["too_many_files_warning"]["text"].format(amount_of_files=amount_of_files)
             )

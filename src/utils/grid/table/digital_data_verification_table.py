@@ -18,3 +18,5 @@ class DigitalDataVerificationTable(CommonDataVerificationTable):
         for col in DISABLED_COLUMNS:
             if col in self.raw_data.columns:
                 self.disable_column(col)
+
+        self.validate_all()

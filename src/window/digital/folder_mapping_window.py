@@ -50,7 +50,7 @@ class FolderMappingWindow(Window):
         df_sub = df[df[path_in_sip_map_column].str.contains(r"\.[a-zA-Z0-9]+$", regex=True, na=False)][[*folder_structure]].apply(lambda x: x.str.strip())
 
         if np.any(df_sub.isna()) or np.any(df_sub == ""):
-            self.application.thread_error_signal.emit(
+            self.application.notify_user_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["sip"]["folder_mapping_error"]["title"],
                 UI_TEXT_ELEMENTS["errors"]["sip"]["folder_mapping_error"]["text"]
             )

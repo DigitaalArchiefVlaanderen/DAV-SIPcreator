@@ -5,7 +5,7 @@ from PySide6 import QtCore
 from src.utils.constants import ColumnName
 from src.utils.data_objects.sip import SIP
 from src.utils.grid.table.common.data_table import DataTable, MarkingSource
-from src.utils.grid.checks import BaseCheck, CellIssue, RRNCheck
+from src.utils.grid.checks import BaseCheck, CellIssue, CellRange, BulkResult, RRNCheck
 from src.utils.workers.worker import Worker
 
 ValidationResult = tuple[
@@ -76,6 +76,59 @@ class CommonDataVerificationTable(DataTable):
 
         thread.started.connect(worker.run)
         worker.result_ready_signal.connect(self._apply_validation_result)
+
+        worker.finished_signal.connect(thread.quit)
+        worker.finished_signal.connect(thread.deleteLater)
+        worker.finished_signal.connect(lambda: self._active_workers.remove((worker, thread)))
+
+        thread.start()
+
+    def _run_bulk_validators(self, cell_range: CellRange) -> Iterator[BulkResult]:
+        for column_name, check in self.COLUMN_VALIDATORS.items():
+            if column_name.value not in self.raw_data.columns:
+                continue
+
+            col = self.raw_data.columns.get_loc(column_name.value)
+
+            for result in check.check_bulk(self.raw_data, col, cell_range):
+                yield result
+
+    def _apply_bulk_result(self, result: BulkResult) -> None:
+        row, col, value, cell_tooltip, wide_tooltip = result
+
+        self.raw_data.iat[row, col] = value
+
+        if cell_tooltip:
+            self.mark_cell(self.index(row, col), source=MarkingSource.CELL, tooltip=cell_tooltip)
+
+        if wide_tooltip:
+            self.mark_cell(self.index(row, col), source=MarkingSource.WIDE, tooltip=wide_tooltip)
+
+        self.dataChanged.emit(self.index(row, col), self.index(row, col))
+
+    def validate_all(self) -> None:
+        if not self.raw_data.shape[0]:
+            return
+
+        self.validate_range(CellRange(
+            row_start=0,
+            row_end=self.raw_data.shape[0] - 1,
+            col_start=0,
+            col_end=self.raw_data.shape[1] - 1,
+        ))
+
+    def validate_range(self, cell_range: CellRange) -> None:
+        worker = Worker(
+            function=lambda: self._run_bulk_validators(cell_range),
+            is_generator=True,
+        )
+        thread = QtCore.QThread()
+
+        worker.moveToThread(thread)
+        self._active_workers.append((worker, thread))
+
+        thread.started.connect(worker.run)
+        worker.result_ready_signal.connect(self._apply_bulk_result)
 
         worker.finished_signal.connect(thread.quit)
         worker.finished_signal.connect(thread.deleteLater)

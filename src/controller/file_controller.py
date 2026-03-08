@@ -9,7 +9,7 @@ from openpyxl import load_workbook
 
 from src.controller.api_controller import APIController
 from src.utils.base_object import BaseObject
-from src.utils.constants import UI_TEXT_ELEMENTS
+from src.utils.constants import ColumnName, UI_TEXT_ELEMENTS
 from src.utils.data_objects.digital.sip import SIP
 
 UI_TEXT = UI_TEXT_ELEMENTS["errors"]["sip"]
@@ -59,16 +59,17 @@ class FileController(BaseObject):
         folder_paths = set()
 
         for row in sip_folder_structure.values():
-            path_in_sip, path = row["Path in SIP"], row["path"]
+            path_in_sip, path = row[ColumnName.PATH_IN_SIP.value], row["path"]
 
-            if sum(df["Path in SIP"] == path_in_sip) == 0:
-                self.application.thread_error_signal.emit(
+            if sum(df[ColumnName.PATH_IN_SIP.value] == path_in_sip) == 0:
+                self.application.notify_user_signal.emit(
                     UI_TEXT["folder_structure_new_path_error"]["title"],
                     UI_TEXT["folder_structure_new_path_error"]["text"].format(path=path),
                 )
                 return False
-            elif sum(df["Path in SIP"] == path_in_sip) > 1:
-                self.application.thread_error_signal.emit(
+
+            elif sum(df[ColumnName.PATH_IN_SIP.value] == path_in_sip) > 1:
+                self.application.notify_user_signal.emit(
                     UI_TEXT["folder_structure_duplicate_path_error"]["title"],
                     UI_TEXT["folder_structure_duplicate_path_error"]["text"].format(path_in_sip=path_in_sip),
                 )
@@ -77,10 +78,10 @@ class FileController(BaseObject):
             folder_paths.add(path_in_sip)
 
         for _, row in df.iterrows():
-            if row["Path in SIP"] not in folder_paths:
-                self.application.thread_error_signal.emit(
+            if row[ColumnName.PATH_IN_SIP.value] not in folder_paths:
+                self.application.notify_user_signal.emit(
                     UI_TEXT["folder_structure_missing_path_error"]["title"],
-                    UI_TEXT["folder_structure_missing_path_error"]["text"].format(path_in_sip=row["Path in SIP"]),
+                    UI_TEXT["folder_structure_missing_path_error"]["text"].format(path_in_sip=row[ColumnName.PATH_IN_SIP.value]),
                 )
                 return False
 
@@ -88,13 +89,12 @@ class FileController(BaseObject):
 
     @staticmethod
     def _filter_df(df: pd.DataFrame) -> pd.DataFrame:
-        filtered = df.loc[df["Type"] != "geen"].copy()
-        filtered.sort_values(filtered.columns[0], ascending=True, inplace=True)
+        filtered = df.loc[df[ColumnName.TYPE.value] != "geen"].copy()
         filtered.reset_index(drop=True, inplace=True)
 
         return filtered
 
-    def create_sip(self, sip: SIP) -> None:
+    def create_sip(self, sip: SIP) -> bool:
         configuration = self.application.configuration
 
         storage_location = configuration.sips_location
@@ -115,7 +115,7 @@ class FileController(BaseObject):
         sip_folder_structure = sip._get_folder_structure()
         filtered_folder_structure = {
             k: v for k, v in sip_folder_structure.items()
-            if v["Type"] != "geen"
+            if v[ColumnName.TYPE.value] != "geen"
         }
 
         df = FileController._filter_df(sip.grid_data.data_as_df)
@@ -124,7 +124,7 @@ class FileController(BaseObject):
             sip_folder_structure=filtered_folder_structure,
             df=df
         ):
-            return
+            return False
 
         temp_excel_location = os.path.join(
             configuration.import_templates_location,
@@ -144,7 +144,7 @@ class FileController(BaseObject):
             zfile.write(temp_excel_location, "Metadata.xlsx")
 
             for location in filtered_folder_structure.values():
-                zfile.write(location["path"], location["Path in SIP"])
+                zfile.write(location["path"], location[ColumnName.PATH_IN_SIP.value])
 
         with open(sip_location, "rb") as f:
             md5 = hashlib.md5(f.read()).hexdigest()
@@ -152,4 +152,11 @@ class FileController(BaseObject):
         with open(sidecar_location, "w", encoding="utf-8") as f:
             f.write(SIDECAR_TEMPLATE.format(md5=md5))
 
-        os.remove(temp_excel_location)
+        try:
+            os.remove(temp_excel_location)
+        except PermissionError:
+            import gc
+            gc.collect()
+            os.remove(temp_excel_location)
+
+        return True

@@ -2,11 +2,13 @@ from enum import Enum
 
 from PySide6 import QtCore
 
+from src.utils.constants import ColumnName
 from src.utils.grid.table.common.data_table import DataTable
 
 
 class TableFilter(Enum):
     BAD_ROWS = "bad_rows"
+    DOSSIERS_ONLY = "dossiers_only"
 
 
 class SortFilterProxyModel(QtCore.QSortFilterProxyModel):
@@ -42,4 +44,9 @@ class SortFilterProxyModel(QtCore.QSortFilterProxyModel):
                     if source_row not in model.bad_rows:
                         return False
 
+                case TableFilter.DOSSIERS_ONLY:
+                    if model.raw_data.iloc[source_row][model.raw_data.columns.get_loc(ColumnName.TYPE.value)] != "dossier":
+                        return False
+
         return True
+
