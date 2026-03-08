@@ -15,7 +15,6 @@ from src.utils.pyside_helper import Helper
 from src.widget.components.digital.dossier_widget import DossierWidget
 
 
-
 class DigitalSIPDBController(BaseObject):
     def __init__(self) -> None:
         super().__init__()
@@ -126,6 +125,29 @@ class DigitalSIPDBController(BaseObject):
 
             return sip, series_id, series_name
 
+
+    def persist_sip(self, sip: SIP) -> None:
+        """
+        Updates the sip's db will get called on exit of application
+        """
+        if not self.db_exists(sip.db_name):
+            return
+
+        if sip.series is None:
+            return
+
+        with self.conn(sip.db_name) as conn:
+            conn.execute(
+                "UPDATE sip SET status = ?, series_name = ?, edepot_sip_id = ?",
+                (sip.status.name, sip.series.get_full_name(), sip.edepot_sip_id or "")
+            )
+
+    def persist_all_sips(self) -> None:
+        sips_by_env = self.application.sips.get(DigitalSIP, {})
+
+        for sips in sips_by_env.values():
+            for sip in sips:
+                self.persist_sip(sip)
 
     def save_data(self, sip: SIP) -> None:
         with self.conn(sip.db_name) as conn:

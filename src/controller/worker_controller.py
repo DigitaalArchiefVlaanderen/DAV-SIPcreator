@@ -6,9 +6,12 @@ from typing import Callable
 from PySide6 import QtCore
 
 from src.utils.base_object import BaseObject
+from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.workers.worker import Worker
 
 from src.window.base_window import Window
+
+UI_TEXT = UI_TEXT_ELEMENTS["errors"]
 
 
 class WorkerController(BaseObject):
@@ -34,6 +37,11 @@ class WorkerController(BaseObject):
 
     def run_thread(self, thread_function: Callable, thread_is_generator: bool) -> Worker:
         if not self.application.configuration.active_environment.has_api_credentials():
+            self.application.notify_user_signal.emit(
+                UI_TEXT["api"]["missing_credentials_error"]["title"],
+                UI_TEXT["api"]["missing_credentials_error"]["text"],
+            )
+
             return
 
         worker = Worker(function=thread_function, is_generator=thread_is_generator)

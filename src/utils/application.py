@@ -58,6 +58,8 @@ class Application(QtWidgets.QApplication):
     def __init__(self) -> None:
         super().__init__()
 
+        self.configuration: Configuration = ConfigController.get_configuration()
+
         # Keep a reference to the windows
         self.windows: list[Window] = []
 
@@ -106,8 +108,12 @@ class Application(QtWidgets.QApplication):
         self.series_updated_signal.emit()
 
     def setup_signals(self) -> None:
+        self.aboutToQuit.connect(self.configuration.save)
+        self.aboutToQuit.connect(self.digital_sip_db_controller.persist_all_sips)
         self.aboutToQuit.connect(self.worker_controller.close_controller)
+
         self.series_retriever.error_occurred_signal.connect(self.error_handler)
+
         self.window_controller.open_digital_grid_signal.connect(
             self.window_controller.sip_creator_window.digital_widget.open_grid_handler
         )
@@ -117,10 +123,6 @@ class Application(QtWidgets.QApplication):
 
         self.notify_user_signal.connect(lambda title, text: self.warn_user(title, text))
 
-
-    @property
-    def configuration(self) -> Configuration:
-        return ConfigController.get_configuration()
 
     # Utils
     def register_window(self, window: Window) -> None:
@@ -159,6 +161,8 @@ class Application(QtWidgets.QApplication):
         self.digital_sip_retriever.run()
 
     def add_sip(self, sip: SIP) -> None:
+        sip.moveToThread(self.thread())
+
         sip_type = type(sip)
 
         if sip_type not in self.sips:

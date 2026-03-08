@@ -45,6 +45,7 @@ class SIP(BaseObject):
 
     def set_status(self, new_status: SIPStatus) -> None:
         self.__status = new_status
+
         self.status_changed_signal.emit()
     
     @property

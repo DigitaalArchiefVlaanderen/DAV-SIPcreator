@@ -1,6 +1,7 @@
 import ftplib
 import os
 import socket
+import time
 
 from src.utils.base_object import BaseObject
 from src.utils.constants import UI_TEXT_ELEMENTS

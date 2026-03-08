@@ -10,6 +10,8 @@ from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.data_objects.digital.sip import SIP
 from src.utils.data_objects.sip_status import SIPStatus
 
+from src.controller.upload_controller import UploadController
+
 from src.widget.base_widget import BaseWidget
 from src.widget.dialog.yes_no_dialog import YesNoDialog
 
@@ -133,6 +135,7 @@ class ControlsWidget(BaseWidget):
 
         self.setup_ui()
         self.setup_signals()
+        self.sip_status_changed_handler()
 
     def setup_ui(self) -> None:
         self.vertical_layout = QtWidgets.QVBoxLayout()
@@ -179,9 +182,13 @@ class ControlsWidget(BaseWidget):
         self.sip_detail_window = SipDetailWindow(sip=self.sip)
         self.sip_detail_window.show()
 
-    # TODO
     def upload_button_clicked_handler(self) -> None:
-        ...
+        self.application.start_task(
+            window=self.parent_window,
+            description=UI_TEXT_ELEMENTS["toolbar_info"]["digital"]["upload_right_text"],
+            function=lambda: UploadController().upload_sip(sip=self.sip),
+            is_generator=False,
+        )
 
     def sip_status_changed_handler(self) -> None:
         has_series = self.sip.series is not None
@@ -214,6 +221,22 @@ class ControlsWidget(BaseWidget):
                 self.remove_button.setEnabled(False)
             case x:
                 raise ValueError(f"Found unknown SIPStatus: {x}")
+
+        self._update_upload_button_style(has_series)
+
+    def _update_upload_button_style(self, has_series: bool) -> None:
+        font = self.upload_button.font()
+
+        if not has_series and self.sip.status == SIPStatus.SIP_CREATED:
+            font.setBold(True)
+            self.upload_button.setFont(font)
+            self.upload_button.setStyleSheet("color: red;")
+            self.upload_button.setToolTip(self.UI_TEXT["upload_no_series_tooltip"])
+        else:
+            font.setBold(False)
+            self.upload_button.setFont(font)
+            self.upload_button.setStyleSheet("")
+            self.upload_button.setToolTip("")
 
     def remove_button_clicked_handler(self) -> None:
         dialog = YesNoDialog(

@@ -60,6 +60,7 @@
         "controls": {
             "open_button_text": "Open",
             "upload_button_text": "Upload",
+            "upload_no_series_tooltip": "De serie is niet gevonden in de huidige configuratie, mogelijks is deze nog aan het inladen",
             "edepot_button_text": "E-depot locatie",
             "remove_button_text": "Verwijder",
 
@@ -154,6 +155,10 @@
     },
     "configuration": {
         "save_button_text": "Opslaan",
+        "save_on_close_dialog": {
+            "title": "Configuratie opslaan",
+            "text": "Wilt u de wijzigingen opslaan?"
+        },
         "misc": {
             "tab_name": "misc",
             "title": "Misc opties",
@@ -171,6 +176,10 @@
     },
     "errors": {
         "api": {
+            "missing_credentials_error": {
+                "title": "Ontbrekende API credentials",
+                "text": "De actieve omgeving heeft geen API credentials geconfigureerd."
+            },
             "Timeout": {
                 "title": "Timeout",
                 "text": "De API request duurde te lang, probeer later opnieuw."
@@ -268,7 +277,8 @@
         "digital": {
             "startup_loading_items_text": "SIPs en dossiers aan het inladen",
             "import_template_retrieval_text": "Bezig met importsjabloon ophalen",
-            "adding_dossiers_text": "Bezig met dossiers toe te voegen"
+            "adding_dossiers_text": "Bezig met dossiers toe te voegen",
+            "upload_right_text": "SIP uploaden..."
         }
     },
     "grid_checks": {
