@@ -37,15 +37,31 @@ class CommonDataVerificationTable(DataTable):
     def _sanitize_value(self, value: str) -> str:
         return str(value).encode(encoding="utf-8", errors="replace").decode("utf-8")
 
+    def _get_empty_rows(self, cell_range: CellRange) -> set[int]:
+        if ColumnName.TYPE.value not in self.raw_data.columns:
+            return set()
+
+        type_col = self.raw_data.columns.get_loc(ColumnName.TYPE.value)
+
+        return {
+            row
+            for row in range(cell_range.row_start, cell_range.row_end + 1)
+            if self.raw_data.iat[row, type_col] == "geen"
+        }
+
     def _run_bulk_validators(self, cell_range: CellRange) -> list[BulkResult]:
         results: list[BulkResult] = []
+        empty_rows = self._get_empty_rows(cell_range)
 
         for column_name, check in self.COLUMN_VALIDATORS.items():
             if column_name.value not in self.raw_data.columns:
                 continue
 
             col = self.raw_data.columns.get_loc(column_name.value)
-            results.extend(check.check_bulk(self.raw_data, col, cell_range))
+            results.extend(
+                r for r in check.check_bulk(self.raw_data, col, cell_range)
+                if r[0] not in empty_rows
+            )
 
         return results
 

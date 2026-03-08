@@ -217,7 +217,7 @@ class AddDossiersButton(QtWidgets.QPushButton, ApplicationMixin):
         paths = os.listdir(dossier_path)
 
         dossier_widgets = [
-            DossierWidget(path=p)
+            DossierWidget(path=os.path.join(dossier_path, p))
             for p in paths
             if os.path.isdir(os.path.join(dossier_path, p))
         ]

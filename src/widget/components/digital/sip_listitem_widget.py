@@ -247,20 +247,14 @@ class ControlsWidget(BaseWidget):
 
         if not dialog.result():
             return
-        
-        sips_location = self.application.configuration.sips_location
-        sip_dbs_location = self.application.configuration.sip_db_location
 
-        sip_location = os.path.join(sips_location, self.sip.file_name)
-        sidecar_location = os.path.join(sips_location, self.sip.sidecar_file_name)
-        db_location = os.path.join(sip_dbs_location, self.sip.db_name)
+        db_location = os.path.join(self.application.configuration.sip_db_location, self.sip.db_name)
 
-        with suppress(FileNotFoundError):
-            os.remove(sip_location)
-        with suppress(FileNotFoundError):
-            os.remove(sidecar_location)
         with suppress(FileNotFoundError):
             os.remove(db_location)
 
         self.sip.set_status(SIPStatus.DELETED)
-        self.deleteLater()
+
+        sip_listitem_widget = self.parent()
+        sip_listitem_widget.hide()
+        sip_listitem_widget.deleteLater()

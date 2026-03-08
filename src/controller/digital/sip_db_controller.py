@@ -30,6 +30,21 @@ class DigitalSIPDBController(BaseObject):
             )
         )
 
+    def _execute_with_conn(self, sip_db_file_name: str, func):
+        conn = self.conn(sip_db_file_name)
+
+        try:
+            result = func(conn)
+            conn.commit()
+
+            return result
+        except Exception:
+            conn.rollback()
+
+            raise
+        finally:
+            conn.close()
+
     def create_sip_db(self, sip: SIP, series_id: str = None, series_name: str = None) -> None:
         if os.path.exists((db_path := os.path.join(self.application.configuration.sip_db_location, sip.db_name))):
             self.application.notify_user_signal.emit(
@@ -58,8 +73,8 @@ class DigitalSIPDBController(BaseObject):
             )
             return
 
-        with self.conn(sip.db_name) as conn:
-            conn.execute(f"""
+        def _create(conn: sql.Connection) -> None:
+            conn.execute("""
                 CREATE TABLE sip (
                     name text,
                     status text,
@@ -72,7 +87,7 @@ class DigitalSIPDBController(BaseObject):
                     folder_mapping text
                 )
             """)
-            conn.execute(f"""
+            conn.execute("""
                 INSERT INTO sip (name, status, environment_name, series_id, series_name, edepot_sip_id, dossiers_list, tag_mapping, folder_mapping)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
@@ -88,7 +103,7 @@ class DigitalSIPDBController(BaseObject):
             ))
 
             conn.execute(
-                f"""
+                """
                     CREATE TABLE sip_creator (
                         version text
                     )
@@ -101,14 +116,16 @@ class DigitalSIPDBController(BaseObject):
 
             sip.grid_data.data_as_df.to_sql("data", conn, index=False, dtype="text")
 
+        self._execute_with_conn(sip.db_name, _create)
+
     def read_sip_db(self, sip_db_file_name: str) -> tuple[SIP, str, str]:
         """
         Reads a sip from its db.
         Note however that this does not read the data, since we only get that on demand.
         """
-        with self.conn(sip_db_file_name) as conn:
+        def _read(conn: sql.Connection) -> tuple[SIP, str, str]:
             result = conn.execute("SELECT name, status, environment_name, series_id, series_name, edepot_sip_id, dossiers_list, tag_mapping, folder_mapping FROM sip;").fetchone()
-            name, status, environment_name, series_id, series_name, edepot_sip_id, dossiers_list, tag_mapping, folder_mapping = result\
+            name, status, environment_name, series_id, series_name, edepot_sip_id, dossiers_list, tag_mapping, folder_mapping = result
 
             sip = DigitalSIP()
             sip.set_name(name)
@@ -125,6 +142,8 @@ class DigitalSIPDBController(BaseObject):
 
             return sip, series_id, series_name
 
+        return self._execute_with_conn(sip_db_file_name, _read)
+
 
     def persist_sip(self, sip: SIP) -> None:
         """
@@ -136,11 +155,10 @@ class DigitalSIPDBController(BaseObject):
         if sip.series is None:
             return
 
-        with self.conn(sip.db_name) as conn:
-            conn.execute(
-                "UPDATE sip SET status = ?, series_name = ?, edepot_sip_id = ?",
-                (sip.status.name, sip.series.get_full_name(), sip.edepot_sip_id or "")
-            )
+        self._execute_with_conn(sip.db_name, lambda conn: conn.execute(
+            "UPDATE sip SET status = ?, series_name = ?, edepot_sip_id = ?",
+            (sip.status.name, sip.series.get_full_name(), sip.edepot_sip_id or "")
+        ))
 
     def persist_all_sips(self) -> None:
         sips_by_env = self.application.sips.get(DigitalSIP, {})
@@ -150,12 +168,14 @@ class DigitalSIPDBController(BaseObject):
                 self.persist_sip(sip)
 
     def save_data(self, sip: SIP) -> None:
-        with self.conn(sip.db_name) as conn:
+        self._execute_with_conn(sip.db_name, lambda conn:
             sip.grid_data.data_as_df.to_sql("data", conn, if_exists="replace", index=False, dtype="text")
+        )
 
     def read_sip_data(self, sip_db_file_name: str) -> pd.DataFrame:
-        with self.conn(sip_db_file_name) as conn:
-            return pd.read_sql("select * from data", conn, dtype=str).fillna("")
+        return self._execute_with_conn(sip_db_file_name, lambda conn:
+            pd.read_sql("select * from data", conn, dtype=str).fillna("")
+        )
 
     def g_read_all_sip_dbs(self) -> Iterable[tuple[SIP, str, str]]:
         """
@@ -202,27 +222,24 @@ class DigitalSIPDBController(BaseObject):
         except:
             return False
 
-        with self.conn(sip_db_file_name) as conn:
-            # Get all table names
+        def _validate(conn: sql.Connection) -> bool | None:
             db_tables = [r for r, *_ in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
 
             if "SIP" in db_tables and self.old_sip_db_controller.is_valid_db(sip_db_file_name):
-                # NOTE: it really shouldn't be here, but I won't be able to stop users from doing it anyway
                 new_sip_db_file_name, *_ = self.transition_old_db(sip_db_file_name)
 
                 return self.is_valid_db(new_sip_db_file_name)
 
-            if not "data" in db_tables:
+            if "data" not in db_tables:
                 return False
 
-            if not "sip" in db_tables:
+            if "sip" not in db_tables:
                 return False
-
 
             columns = {
                 column_name: data_type.lower()
                 for _, column_name, data_type, *_ in
-                conn.execute(f"PRAGMA table_info(sip);").fetchall()
+                conn.execute("PRAGMA table_info(sip);").fetchall()
             }
 
             expected_columns = {
@@ -236,15 +253,15 @@ class DigitalSIPDBController(BaseObject):
             }
 
             for column, data_type in expected_columns.items():
-                # NOTE: missing column
                 if column not in columns:
                     return False
 
-                # NOTE: bad data_type
                 if data_type != columns[column]:
                     return False
 
-        return True
+            return True
+
+        return self._execute_with_conn(sip_db_file_name, _validate)
 
     def transition_old_db(self, old_db_file_name: str) -> tuple[str]|None:
         sip, series_id, series_name = self.old_sip_db_controller.read_sip_db(old_db_file_name)
@@ -288,6 +305,21 @@ class OldDigitalSIPDBController(BaseObject):
             )
         )
 
+    def _execute_with_conn(self, sip_db_file_name: str, func):
+        conn = self.conn(sip_db_file_name)
+
+        try:
+            result = func(conn)
+            conn.commit()
+
+            return result
+        except Exception:
+            conn.rollback()
+
+            raise
+        finally:
+            conn.close()
+
     def old_dbs_exist(self) -> bool:
         return os.path.exists(self.application.configuration.old_sip_db_location) and os.path.isdir(self.application.configuration.old_sip_db_location)
 
@@ -304,38 +336,34 @@ class OldDigitalSIPDBController(BaseObject):
         except:
             return False
 
-        with self.conn(sip_db_file_name) as conn:
-            # Get all table names
+        def _validate(conn: sql.Connection) -> bool:
             db_tables = (r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall())
 
-            if not "data" in db_tables:
+            if "data" not in db_tables:
                 return False
 
             for table in db_tables:
-                # NOTE: no extra tables allowed
                 if table not in self.TABLES:
-                    # NOTE: we will not consider the 'data'-table since it is too variable
                     if table == "data":
                         continue
 
                     return False
 
-
                 columns = {column_name: data_type for column_name, data_type, *_ in conn.execute(f"PRAGMA table_info({table});").fetchall()}
 
                 for column, data_type in self.TABLES[table].items():
-                    # NOTE: missing column
                     if column not in columns:
                         return False
 
-                    # NOTE: bad data_type
                     if data_type != columns[column].upper():
                         return False
 
-        return True
+            return True
+
+        return self._execute_with_conn(sip_db_file_name, _validate)
 
     def read_sip_db(self, sip_db_file_name: str) -> tuple[SIP, str, str]:
-        with self.conn(sip_db_file_name) as conn:
+        def _read(conn: sql.Connection) -> tuple[SIP, str, str]:
             sip_table_results = conn.execute("select * from SIP").fetchone()
 
             environment_name, sip_status_label, series_json, _, tag_mapping, folder_mapping, edepot_sip_id = sip_table_results
@@ -349,14 +377,12 @@ class OldDigitalSIPDBController(BaseObject):
             sip.folder_mapping = json.loads(folder_mapping)
             sip.edepot_sip_id = edepot_sip_id
 
-
             dossier_table_results = conn.execute("select * from dossier").fetchall()
 
             sip.set_dossiers([
                 DossierWidget(path=path)
                 for _, path in dossier_table_results
             ])
-
 
             cursor = conn.execute("select * from data")
 
@@ -371,6 +397,8 @@ class OldDigitalSIPDBController(BaseObject):
             sip.data = data
 
             return sip, json.loads(series_json)["Id"], json.loads(series_json)["Content"]["Name"]
+
+        return self._execute_with_conn(sip_db_file_name, _read)
 
     def g_read_all_sip_db_names(self) -> Iterable[str]:
         """

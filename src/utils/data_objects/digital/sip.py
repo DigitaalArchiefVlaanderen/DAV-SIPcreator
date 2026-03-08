@@ -167,9 +167,11 @@ class SIP(CommonSIP):
         for dossier in self.dossiers:
             dossier_structure = self._get_dossier_structure(dossier=dossier)
             file_structure = self._get_file_structure(dossier=dossier)
-            
-            if all(f["Type"] == "geen" for f in file_structure.values()):
-                dossier_structure[dossier.path]["Type"] = "geen"
+
+            dossier_key = next(iter(dossier_structure))
+
+            if not file_structure or all(f["Type"] == "geen" for f in file_structure.values()):
+                dossier_structure[dossier_key]["Type"] = "geen"
 
             folder_structure = {
                 **folder_structure,
