@@ -284,7 +284,29 @@
     "grid_checks": {
         "common": {
             "rrn_format_error": "Rijksregisternummer moet van vorm xx.xx.xx-xxx.xx zijn, of 11 cijfers na elkaar zijn",
-            "rrn_invalid_error": "Ingegeven rijksregisternummer is niet mogelijk"
+            "rrn_invalid_error": "Ingegeven rijksregisternummer is niet mogelijk",
+
+            "name_empty_dossier_error": "Een dossier moet verplicht een naam hebben",
+            "name_too_long_error": "Naam mag niet langer zijn dan 255 karakters",
+            "name_duplicate_error": "Naam veld moet uniek zijn",
+
+            "date_format_error": "Datum moet in het formaat YYYY-MM-DD en geldig zijn",
+            "date_future_error": "Datum mag niet in de toekomst zijn",
+            "date_before_series_start_error": "Datum moet binnen de serie-datumrange vallen",
+            "date_after_series_end_error": "Datum moet binnen de serie-datumrange vallen",
+            "date_opening_after_closing_error": "Openingsdatum kan niet na de sluitingsdatum zijn",
+            "date_closing_before_opening_error": "Sluitingsdatum kan niet voor de openingsdatum zijn",
+            "date_opening_empty_error": "Openingsdatum kan niet leeg zijn",
+            "date_closing_empty_error": "Sluitingsdatum kan niet leeg zijn",
+            "date_dossier_opening_empty_error": "Openingsdatum mag niet leeg zijn voor dossiers",
+            "date_dossier_closing_empty_error": "Sluitingsdatum mag niet leeg zijn voor dossiers",
+            "date_dossier_opening_after_stuk_error": "De openingsdatum van het dossier kan niet later zijn dan de openingsdatum van een stuk",
+            "date_dossier_closing_before_stuk_error": "De sluitingsdatum van het dossier kan niet vroeger zijn dan de sluitingsdatum van een stuk"
+        },
+        "digital": {
+            "empty_dossier_warning": "Lege dossiers worden niet meegenomen in de SIP",
+            "empty_folder_warning": "Lege folders worden niet meegenomen in de SIP",
+            "empty_stuk_warning": "Lege stukken worden niet meegenomen in de SIP"
         }
     }
 }

@@ -71,6 +71,9 @@ class DigitalGridView(BaseWidget):
 
         self._update_series_label()
 
+        if self.sip.series:
+            self.table_model.validate_all()
+
         self.grid_layout.addWidget(self.series_label, 0, 0, 1, 4)
         self.grid_layout.addWidget(self.default_sorting_button, 0, 4, 1, 1)
         self.grid_layout.addWidget(self.name_extension_checkbox, 1, 0)
@@ -91,7 +94,14 @@ class DigitalGridView(BaseWidget):
         self.save_button.clicked.connect(self._save_button_clicked)
         self.create_sip_button.clicked.connect(self._create_sip_clicked)
         self.table_model.dataChanged.connect(self._data_changed)
-        self.sip.series_changed_signal.connect(self._update_series_label)
+        self.table_model.validation_finished_signal.connect(self._update_create_sip_button)
+        self.sip.series_changed_signal.connect(self._on_series_changed)
+
+    def _on_series_changed(self) -> None:
+        self._update_series_label()
+
+        if self.sip.series:
+            self.table_model.validate_all()
 
     def _update_series_label(self) -> None:
         if self.sip.series:
@@ -123,7 +133,9 @@ class DigitalGridView(BaseWidget):
 
     def _update_create_sip_button(self) -> None:
         self.create_sip_button.setEnabled(
-            not self.table_model.has_bad_rows and self.sip.series is not None
+            not self.table_model.has_bad_rows
+            and self.sip.series is not None
+            and not self.table_model.is_validating
         )
 
     def _data_changed(self) -> None:

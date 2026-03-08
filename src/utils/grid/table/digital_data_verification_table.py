@@ -1,5 +1,6 @@
 from src.utils.constants import ColumnName
 from src.utils.data_objects.sip import SIP
+from src.utils.grid.checks.digital.empty_row_check import mark_empty_rows
 from src.utils.grid.table.common import CommonDataVerificationTable
 
 
@@ -19,4 +20,4 @@ class DigitalDataVerificationTable(CommonDataVerificationTable):
             if col in self.raw_data.columns:
                 self.disable_column(col)
 
-        self.validate_all()
+        mark_empty_rows(self)

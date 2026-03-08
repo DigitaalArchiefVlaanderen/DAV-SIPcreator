@@ -59,7 +59,6 @@ class GridTableView(QtWidgets.QTableView, ApplicationMixin):
         QtWidgets.QApplication.clipboard().setText(copy_text)
 
     def cut_content(self, indexes: list[QtCore.QModelIndex]) -> None:
-        # NOTE: single cell
         if len(indexes) == 1:
             index = indexes[0]
 
@@ -67,7 +66,8 @@ class GridTableView(QtWidgets.QTableView, ApplicationMixin):
                 return
 
             QtWidgets.QApplication.clipboard().setText(self._quote_cell(index.data()))
-            self.model(proxy=True).setData(index, "", QtCore.Qt.ItemDataRole.EditRole)
+            self._apply_bulk_changes([(index, "")])
+
             return
 
         rows: dict[int, list[int]] = {}
@@ -82,18 +82,19 @@ class GridTableView(QtWidgets.QTableView, ApplicationMixin):
 
             for col in columns:
                 index = self.model(proxy=True).index(row, col)
-
-                # NOTE: non-editable cells are copied as empty strings
                 row_data.append(self._quote_cell(index.data()) if self._is_cell_editable(index) else "")
 
             cut_rows.append("\t".join(row_data))
 
-        # NOTE: Excel uses trailing newline
         QtWidgets.QApplication.clipboard().setText("\n".join(cut_rows) + "\n")
 
-        for index in indexes:
-            if self._is_cell_editable(index):
-                self.model(proxy=True).setData(index, "", QtCore.Qt.ItemDataRole.EditRole)
+        changes = [
+            (index, "")
+            for index in indexes
+            if self._is_cell_editable(index)
+        ]
+
+        self._apply_bulk_changes(changes)
 
     def paste_content(self, indexes: list[QtCore.QModelIndex]) -> None:
         clipboard_text = QtWidgets.QApplication.clipboard().text()
@@ -108,12 +109,15 @@ class GridTableView(QtWidgets.QTableView, ApplicationMixin):
             self._paste_value(self._unquote_cell(clipboard_text), indexes)
 
     def _paste_value(self, value: str, indexes: list[QtCore.QModelIndex]) -> None:
-        for index in indexes:
-            if self._is_cell_editable(index):
-                self.model(proxy=True).setData(index, value, QtCore.Qt.ItemDataRole.EditRole)
+        changes = [
+            (index, value)
+            for index in indexes
+            if self._is_cell_editable(index)
+        ]
+
+        self._apply_bulk_changes(changes)
 
     def _paste_grid(self, clipboard_text: str, indexes: list[QtCore.QModelIndex]) -> None:
-        # NOTE: strip trailing newline added by Excel, then parse with csv.reader for proper quote handling
         reader = csv.reader(io.StringIO(clipboard_text[:-1]), delimiter="\t")
         parsed_rows = list(reader)
 
@@ -121,10 +125,10 @@ class GridTableView(QtWidgets.QTableView, ApplicationMixin):
             return
 
         init_index = indexes[0]
+        proxy = self.model(proxy=True)
 
-        visible_rows = [r for r in range(self.model(proxy=True).rowCount()) if not self.isRowHidden(r)]
+        visible_rows = [r for r in range(proxy.rowCount()) if not self.isRowHidden(r)]
 
-        # Find the position of the selected row in visible rows
         try:
             init_visible_row = visible_rows.index(init_index.row())
         except ValueError:
@@ -132,23 +136,54 @@ class GridTableView(QtWidgets.QTableView, ApplicationMixin):
 
         usable_rows = visible_rows[init_visible_row:init_visible_row + len(parsed_rows)]
 
-        # Don't paste outside table boundaries
-        if init_index.column() + len(parsed_rows[0]) > self.model(proxy=True).columnCount():
+        if init_index.column() + len(parsed_rows[0]) > proxy.columnCount():
             return
 
         if len(usable_rows) != len(parsed_rows):
             return
 
+        changes: list[tuple[QtCore.QModelIndex, str]] = []
+
         for row, col_contents in zip(usable_rows, parsed_rows):
             for col_offset, col_content in enumerate(col_contents):
-                index = self.model(proxy=True).index(row, init_index.column() + col_offset)
+                index = proxy.index(row, init_index.column() + col_offset)
+
                 if self._is_cell_editable(index):
-                    self.model(proxy=True).setData(index, col_content, QtCore.Qt.ItemDataRole.EditRole)
+                    changes.append((index, col_content))
+
+        self._apply_bulk_changes(changes)
 
     def delete_content(self, indexes: list[QtCore.QModelIndex]) -> None:
-        for index in indexes:
-            if self._is_cell_editable(index):
-                self.model(proxy=True).setData(index, "", QtCore.Qt.ItemDataRole.EditRole)
+        changes = [
+            (index, "")
+            for index in indexes
+            if self._is_cell_editable(index)
+        ]
+
+        self._apply_bulk_changes(changes)
+
+    def _apply_bulk_changes(self, changes: list[tuple[QtCore.QModelIndex, str]]) -> None:
+        if not changes:
+            return
+
+        source_model = self.model()
+        proxy = self.model(proxy=True)
+
+        if isinstance(proxy, QtCore.QSortFilterProxyModel):
+            changes = [
+                (proxy.mapToSource(index), value)
+                for index, value in changes
+            ]
+
+        self.setUpdatesEnabled(False)
+
+        if hasattr(source_model, "set_bulk_data"):
+            source_model.set_bulk_data(changes)
+        else:
+            for index, value in changes:
+                source_model.setData(index, value, QtCore.Qt.ItemDataRole.EditRole)
+
+        self.setUpdatesEnabled(True)
 
     def keyPressEvent(self, event) -> None:
         indexes = self.selectedIndexes()
