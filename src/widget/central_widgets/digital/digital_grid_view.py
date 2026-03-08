@@ -185,7 +185,7 @@ class DigitalGridView(BaseWidget):
     def _create_sip_clicked(self) -> None:
         self._save_button_clicked()
 
-        if not FileController().create_sip(sip=self.sip):
+        if not FileController().create_sip(sip=self.sip, strip_name_extensions=self.table_model.should_filter_name_column):
             return
 
         self.sip.set_status(SIPStatus.SIP_CREATED)

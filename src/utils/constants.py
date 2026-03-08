@@ -54,6 +54,12 @@ class ColumnName(Enum):
     LEGACY_RANGE = "Legacy range"
     VERPAKKINGSTYPE = "Verpakkingstype"
 
+class RowType:
+    DOSSIER = "dossier"
+    STUK = "stuk"
+    GEEN = "geen"
+
+
 class BusinessRules:
     SIP_TITLE_MAX_LENGTH: int = 185
 

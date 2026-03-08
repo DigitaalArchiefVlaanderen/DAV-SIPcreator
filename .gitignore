@@ -5,8 +5,9 @@ __pycache__/
 # Virtual environment
 venv/
 
-# Example dossiers
+# Example dossiers and testing files
 examples/
+test/
 
 # configuration files
 configuration*.json

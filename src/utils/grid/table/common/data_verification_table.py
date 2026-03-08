@@ -1,6 +1,6 @@
 from PySide6 import QtCore
 
-from src.utils.constants import ColumnName
+from src.utils.constants import ColumnName, RowType
 from src.utils.data_objects.sip import SIP
 from src.utils.grid.checks import BaseCheck, CellRange, BulkResult, RRNCheck, NameCheck, DateCheck
 from src.utils.grid.checks.common.date_check import parse_date, _check_format, _check_series_range
@@ -46,7 +46,7 @@ class CommonDataVerificationTable(DataTable):
         return {
             row
             for row in range(cell_range.row_start, cell_range.row_end + 1)
-            if self.raw_data.iat[row, type_col] == "geen"
+            if self.raw_data.iat[row, type_col] == RowType.GEEN
         }
 
     def _run_bulk_validators(self, cell_range: CellRange) -> list[BulkResult]:
@@ -258,7 +258,7 @@ class CommonDataVerificationTable(DataTable):
         for row in date_rows:
             row_type = self.raw_data.iat[row, type_col]
 
-            if row_type != "stuk":
+            if row_type != RowType.STUK:
                 continue
 
             dossier_ref = self.raw_data.iat[row, dossier_ref_col]
@@ -269,7 +269,7 @@ class CommonDataVerificationTable(DataTable):
             processed_refs.add(dossier_ref)
 
             dossier_mask = (
-                (self.raw_data.iloc[:, type_col] == "dossier")
+                (self.raw_data.iloc[:, type_col] == RowType.DOSSIER)
                 & (self.raw_data.iloc[:, dossier_ref_col] == dossier_ref)
             )
             dossier_rows = self.raw_data.index[dossier_mask]
@@ -280,7 +280,7 @@ class CommonDataVerificationTable(DataTable):
             dossier_row_pos = self.raw_data.index.get_loc(dossier_rows[0])
 
             stuk_mask = (
-                (self.raw_data.iloc[:, type_col] == "stuk")
+                (self.raw_data.iloc[:, type_col] == RowType.STUK)
                 & (self.raw_data.iloc[:, dossier_ref_col] == dossier_ref)
             )
 
@@ -321,7 +321,7 @@ class CommonDataVerificationTable(DataTable):
         type_col = self.raw_data.columns.get_loc(ColumnName.TYPE.value)
         row_type = self.raw_data.iat[index.row(), type_col]
 
-        if row_type != "stuk":
+        if row_type != RowType.STUK:
             return
 
         dossier_ref_col = self.raw_data.columns.get_loc(ColumnName.DOSSIER_REF.value)
@@ -331,7 +331,7 @@ class CommonDataVerificationTable(DataTable):
         closing_col = self.raw_data.columns.get_loc(ColumnName.SLUITINGSDATUM.value)
 
         dossier_mask = (
-            (self.raw_data.iloc[:, type_col] == "dossier")
+            (self.raw_data.iloc[:, type_col] == RowType.DOSSIER)
             & (self.raw_data.iloc[:, dossier_ref_col] == dossier_ref)
         )
         dossier_rows = self.raw_data.index[dossier_mask]
@@ -342,7 +342,7 @@ class CommonDataVerificationTable(DataTable):
         dossier_row_pos = self.raw_data.index.get_loc(dossier_rows[0])
 
         stuk_mask = (
-            (self.raw_data.iloc[:, type_col] == "stuk")
+            (self.raw_data.iloc[:, type_col] == RowType.STUK)
             & (self.raw_data.iloc[:, dossier_ref_col] == dossier_ref)
         )
 

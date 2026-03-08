@@ -17,7 +17,7 @@ import pandas as pd
 
 from src.controller.excel_controller import ExcelController
 
-from src.utils.constants import FILE_REGEXES_TO_IGNORE
+from src.utils.constants import ColumnName, FILE_REGEXES_TO_IGNORE, RowType
 from src.utils.pyside_helper import Helper
 
 from src.widget.components.digital.dossier_widget import DossierWidget
@@ -79,13 +79,12 @@ class SIP(CommonSIP):
             (path_in_sip := self._map_file_location_to_sip_location(dossier_name)): {
                 "path": dossier.path,
 
-                "Path in SIP": path_in_sip,
-                "Type": "dossier",
-                "Naam": os.path.basename(path_in_sip),
-                "DossierRef": path_in_sip.split("/")[0],
-                # To be determined based on the files for this dossier
-                "Openingsdatum": None,
-                "Sluitingsdatum": None,
+                ColumnName.PATH_IN_SIP.value: path_in_sip,
+                ColumnName.TYPE.value: RowType.DOSSIER,
+                ColumnName.NAAM.value: os.path.basename(path_in_sip),
+                ColumnName.DOSSIER_REF.value: path_in_sip.split("/")[0],
+                ColumnName.OPENINGSDATUM.value: None,
+                ColumnName.SLUITINGSDATUM.value: None,
             }
         }
 
@@ -131,28 +130,27 @@ class SIP(CommonSIP):
                 (path_in_sip := self._map_file_location_to_sip_location(f'{dossier_name}/{relative_location}')): {
                     "path": (real_path := os.path.join(dossier.path, relative_location)),
 
-                    "Path in SIP": path_in_sip,
-                    "Type": (
-                        # Set specific bad-type to filter on later
-                        "geen"
+                    ColumnName.PATH_IN_SIP.value: path_in_sip,
+                    ColumnName.TYPE.value: (
+                        RowType.GEEN
                         if not os.path.isfile(real_path)
                         or os.path.getsize(real_path) == 0
                         or any(re.match(p, file_name) is not None for p in FILE_REGEXES_TO_IGNORE)
-                        else "stuk"
+                        else RowType.STUK
                     ),
-                    "Naam": os.path.basename(path_in_sip),
-                    "DossierRef": path_in_sip.split("/")[0],
+                    ColumnName.NAAM.value: os.path.basename(path_in_sip),
+                    ColumnName.DOSSIER_REF.value: path_in_sip.split("/")[0],
                     # Openingsdatum will be the creation dates of the file
                     # There is no cross-platform way of doing this sadly
                     # nt is Windows
-                    "Openingsdatum": (
+                    ColumnName.OPENINGSDATUM.value: (
                         os.path.getctime(real_path)
                         if os.name == "nt"
                         else os.stat(real_path).st_birthtime
                     ),
                     # Sluitingsdatum will be the last edited time of the file
                     # This works as a cross-platform way of getting modification time
-                    "Sluitingsdatum": os.path.getmtime(
+                    ColumnName.SLUITINGSDATUM.value: os.path.getmtime(
                         real_path
                     ),
                 }
@@ -170,8 +168,8 @@ class SIP(CommonSIP):
 
             dossier_key = next(iter(dossier_structure))
 
-            if not file_structure or all(f["Type"] == "geen" for f in file_structure.values()):
-                dossier_structure[dossier_key]["Type"] = "geen"
+            if not file_structure or all(f[ColumnName.TYPE.value] == RowType.GEEN for f in file_structure.values()):
+                dossier_structure[dossier_key][ColumnName.TYPE.value] = RowType.GEEN
 
             folder_structure = {
                 **folder_structure,
@@ -189,12 +187,12 @@ class SIP(CommonSIP):
         folder_structure = self._get_folder_structure()
 
         main_columns = (
-            "Path in SIP",
-            "Type",
-            "DossierRef",
-            "Naam",
-            "Openingsdatum",
-            "Sluitingsdatum"
+            ColumnName.PATH_IN_SIP.value,
+            ColumnName.TYPE.value,
+            ColumnName.DOSSIER_REF.value,
+            ColumnName.NAAM.value,
+            ColumnName.OPENINGSDATUM.value,
+            ColumnName.SLUITINGSDATUM.value,
         )
 
         for column in main_columns:
@@ -202,29 +200,34 @@ class SIP(CommonSIP):
                 s[column] for s in folder_structure.values()
             ]
         
-        open_dates_df = df.loc[df.Type == "dossier"][["DossierRef"]].join(
-            df.loc[df.Type == "stuk"]
-            .groupby(by="DossierRef")
-            .Openingsdatum.min()
+        type_col = ColumnName.TYPE.value
+        dossier_ref_col = ColumnName.DOSSIER_REF.value
+        opening_col = ColumnName.OPENINGSDATUM.value
+        closing_col = ColumnName.SLUITINGSDATUM.value
+
+        open_dates_df = df.loc[df[type_col] == RowType.DOSSIER][[dossier_ref_col]].join(
+            df.loc[df[type_col] == RowType.STUK]
+            .groupby(by=dossier_ref_col)[opening_col]
+            .min()
             .apply(lambda t: datetime.fromtimestamp(t).strftime("%Y-%m-%d")),
-            on="DossierRef",
+            on=dossier_ref_col,
             rsuffix="_r",
         )
-        close_dates_df = df.loc[df.Type == "dossier"][["DossierRef"]].join(
-            df.loc[df.Type == "stuk"]
-            .groupby(by="DossierRef")
-            .Sluitingsdatum.max()
+        close_dates_df = df.loc[df[type_col] == RowType.DOSSIER][[dossier_ref_col]].join(
+            df.loc[df[type_col] == RowType.STUK]
+            .groupby(by=dossier_ref_col)[closing_col]
+            .max()
             .apply(lambda t: datetime.fromtimestamp(t).strftime("%Y-%m-%d")),
-            on="DossierRef",
+            on=dossier_ref_col,
             rsuffix="_r",
         )
 
         # NOTE: we don't care about the lost values from files here
         # Windows tends to just do random things with it anyway, so it's likely no good
-        df.Openingsdatum = None
-        df.Sluitingsdatum = None
+        df[opening_col] = None
+        df[closing_col] = None
 
-        df.loc[df.Type == "dossier", "Openingsdatum"] = open_dates_df.Openingsdatum
-        df.loc[df.Type == "dossier", "Sluitingsdatum"] = close_dates_df.Sluitingsdatum
+        df.loc[df[type_col] == RowType.DOSSIER, opening_col] = open_dates_df[opening_col]
+        df.loc[df[type_col] == RowType.DOSSIER, closing_col] = close_dates_df[closing_col]
 
         self.grid_data.data_as_df = df.fillna("")

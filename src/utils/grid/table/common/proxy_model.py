@@ -2,7 +2,7 @@ from enum import Enum
 
 from PySide6 import QtCore
 
-from src.utils.constants import ColumnName
+from src.utils.constants import ColumnName, RowType
 from src.utils.grid.table.common.data_table import DataTable
 
 
@@ -45,7 +45,7 @@ class SortFilterProxyModel(QtCore.QSortFilterProxyModel):
                         return False
 
                 case TableFilter.DOSSIERS_ONLY:
-                    if model.raw_data.iloc[source_row][model.raw_data.columns.get_loc(ColumnName.TYPE.value)] != "dossier":
+                    if model.raw_data.iloc[source_row][model.raw_data.columns.get_loc(ColumnName.TYPE.value)] != RowType.DOSSIER:
                         return False
 
         return True

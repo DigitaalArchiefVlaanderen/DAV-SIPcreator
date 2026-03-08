@@ -1,4 +1,4 @@
-from src.utils.constants import ColumnName, UI_TEXT_ELEMENTS
+from src.utils.constants import ColumnName, RowType, UI_TEXT_ELEMENTS
 from src.utils.grid.table.common.data_table import DataTable
 
 UI_TEXT = UI_TEXT_ELEMENTS["grid_checks"]["digital"]
@@ -11,7 +11,7 @@ def mark_empty_rows(table: DataTable) -> None:
         return
 
     type_col = raw_data.columns.get_loc(ColumnName.TYPE.value)
-    empty_mask = raw_data.iloc[:, type_col] == "geen"
+    empty_mask = raw_data.iloc[:, type_col] == RowType.GEEN
     path_col_name = ColumnName.PATH_IN_SIP.value
     has_path = path_col_name in raw_data.columns
 

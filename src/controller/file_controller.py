@@ -9,7 +9,7 @@ from openpyxl import load_workbook
 
 from src.controller.api_controller import APIController
 from src.utils.base_object import BaseObject
-from src.utils.constants import ColumnName, UI_TEXT_ELEMENTS
+from src.utils.constants import ColumnName, RowType, UI_TEXT_ELEMENTS
 from src.utils.data_objects.digital.sip import SIP
 
 UI_TEXT = UI_TEXT_ELEMENTS["errors"]["sip"]
@@ -88,13 +88,18 @@ class FileController(BaseObject):
         return True
 
     @staticmethod
-    def _filter_df(df: pd.DataFrame) -> pd.DataFrame:
-        filtered = df.loc[df[ColumnName.TYPE.value] != "geen"].copy()
+    def _filter_df(df: pd.DataFrame, strip_name_extensions: bool = False) -> pd.DataFrame:
+        filtered = df.loc[df[ColumnName.TYPE.value] != RowType.GEEN].copy()
         filtered.reset_index(drop=True, inplace=True)
+
+        if strip_name_extensions and ColumnName.NAAM.value in filtered.columns:
+            filtered[ColumnName.NAAM.value] = filtered[ColumnName.NAAM.value].apply(
+                lambda v: v.rsplit(".", 1)[0] if v else v
+            )
 
         return filtered
 
-    def create_sip(self, sip: SIP) -> bool:
+    def create_sip(self, sip: SIP, strip_name_extensions: bool = False) -> bool:
         configuration = self.application.configuration
 
         storage_location = configuration.sips_location
@@ -115,10 +120,10 @@ class FileController(BaseObject):
         sip_folder_structure = sip._get_folder_structure()
         filtered_folder_structure = {
             k: v for k, v in sip_folder_structure.items()
-            if v[ColumnName.TYPE.value] != "geen"
+            if v[ColumnName.TYPE.value] != RowType.GEEN
         }
 
-        df = FileController._filter_df(sip.grid_data.data_as_df)
+        df = FileController._filter_df(sip.grid_data.data_as_df, strip_name_extensions)
 
         if not self._is_sip_folder_structure_valid(
             sip_folder_structure=filtered_folder_structure,
