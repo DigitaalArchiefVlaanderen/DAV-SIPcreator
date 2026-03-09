@@ -4,7 +4,7 @@ import json
 import os
 from typing import List
 
-from src.utils.constants import SaveLocations
+from src.utils.constants import SaveLocations, ConfigKey
 
 
 class ConfigurationVersion(Enum):
@@ -88,8 +88,8 @@ class Environment:
 
     def to_json(self) -> dict:
         return {
-            "API": self.get_api_info(),
-            "FTPS": self.get_ftps_info()
+            ConfigKey.API.value: self.get_api_info(),
+            ConfigKey.FTPS.value: self.get_ftps_info()
         }
 
     def get_serie_register_uri(self) -> str:
@@ -238,18 +238,21 @@ class Configuration:
                         bestandscontrole_lijst_location=v["Bestandscontrole lijst locatie"],
                     )
             else:
+                api = v[ConfigKey.API.value]
+                ftps = v[ConfigKey.FTPS.value]
+
                 environments.append(
                     Environment(
                         name=k,
-                        api_url=v["API"]["url"],
-                        api_username=v["API"]["username"],
-                        api_password=v["API"]["password"],
-                        api_client_id=v["API"]["client_id"],
-                        api_client_secret=v["API"]["client_secret"],
-                        ftps_url=v["FTPS"]["url"],
-                        ftps_username=v["FTPS"]["username"],
-                        ftps_password=v["FTPS"]["password"],
-                        ftps_port=v["FTPS"]["port"],
+                        api_url=api[ConfigKey.URL.value],
+                        api_username=api[ConfigKey.USERNAME.value],
+                        api_password=api[ConfigKey.PASSWORD.value],
+                        api_client_id=api[ConfigKey.CLIENT_ID.value],
+                        api_client_secret=api[ConfigKey.CLIENT_SECRET.value],
+                        ftps_url=ftps[ConfigKey.URL.value],
+                        ftps_username=ftps[ConfigKey.USERNAME.value],
+                        ftps_password=ftps[ConfigKey.PASSWORD.value],
+                        ftps_port=ftps[ConfigKey.PORT.value],
                     )
                 )
 

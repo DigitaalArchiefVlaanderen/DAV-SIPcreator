@@ -1,6 +1,8 @@
 """
 Implementation of the main application
 """
+import traceback
+
 import requests
 from typing import Callable
 
@@ -9,6 +11,7 @@ from PySide6 import QtWidgets, QtCore
 from src.controller.config_controller import ConfigController
 from src.controller.main_db_controller import MainDBController
 from src.controller.digital.sip_db_controller import DigitalSIPDBController
+from src.controller.migration.sip_db_controller import MigrationSIPDBController
 from src.controller.worker_controller import WorkerController
 from src.controller.window_controller import WindowController
 
@@ -19,13 +22,14 @@ from src.utils.data_objects.sip import SIP
 from src.utils.pyside_helper import Helper
 from src.utils.worker_user.series_retriever import SeriesRetriever
 from src.utils.worker_user.digital.sip_retriever import DigitalSIPRetriever
+from src.utils.worker_user.migration.migration_retriever import MigrationRetriever
 from src.utils.workers.worker import Worker
 
 from src.widget.dialog.warning_dialog import WarningDialog
 
 from src.window.base_window import Window
 
-from creator.application import BestandsControleLijstController
+from src.controller.migration.bestandscontrole_controller import BestandsControleController
 
 
 # NOTE: if you're wondering why this even exists
@@ -49,6 +53,7 @@ class Application(QtWidgets.QApplication):
     force_stop_series_retrieval_signal = QtCore.Signal(str, arguments=["environment_name"])
 
     digital_sip_loaded_signal = QtCore.Signal(object)
+    migration_sip_loaded_signal = QtCore.Signal(object)
 
     work_in_progress_signal = QtCore.Signal((Window, str), arguments=["window", "description"])
     work_ended_signal = QtCore.Signal(Window)
@@ -71,10 +76,13 @@ class Application(QtWidgets.QApplication):
 
         self.main_db_controller = MainDBController()
         self.digital_sip_db_controller = DigitalSIPDBController()
+        self.migration_sip_db_controller = MigrationSIPDBController()
         self.worker_controller = WorkerController()
         self.series_retriever = SeriesRetriever()
         self.digital_sip_retriever = DigitalSIPRetriever()
+        self.migration_sip_retriever = MigrationRetriever()
         self.window_controller = WindowController()
+        self.bestandscontrole_controller = BestandsControleController()
 
         self.sips: dict[type[SIP], dict[str, list[SIP]]] = {}
 
@@ -88,7 +96,7 @@ class Application(QtWidgets.QApplication):
         self.get_series()
         self.load_sips()
 
-        # self.reset_bestandscontrole_location()
+        QtCore.QTimer.singleShot(0, self.reset_bestandscontrole_location)
 
     # NOTE: some parts of the code need access to the dict, even if it's empty
     # shhhh don't tell anyone
@@ -108,8 +116,9 @@ class Application(QtWidgets.QApplication):
         self.series_updated_signal.emit()
 
     def setup_signals(self) -> None:
-        self.aboutToQuit.connect(self.configuration.save)
+        self.aboutToQuit.connect(lambda: self.configuration.save())
         self.aboutToQuit.connect(self.digital_sip_db_controller.persist_all_sips)
+        self.aboutToQuit.connect(self.migration_sip_db_controller.persist_all_sips)
         self.aboutToQuit.connect(self.worker_controller.close_controller)
 
         self.series_retriever.error_occurred_signal.connect(self.error_handler)
@@ -132,25 +141,25 @@ class Application(QtWidgets.QApplication):
         if window.IS_MAIN:
             self.series_updated_signal.connect(
                 lambda: window.statusbar.set_left_text(
-                    UI_TEXT_ELEMENTS["toolbar_info"]["series_retrieval_in_progress"]["left_text"].format(
-                        ti_env_name=TI_ENVIRONMENT_NAME,
-                        ti_amount_of_series=len(self.sneaky_series()[TI_ENVIRONMENT_NAME]),
-                        prod_env_name=PROD_ENVIRONMENT_NAME,
-                        prod_amount_of_series=len(self.sneaky_series()[PROD_ENVIRONMENT_NAME])
-                    )
+                    self._get_series_status_text()
                 )
             )
 
             self.series_retriever.finished_signal.connect(
                 lambda: window.statusbar.set_left_text(
-                    UI_TEXT_ELEMENTS["toolbar_info"]["series_retrieval_done"]["left_text"].format(
-                        ti_env_name=TI_ENVIRONMENT_NAME,
-                        ti_amount_of_series=len(self.sneaky_series()[TI_ENVIRONMENT_NAME]),
-                        prod_env_name=PROD_ENVIRONMENT_NAME,
-                        prod_amount_of_series=len(self.sneaky_series()[PROD_ENVIRONMENT_NAME])
-                    )
+                    self._get_series_status_text()
                 )
             )
+
+    def _get_series_status_text(self) -> str:
+        key = "series_retrieval_in_progress" if self.series_retrieval_busy else "series_retrieval_done"
+
+        return UI_TEXT_ELEMENTS["toolbar_info"][key]["left_text"].format(
+            ti_env_name=TI_ENVIRONMENT_NAME,
+            ti_amount_of_series=len(self.sneaky_series()[TI_ENVIRONMENT_NAME]),
+            prod_env_name=PROD_ENVIRONMENT_NAME,
+            prod_amount_of_series=len(self.sneaky_series()[PROD_ENVIRONMENT_NAME])
+        )
 
     def get_series(self) -> None:
         self.series_retriever.run(worker_controller=self.worker_controller)
@@ -159,6 +168,10 @@ class Application(QtWidgets.QApplication):
         self.digital_sip_retriever.digital_sip_loaded_signal.connect(self.digital_sip_loaded_signal.emit)
         self.digital_sip_retriever.error_occurred_signal.connect(self.error_handler)
         self.digital_sip_retriever.run()
+
+        self.migration_sip_retriever.migration_sip_loaded_signal.connect(self.migration_sip_loaded_signal.emit)
+        self.migration_sip_retriever.error_occurred_signal.connect(self.error_handler)
+        self.migration_sip_retriever.run()
 
     def add_sip(self, sip: SIP) -> None:
         sip.moveToThread(self.thread())
@@ -242,6 +255,7 @@ class Application(QtWidgets.QApplication):
         if title_and_text is None:
             title = UI_ERROR_TEXT["unexpected_error"]["title"]
             text = UI_ERROR_TEXT["unexpected_error"]["text"].format(exception_name=type(exception).__name__, exception=exception)
+            traceback.print_exception(type(exception), exception, exception.__traceback__)
         else:
             title = title_and_text["title"]
             text = title_and_text["text"]
@@ -267,8 +281,5 @@ class Application(QtWidgets.QApplication):
     def reset_bestandscontrole_location(self) -> None:
         controle_list_path = self.configuration.misc.bestandscontrole_lijst_location
 
-        if controle_list_path == self.bestands_controle_lijst_controller.controle_list_path:
-            return
-
-        self.bestands_controle_lijst_controller = BestandsControleLijstController(controle_list_path=controle_list_path)
+        self.bestandscontrole_controller.reset(controle_list_path)
 

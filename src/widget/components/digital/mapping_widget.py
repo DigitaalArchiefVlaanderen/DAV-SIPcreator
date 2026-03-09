@@ -1,5 +1,7 @@
 from PySide6 import QtWidgets, QtCore, QtGui
 
+from src.utils.constants import ColumnName
+
 
 class TagWidget(QtWidgets.QFrame):
     def __init__(self, button_group: QtWidgets.QButtonGroup, tag: str):
@@ -99,7 +101,7 @@ class TagMappingWidget(QtWidgets.QFrame):
     def add_to_import_template(self, tags: list):
         self.import_mapping.clear_tags()
         self.import_mapping.add_tags(
-            [t for t in tags if t not in ("Type", "DossierRef", "Analoog?")]
+            [t for t in tags if t not in (ColumnName.TYPE.value, ColumnName.DOSSIER_REF.value, ColumnName.ANALOOG.value)]
         )
 
     def add_to_mapping(self, tags: list):

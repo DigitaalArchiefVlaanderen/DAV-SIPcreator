@@ -59,6 +59,9 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
         marking = self._resolve_marking(index)
 
         if not marking:
+            if not self.editable and role == QtCore.Qt.ItemDataRole.BackgroundRole:
+                return CellColor.GREY.value
+
             return
 
         color, tooltip = marking

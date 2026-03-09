@@ -76,7 +76,7 @@ class DateCheck(BaseCheck):
         has_paired = paired_col_name in raw_data.columns
         has_type = ColumnName.TYPE.value in raw_data.columns
 
-        values = raw_data.iloc[row_list, col].astype(str)
+        values = raw_data.iloc[row_list, col].fillna("").astype(str)
         cell_tooltips = np.full(len(values), None, dtype=object)
         wide_tooltips = np.full(len(values), None, dtype=object)
 
@@ -111,7 +111,7 @@ class DateCheck(BaseCheck):
 
         if has_paired:
             paired_col = raw_data.columns.get_loc(paired_col_name)
-            paired_values = raw_data.iloc[row_list, paired_col].astype(str)
+            paired_values = raw_data.iloc[row_list, paired_col].fillna("").astype(str)
             paired_dates = pd.to_datetime(paired_values, format=DATE_FORMAT, errors="coerce")
             paired_non_empty = (paired_values != "").values
             paired_parsed_ok = paired_dates.notna().values
@@ -195,8 +195,8 @@ class DateCheck(BaseCheck):
         all_types = raw_data.iloc[:, type_col].astype(str)
         all_refs = raw_data.iloc[:, dossier_ref_col].astype(str)
 
-        all_openings_str = raw_data.iloc[:, opening_col].astype(str)
-        all_closings_str = raw_data.iloc[:, closing_col].astype(str)
+        all_openings_str = raw_data.iloc[:, opening_col].fillna("").astype(str)
+        all_closings_str = raw_data.iloc[:, closing_col].fillna("").astype(str)
         all_openings = pd.to_datetime(all_openings_str, format=DATE_FORMAT, errors="coerce")
         all_closings = pd.to_datetime(all_closings_str, format=DATE_FORMAT, errors="coerce")
 

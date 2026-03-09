@@ -46,17 +46,10 @@ class ConfigurationWidget(BaseWidget):
         original_configuration = self.application.configuration
         new_configuration = self.new_configuration
 
-        if original_configuration.active_type != new_configuration.active_type:
-            self.application.application_type_changed_signal.emit()
-
-        if original_configuration.active_role != new_configuration.active_role:
-            self.application.application_role_changed_signal.emit()
-
-        if original_configuration.active_environment_name != new_configuration.active_environment_name:
-            self.application.application_environment_changed_signal.emit()
-
-        if original_configuration.misc.bestandscontrole_lijst_location != new_configuration.misc.bestandscontrole_lijst_location:
-            self.application.reset_bestandscontrole_location()
+        type_changed = original_configuration.active_type != new_configuration.active_type
+        role_changed = original_configuration.active_role != new_configuration.active_role
+        environment_changed = original_configuration.active_environment_name != new_configuration.active_environment_name
+        bestandscontrole_changed = original_configuration.misc.bestandscontrole_lijst_location != new_configuration.misc.bestandscontrole_lijst_location
 
         for env_name in (e.name for e in original_configuration.environments):
             original_env = original_configuration.get_environment(env_name)
@@ -67,13 +60,24 @@ class ConfigurationWidget(BaseWidget):
 
             if original_env.get_api_info() != new_env.get_api_info():
                 self.application.force_stop_series_retrieval_signal.emit(env_name)
-
                 self.application.clear_series(environment_name=env_name)
 
         self.application.configuration = new_configuration
         self.application.get_series()
 
         self.application.series_updated_signal.emit()
+
+        if type_changed:
+            self.application.application_type_changed_signal.emit()
+
+        if role_changed:
+            self.application.application_role_changed_signal.emit()
+
+        if environment_changed:
+            self.application.application_environment_changed_signal.emit()
+
+        if bestandscontrole_changed:
+            self.application.reset_bestandscontrole_location()
 
     def save_button_clicked_handler(self) -> None:
         self.save()

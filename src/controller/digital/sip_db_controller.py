@@ -6,7 +6,7 @@ import pandas as pd
 import sqlite3 as sql
 
 from src.utils.base_object import BaseObject
-from src.utils.constants import UI_TEXT_ELEMENTS, SIP_CREATOR_VERSION
+from src.utils.constants import UI_TEXT_ELEMENTS, SIP_CREATOR_VERSION, DBTableName, APIResponseKey, DB_FILE_EXTENSION
 from src.utils.data_objects.sip import SIP
 from src.utils.data_objects.digital.sip import SIP as DigitalSIP
 from src.utils.data_objects.sip_status import SIPStatus
@@ -45,7 +45,7 @@ class DigitalSIPDBController(BaseObject):
         finally:
             conn.close()
 
-    def create_sip_db(self, sip: SIP, series_id: str = None, series_name: str = None) -> None:
+    def create_sip_db(self, sip: SIP, series_id: str = None, series_name: str = None, transformed: str = "") -> None:
         if os.path.exists((db_path := os.path.join(self.application.configuration.sip_db_location, sip.db_name))):
             self.application.notify_user_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_already_exists_error"]["title"],
@@ -74,8 +74,8 @@ class DigitalSIPDBController(BaseObject):
             return
 
         def _create(conn: sql.Connection) -> None:
-            conn.execute("""
-                CREATE TABLE sip (
+            conn.execute(f"""
+                CREATE TABLE {DBTableName.SIP} (
                     name text,
                     status text,
                     environment_name text,
@@ -87,8 +87,8 @@ class DigitalSIPDBController(BaseObject):
                     folder_mapping text
                 )
             """)
-            conn.execute("""
-                INSERT INTO sip (name, status, environment_name, series_id, series_name, edepot_sip_id, dossiers_list, tag_mapping, folder_mapping)
+            conn.execute(f"""
+                INSERT INTO {DBTableName.SIP} (name, status, environment_name, series_id, series_name, edepot_sip_id, dossiers_list, tag_mapping, folder_mapping)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 sip.name,
@@ -105,16 +105,17 @@ class DigitalSIPDBController(BaseObject):
             conn.execute(
                 """
                     CREATE TABLE sip_creator (
-                        version text
+                        version text,
+                        transformed text
                     )
                 """
             )
             conn.execute(
-                "INSERT INTO sip_creator (version) VALUES (?)",
-                (SIP_CREATOR_VERSION,)
+                "INSERT INTO sip_creator (version, transformed) VALUES (?, ?)",
+                (SIP_CREATOR_VERSION, transformed)
             )
 
-            sip.grid_data.data_as_df.to_sql("data", conn, index=False, dtype="text")
+            sip.grid_data.data_as_df.to_sql(DBTableName.DATA.value, conn, index=False, dtype="text")
 
         self._execute_with_conn(sip.db_name, _create)
 
@@ -129,8 +130,6 @@ class DigitalSIPDBController(BaseObject):
 
             sip = DigitalSIP()
             sip.set_name(name)
-            if sip_db_file_name.startswith("new_"):
-                sip.mark_as_transitioned()
             sip.set_status(SIPStatus[status])
             sip.environment = self.application.configuration.get_environment(environment_name)
 
@@ -169,12 +168,12 @@ class DigitalSIPDBController(BaseObject):
 
     def save_data(self, sip: SIP) -> None:
         self._execute_with_conn(sip.db_name, lambda conn:
-            sip.grid_data.data_as_df.to_sql("data", conn, if_exists="replace", index=False, dtype="text")
+            sip.grid_data.data_as_df.to_sql(DBTableName.DATA.value, conn, if_exists="replace", index=False, dtype="text")
         )
 
     def read_sip_data(self, sip_db_file_name: str) -> pd.DataFrame:
         return self._execute_with_conn(sip_db_file_name, lambda conn:
-            pd.read_sql("select * from data", conn, dtype=str).fillna("")
+            pd.read_sql(f"SELECT * FROM {DBTableName.DATA.value}", conn, dtype=str).fillna("")
         )
 
     def g_read_all_sip_dbs(self) -> Iterable[tuple[SIP, str, str]]:
@@ -186,11 +185,19 @@ class DigitalSIPDBController(BaseObject):
             self.transition_all_old_dbs()
 
         for file in os.listdir(self.application.configuration.sip_db_location):
+            if file.startswith("new_"):
+                new_name = file[4:]
+                new_path = os.path.join(self.application.configuration.sip_db_location, new_name)
+
+                if not os.path.exists(new_path):
+                    os.rename(
+                        os.path.join(self.application.configuration.sip_db_location, file),
+                        new_path
+                    )
+                    file = new_name
+
             is_valid = self.is_valid_db(file)
 
-            # NOTE: this means it's an old db that is already transitioned
-            # The user simply left the old db file in place, but we are going to ignore it
-            # The amount of code that needs to be written for user error is getting to me :)
             if is_valid is None:
                 continue
 
@@ -198,7 +205,7 @@ class DigitalSIPDBController(BaseObject):
                 self.application.notify_user_signal.emit(
                     UI_TEXT_ELEMENTS["errors"]["sip"]["invalid_database_error"]["title"],
                     UI_TEXT_ELEMENTS["errors"]["sip"]["invalid_database_error"]["text"].format(
-                        db_path=os.path.join(self.application.configuration.old_sip_db_location, file)
+                        db_path=os.path.join(self.application.configuration.sip_db_location, file)
                     )
                 )
                 continue
@@ -209,11 +216,53 @@ class DigitalSIPDBController(BaseObject):
     def db_exists(self, sip_db_file_name: str) -> bool:
         return os.path.exists(os.path.join(self.application.configuration.sip_db_location, sip_db_file_name))
 
+    def get_db_version_info(self, sip_db_file_name: str) -> tuple[str, str] | None:
+        def _read(conn: sql.Connection) -> tuple[str, str] | None:
+            db_tables = [r for r, *_ in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
+
+            if DBTableName.SIP_CREATOR.value not in db_tables:
+                return None
+
+            columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip_creator);").fetchall()]
+
+            row = conn.execute("SELECT * FROM sip_creator").fetchone()
+
+            if row is None:
+                return None
+
+            version = row[0] if "version" in columns else ""
+            transformed = row[columns.index("transformed")] if "transformed" in columns else ""
+
+            return version, transformed
+
+        try:
+            return self._execute_with_conn(sip_db_file_name, _read)
+        except Exception:
+            return None
+
+    def _needs_transformation(self, sip_db_file_name: str) -> bool:
+        version_info = self.get_db_version_info(sip_db_file_name)
+
+        if version_info is None:
+            return False
+
+        version, _ = version_info
+
+        if not version:
+            return False
+
+        try:
+            major_minor = float(version.split(".")[0] + "." + version.split(".")[1])
+
+            return major_minor < 3.0
+        except (ValueError, IndexError):
+            return False
+
     def is_valid_db(self, sip_db_file_name: str) -> bool|None:
         if not self.db_exists(sip_db_file_name=sip_db_file_name):
             return False
 
-        if not sip_db_file_name.endswith(".db"):
+        if not sip_db_file_name.endswith(DB_FILE_EXTENSION):
             return False
 
         try:
@@ -225,15 +274,13 @@ class DigitalSIPDBController(BaseObject):
         def _validate(conn: sql.Connection) -> bool | None:
             db_tables = [r for r, *_ in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
 
-            if "SIP" in db_tables and self.old_sip_db_controller.is_valid_db(sip_db_file_name):
-                new_sip_db_file_name, *_ = self.transition_old_db(sip_db_file_name)
+            if DBTableName.SIP.value.upper() in db_tables:
+                return None
 
-                return self.is_valid_db(new_sip_db_file_name)
-
-            if "data" not in db_tables:
+            if DBTableName.DATA.value not in db_tables:
                 return False
 
-            if "sip" not in db_tables:
+            if DBTableName.SIP.value not in db_tables:
                 return False
 
             columns = {
@@ -263,15 +310,19 @@ class DigitalSIPDBController(BaseObject):
 
         return self._execute_with_conn(sip_db_file_name, _validate)
 
-    def transition_old_db(self, old_db_file_name: str) -> tuple[str]|None:
+    def transition_old_db(self, old_db_file_name: str) -> str | None:
         sip, series_id, series_name = self.old_sip_db_controller.read_sip_db(old_db_file_name)
 
-        sip.mark_as_transitioned()
+        new_db_path = os.path.join(self.application.configuration.sip_db_location, sip.db_name)
 
-        if os.path.exists(os.path.join(self.application.configuration.sip_db_location, sip.db_name)):
-            return
+        if os.path.exists(new_db_path):
+            return None
 
-        self.create_sip_db(sip=sip, series_id=series_id, series_name=series_name)
+        old_db_path = os.path.join(self.application.configuration.old_sip_db_location, old_db_file_name)
+        renamed_old_path = os.path.join(self.application.configuration.old_sip_db_location, f"old_{old_db_file_name}")
+        os.rename(old_db_path, renamed_old_path)
+
+        self.create_sip_db(sip=sip, series_id=series_id, series_name=series_name, transformed="unknown")
 
         return sip.db_name
 
@@ -327,7 +378,7 @@ class OldDigitalSIPDBController(BaseObject):
         if not os.path.exists(os.path.join(self.application.configuration.old_sip_db_location, sip_db_file_name)):
             return False
 
-        if not sip_db_file_name.endswith(".db"):
+        if not sip_db_file_name.endswith(DB_FILE_EXTENSION):
             return False
 
         try:
@@ -396,7 +447,7 @@ class OldDigitalSIPDBController(BaseObject):
 
             sip.data = data
 
-            return sip, json.loads(series_json)["Id"], json.loads(series_json)["Content"]["Name"]
+            return sip, json.loads(series_json)[APIResponseKey.ID.value], json.loads(series_json)[APIResponseKey.CONTENT.value][APIResponseKey.NAME.value]
 
         return self._execute_with_conn(sip_db_file_name, _read)
 
@@ -405,6 +456,9 @@ class OldDigitalSIPDBController(BaseObject):
         Generates all the old sip dbs
         """
         for file in os.listdir(self.application.configuration.old_sip_db_location):
+            if file.startswith("old_"):
+                continue
+
             if not self.is_valid_db(file):
                 self.application.notify_user_signal.emit(
                     UI_TEXT_ELEMENTS["errors"]["sip"]["invalid_database_error"]["title"],

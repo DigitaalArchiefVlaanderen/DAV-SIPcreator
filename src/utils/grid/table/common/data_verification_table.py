@@ -4,7 +4,7 @@ from src.utils.constants import ColumnName, RowType
 from src.utils.data_objects.sip import SIP
 from src.utils.grid.checks import BaseCheck, CellRange, BulkResult, RRNCheck, NameCheck, DateCheck
 from src.utils.grid.checks.common.date_check import parse_date, _check_format, _check_series_range
-from src.utils.grid.table.common.data_table import DataTable, MarkingSource
+from src.utils.grid.table.common.data_table import CellColor, DataTable, MarkingSource
 from src.utils.workers.worker import Worker
 
 DATE_COLUMNS = {ColumnName.OPENINGSDATUM.value, ColumnName.SLUITINGSDATUM.value}
@@ -65,7 +65,10 @@ class CommonDataVerificationTable(DataTable):
 
         return results
 
-    def _apply_bulk_results(self, results: list[BulkResult]) -> None:
+    def _apply_bulk_results(self, results: list[BulkResult], cell_range: CellRange | None = None) -> None:
+        if cell_range:
+            self._clear_validator_markings(cell_range)
+
         min_row = float("inf")
         max_row = 0
         min_col = float("inf")
@@ -74,9 +77,6 @@ class CommonDataVerificationTable(DataTable):
         for row, col, value, cell_tooltip, wide_tooltip in results:
             self.raw_data.iat[row, col] = value
             index = self.index(row, col)
-
-            self.unmark_cell(index, MarkingSource.CELL)
-            self.unmark_cell(index, MarkingSource.WIDE)
 
             if cell_tooltip:
                 self.mark_cell(index, source=MarkingSource.CELL, tooltip=cell_tooltip)
@@ -89,11 +89,36 @@ class CommonDataVerificationTable(DataTable):
             min_col = min(min_col, col)
             max_col = max(max_col, col)
 
-        if results:
+        if cell_range:
+            min_row = min(min_row, cell_range.row_start) if results else cell_range.row_start
+            max_row = max(max_row, cell_range.row_end) if results else cell_range.row_end
+            min_col = 0
+            max_col = self.raw_data.shape[1] - 1
+
+        if min_row <= max_row:
             self.dataChanged.emit(
                 self.index(min_row, min_col),
                 self.index(max_row, max_col),
             )
+
+    def _clear_validator_markings(self, cell_range: CellRange) -> None:
+        keys_to_remove = []
+
+        for row in range(cell_range.row_start, cell_range.row_end + 1):
+            row_idx = self.raw_data.index[row]
+
+            for col in range(self.raw_data.shape[1]):
+                key_cell = (row_idx, col, MarkingSource.CELL)
+                key_wide = (row_idx, col, MarkingSource.WIDE)
+
+                if key_cell in self.markings and self.markings[key_cell][0] != CellColor.GREY:
+                    keys_to_remove.append(key_cell)
+
+                if key_wide in self.markings:
+                    keys_to_remove.append(key_wide)
+
+        for key in keys_to_remove:
+            del self.markings[key]
 
     def validate_all(self) -> None:
         if not self.raw_data.shape[0]:
@@ -117,7 +142,9 @@ class CommonDataVerificationTable(DataTable):
         self._active_workers.append((worker, thread))
 
         thread.started.connect(worker.run)
-        worker.result_ready_signal.connect(self._apply_bulk_results)
+        worker.result_ready_signal.connect(
+            lambda results: self._apply_bulk_results(results, cell_range)
+        )
 
         worker.finished_signal.connect(thread.quit)
         worker.finished_signal.connect(thread.deleteLater)
@@ -214,7 +241,9 @@ class CommonDataVerificationTable(DataTable):
         self._active_workers.append((worker, thread))
 
         thread.started.connect(worker.run)
-        worker.result_ready_signal.connect(self._apply_validation_and_auto_updates)
+        worker.result_ready_signal.connect(
+            lambda result: self._apply_validation_and_auto_updates(result, cell_range)
+        )
 
         worker.finished_signal.connect(thread.quit)
         worker.finished_signal.connect(thread.deleteLater)
@@ -222,10 +251,10 @@ class CommonDataVerificationTable(DataTable):
 
         thread.start()
 
-    def _apply_validation_and_auto_updates(self, result: tuple) -> None:
+    def _apply_validation_and_auto_updates(self, result: tuple, cell_range: CellRange | None = None) -> None:
         results, auto_updates = result
 
-        self._apply_bulk_results(results)
+        self._apply_bulk_results(results, cell_range)
 
         for dossier_row_pos, col, value in auto_updates:
             self.setData(self.index(dossier_row_pos, col), value)

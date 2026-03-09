@@ -5,17 +5,35 @@ import os
 import time
 from typing import Any
 
-from PySide6 import QtCore
+from PySide6 import QtCore, QtWidgets
 
 from src.utils.base_object import BaseObject
 from src.utils.constants import BASE_SIP_NAME, UI_TEXT_ELEMENTS
 
 
+def set_widget_warning_style(widget: QtWidgets.QWidget, tooltip: str = "") -> None:
+    font = widget.font()
+    font.setBold(True)
+    widget.setFont(font)
+    widget.setStyleSheet("color: red;")
+    widget.setToolTip(tooltip)
+
+
+def clear_widget_warning_style(widget: QtWidgets.QWidget) -> None:
+    font = widget.font()
+    font.setBold(False)
+    widget.setFont(font)
+    widget.setStyleSheet("")
+    widget.setToolTip("")
+
+
 class Helper(BaseObject):
     def __get_all_sip_names(self) -> list[str]:
         for _, _, files in os.walk(self.application.configuration.sip_db_location):
-            return files
-    
+            return [os.path.splitext(f)[0] for f in files]
+
+        return []
+
     def get_next_sip_name(self) -> str:
         next_sip_number = 1
         all_sip_names = self.__get_all_sip_names()

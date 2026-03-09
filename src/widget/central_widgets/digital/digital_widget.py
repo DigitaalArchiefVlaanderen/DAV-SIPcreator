@@ -43,8 +43,9 @@ class DigitalWidget(CentralWidget):
         self.add_dossier_button = AddDossierButton()
         self.add_dossiers_button = AddDossiersButton()
         self.start_sip_button = StartSIPButton()
-        self.sip_zips_locatie_button = QtWidgets.QPushButton(text=self.UI_TEXT["controls"]["sip_zips_locatie_button_text"])
-        self.sip_databases_locatie_button = QtWidgets.QPushButton(text=self.UI_TEXT["controls"]["sip_databases_locatie_button_text"])
+        common_controls = UI_TEXT_ELEMENTS["common"]["controls"]
+        self.sip_zips_locatie_button = QtWidgets.QPushButton(text=common_controls["sip_zips_locatie_button_text"])
+        self.sip_databases_locatie_button = QtWidgets.QPushButton(text=common_controls["sip_databases_locatie_button_text"])
 
         # Lists
         self.dossier_list_widget = SearchableListWidgetWithSelection(search_field="label_text")
@@ -116,7 +117,7 @@ class DigitalWidget(CentralWidget):
         self.sip_list_widget.add_widgets([listitem])
 
     def environment_changed_handler(self) -> None:
-        self.sip_list_widget.clear_widgets()
+        self.sip_list_widget.clear_widgets(delete=True)
 
         for sip in self.application.get_sips(SIP):
             listitem = SipListitemWidget(parent_window=self.parent_window, sip=sip)

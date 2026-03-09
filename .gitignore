@@ -6,7 +6,7 @@ __pycache__/
 venv/
 
 # Example dossiers and testing files
-examples/
+*examples/
 test/
 
 # configuration files

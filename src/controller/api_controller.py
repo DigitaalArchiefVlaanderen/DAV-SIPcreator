@@ -4,7 +4,8 @@ import json
 
 import requests
 
-from src.utils.data_objects.series import Series
+from src.utils.constants import APIResponseKey
+from src.utils.data_objects.series import Series, SeriesStatus
 from src.utils.data_objects.sip import SIP
 from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.data_objects.configuration import Configuration, Environment
@@ -79,8 +80,8 @@ class APIController:
         ).json()
 
         for group in response["Groups"]:
-            if group["Type"] == "Organisation":
-                return group["Id"]
+            if group[APIResponseKey.TYPE.value] == APIResponseKey.ORGANISATION.value:
+                return group[APIResponseKey.ID.value]
 
     @staticmethod
     def _get_organisation_id(access_token: str, environment: Environment) -> str:
@@ -98,7 +99,7 @@ class APIController:
             headers=headers,
         ).json()
 
-        return response["Organisation"]["Id"]
+        return response[APIResponseKey.ORGANISATION.value][APIResponseKey.ID.value]
 
     @staticmethod
     def get_series(environment: Environment, search: str=None) -> Iterable[list[Series]]:
@@ -121,7 +122,7 @@ class APIController:
         params = {
             "size": 100,
             "page": 0,
-            "status": "Published",
+            "status": SeriesStatus.PUBLISHED.value,
             "q": f"+OrganisationId:{organisation_id}"
         }
 
@@ -136,7 +137,7 @@ class APIController:
                 params=params,
             ).json()
 
-            yield Series.from_list(response["Content"])
+            yield Series.from_list(response[APIResponseKey.CONTENT.value])
 
             if (response["Page"] + 1) * params["size"] >= response["Total"]:
                 break
@@ -210,7 +211,7 @@ class APIController:
                 warn=False,
             ).json()
 
-            sip_objects = response["Content"]
+            sip_objects = response[APIResponseKey.CONTENT.value]
 
             for sip_object in sip_objects:
                 if sip_object["OriginalFilename"] == sip.file_name:
@@ -250,7 +251,7 @@ class APIController:
                 warn=False,
             ).json()
 
-            sip_objects = response["Content"]
+            sip_objects = response[APIResponseKey.CONTENT.value]
 
             # NOTE: we just have to assume the sip name will be unique, since the API is not supporting searching by name/time
             for sip_object in sip_objects:

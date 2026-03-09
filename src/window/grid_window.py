@@ -21,6 +21,7 @@ class GridWindow(Window):
         self.resize(1200, 800)
 
         self.sip.name_changed_signal.connect(lambda: self.setWindowTitle(self.sip.name))
+        self.application.application_environment_changed_signal.connect(self.close)
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         grid_view = self.centralWidget()

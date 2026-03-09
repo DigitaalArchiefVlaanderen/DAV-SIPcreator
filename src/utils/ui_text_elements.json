@@ -72,6 +72,12 @@
             }
         }
     },
+    "common": {
+        "controls": {
+            "sip_zips_locatie_button_text": "SIP zips locatie",
+            "sip_databases_locatie_button_text": "SIP databases locatie"
+        }
+    },
     "migration": {
         "main": {
             "title": "Overdrachtslijsten",
@@ -79,8 +85,78 @@
                 "import_overdrachtslijst_button": {
                     "button_text": "Importeer overdrachtslijst",
                     "dialog_message": "Selecteer overdrachtslijst om te importeren"
-                },
-                "bestandslocatie_button_text": "Bestandslocatie"
+                }
+            }
+        },
+        "main_tab": {
+            "assign_button_text": "Wijs toe aan serie",
+            "unassigned_only_checkbox_text": "Toon enkel niet-toegewezen rijen",
+            "no_selection": {
+                "title": "Geen selectie",
+                "text": "Selecteer eerst rijen om toe te wijzen aan een serie."
+            },
+            "no_series": {
+                "title": "Geen serie",
+                "text": "Selecteer eerst een serie om rijen aan toe te wijzen."
+            },
+            "save_button_text": "Opslaan",
+            "create_sip_button_text": "Maak SIP",
+            "save_success": {
+                "title": "Opgeslagen",
+                "text": "De hoofdtabel is succesvol opgeslagen."
+            },
+            "create_sip_success": {
+                "title": "SIP aangemaakt",
+                "text": "De SIP is aangemaakt."
+            },
+            "series_not_linked_tooltip": "Een serie moet nog gelinkt worden",
+            "series_uri_unknown_tooltip": "De gegeven URI is niet teruggevonden onder de huidige connectie",
+            "series_name_missing_tooltip": "Serie ophalen is misgelopen"
+        },
+        "tab_window": {
+            "main_tab_title": "Overdrachtslijst",
+            "unsaved_changes_dialog": {
+                "title": "Opslaan",
+                "text": "Gemaakte wijzigingen opslaan?"
+            },
+            "save_all_success": {
+                "title": "Opgeslagen",
+                "text": "Alle tabbladen zijn succesvol opgeslagen."
+            },
+            "assign_loading_tooltip": "Serie wordt gekoppeld, importsjabloon wordt opgehaald...",
+            "assign_error": {
+                "title": "Fout bij koppelen",
+                "text": "Er is een fout opgetreden bij het koppelen van rijen aan de serie."
+            },
+            "row_limit_error": {
+                "title": "Te veel rijen",
+                "text": "Het maximaal aantal rijen per serie is {max_rows}. Na toewijzing zou de serie {total_rows} rijen bevatten."
+            },
+            "tab_loading_text": "Laden..."
+        },
+        "grid": {
+            "default_sorting_button_text": "Reset sortering",
+            "bad_rows_checkbox_text": "Toon enkel rijen met fouten",
+            "add_column_button_text": "Voeg kolom toe",
+            "duplicate_location_columns_button_text": "Dupliceer locatie kolommen",
+            "save_button_text": "Opslaan",
+            "create_sip_button_text": "Maak SIP",
+            "save_success": {
+                "title": "Opgeslagen",
+                "text": "De metadata is succesvol opgeslagen."
+            },
+            "create_sip_success": {
+                "title": "SIP aangemaakt",
+                "text": "De SIP is aangemaakt."
+            },
+            "load_bestandscontrole_button_text": "Laad bestandscontrole lijst",
+            "bestandscontrole_invalid": {
+                "title": "Bestandscontrole lijst is niet geldig",
+                "text": "De bestandscontrole lijst is niet geldig, bekijk of het pad juist staat, en/of het bestand in orde is."
+            },
+            "bestandscontrole_slow_warning": {
+                "title": "Trage actie",
+                "text": "Omdat er veel rijen moeten veranderen kan de actie tot enkele minuten duren."
             }
         }
     },
@@ -105,9 +181,7 @@
                         "title": "Te veel bestanden",
                         "text": "Er zijn te veel bestanden in de geselecteerde dossiers.\n\nMaximum: 9999\n\nAantal gevonden: {amount_of_files}"
                     }
-                },
-                "sip_zips_locatie_button_text": "SIP zips locatie",
-                "sip_databases_locatie_button_text": "SIP databases locatie"
+                }
             },
             "dossier_list": {
                 "select_all": "Selecteer alle dossiers",
@@ -138,7 +212,6 @@
             "add_column_button_text": "Voeg kolom toe",
             "save_button_text": "Opslaan",
             "create_sip_button_text": "Maak SIP",
-            "series_not_found_tooltip": "De serie is niet gevonden in de huidige configuratie, mogelijks is deze nog aan het inladen",
             "save_success": {
                 "title": "Opgeslagen",
                 "text": "De metadata is succesvol opgeslagen."
@@ -279,6 +352,9 @@
             "import_template_retrieval_text": "Bezig met importsjabloon ophalen",
             "adding_dossiers_text": "Bezig met dossiers toe te voegen",
             "upload_right_text": "SIP uploaden..."
+        },
+        "migration": {
+            "startup_loading_items_text": "Overdrachtslijsten aan het inladen"
         }
     },
     "grid_checks": {
@@ -301,12 +377,18 @@
             "date_dossier_opening_empty_error": "Openingsdatum mag niet leeg zijn voor dossiers",
             "date_dossier_closing_empty_error": "Sluitingsdatum mag niet leeg zijn voor dossiers",
             "date_dossier_opening_after_stuk_error": "De openingsdatum van het dossier kan niet later zijn dan de openingsdatum van een stuk",
-            "date_dossier_closing_before_stuk_error": "De sluitingsdatum van het dossier kan niet vroeger zijn dan de sluitingsdatum van een stuk"
+            "date_dossier_closing_before_stuk_error": "De sluitingsdatum van het dossier kan niet vroeger zijn dan de sluitingsdatum van een stuk",
+
+            "series_not_found_tooltip": "De serie is niet gevonden in de huidige configuratie, mogelijks is deze nog aan het inladen"
         },
         "digital": {
             "empty_dossier_warning": "Lege dossiers worden niet meegenomen in de SIP",
             "empty_folder_warning": "Lege folders worden niet meegenomen in de SIP",
             "empty_stuk_warning": "Lege stukken worden niet meegenomen in de SIP"
+        },
+        "migration": {
+            "location_group_incomplete": "Alle locatie kolommen in een groep moeten ingevuld zijn",
+            "path_in_sip_slash_error": "Path in SIP mag geen '/' bevatten"
         }
     }
 }

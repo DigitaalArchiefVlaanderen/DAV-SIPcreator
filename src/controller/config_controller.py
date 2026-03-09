@@ -2,7 +2,7 @@ import os
 import json
 
 from src.utils.data_objects.configuration import Configuration, ConfigurationVersion
-from src.utils.constants import CONFIGURATION_PATH
+from src.utils.constants import CONFIGURATION_PATH, ConfigKey
 from src.utils.path import is_path_exists_or_creatable
 
 class ConfigController:
@@ -65,26 +65,25 @@ class ConfigController:
                 continue
 
             # NOTE: connection details need both API and FTPS for their environment
-            if not "API" in values or not "FTPS" in values:
+            if ConfigKey.API.value not in values or ConfigKey.FTPS.value not in values:
                 return False
 
-            # NOTE: make sure the right fields are present
             if any(
-                argument not in values["API"]
+                argument not in values[ConfigKey.API.value]
                 for argument in (
-                    "url",
-                    "username",
-                    "password",
-                    "client_id",
-                    "client_secret",
+                    ConfigKey.URL.value,
+                    ConfigKey.USERNAME.value,
+                    ConfigKey.PASSWORD.value,
+                    ConfigKey.CLIENT_ID.value,
+                    ConfigKey.CLIENT_SECRET.value,
                 )
             ) or any(
-                argument not in values["FTPS"]
+                argument not in values[ConfigKey.FTPS.value]
                 for argument in (
-                    "url",
-                    "username",
-                    "password",
-                    "port",
+                    ConfigKey.URL.value,
+                    ConfigKey.USERNAME.value,
+                    ConfigKey.PASSWORD.value,
+                    ConfigKey.PORT.value,
                 )
             ):
                 return False

@@ -24,7 +24,6 @@ class SIP(BaseObject):
         self.__series: Series = None
         
         self.environment: Environment = self.application.configuration.active_environment
-        self._is_transitioned: bool = False
 
         self.edepot_sip_id: str = None
         self.saved_series_name: str = None
@@ -58,11 +57,7 @@ class SIP(BaseObject):
 
     @property
     def db_name(self) -> str:
-        prefix = "new_" if self._is_transitioned else ""
-        return f"{prefix}{self.name}.db"
-
-    def mark_as_transitioned(self) -> None:
-        self._is_transitioned = True
+        return f"{self.name}.db"
 
     @property
     def file_name(self) -> str:

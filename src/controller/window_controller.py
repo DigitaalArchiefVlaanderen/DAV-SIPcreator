@@ -22,6 +22,15 @@ class WindowController(BaseObject):
         # Mapping of windows
         self.trackable_windows: dict[SIP, dict[type[Window], Window]] = dict()
 
+        self.application.application_environment_changed_signal.connect(self._close_all_tracked_windows)
+
+    def _close_all_tracked_windows(self) -> None:
+        for windows_dict in self.trackable_windows.values():
+            for window in windows_dict.values():
+                window.close()
+
+        self.trackable_windows.clear()
+
     def open_sip_creator_window(self) -> SipCreatorWindow:
         self.sip_creator_window.show()
 

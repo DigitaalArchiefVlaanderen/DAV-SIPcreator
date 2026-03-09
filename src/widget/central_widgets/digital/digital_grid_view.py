@@ -2,6 +2,7 @@ from PySide6 import QtWidgets, QtCore
 
 from src.controller.file_controller import FileController
 from src.utils.constants import ColumnName, UI_TEXT_ELEMENTS
+from src.utils.pyside_helper import set_widget_warning_style, clear_widget_warning_style
 from src.utils.data_objects.digital.sip import SIP
 from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.grid.table.common.grid_table_view import GridTableView
@@ -12,6 +13,7 @@ from src.widget.base_widget import BaseWidget
 
 
 UI_TEXT = UI_TEXT_ELEMENTS["digital"]["grid"]
+COMMON_GRID_TEXT = UI_TEXT_ELEMENTS["grid_checks"]["common"]
 
 NON_DUPLICATABLE_COLUMNS = {
     ColumnName.PATH_IN_SIP.value,
@@ -55,6 +57,8 @@ class DigitalGridView(BaseWidget):
         )
 
         self.column_dropdown = QtWidgets.QComboBox()
+        self.column_dropdown.setEditable(True)
+        self.column_dropdown.setInsertPolicy(QtWidgets.QComboBox.InsertPolicy.NoInsert)
         self.add_column_button = QtWidgets.QPushButton(text=UI_TEXT["add_column_button_text"])
 
         self.table_model = DigitalDataVerificationTable(sip=self.sip)
@@ -65,6 +69,7 @@ class DigitalGridView(BaseWidget):
         self.table_view.setModel(self.proxy_model)
 
         self._populate_column_dropdown()
+        self.column_dropdown.completer().setFilterMode(QtCore.Qt.MatchFlag.MatchContains)
 
         self.create_sip_button = QtWidgets.QPushButton(text=UI_TEXT["create_sip_button_text"])
         self.save_button = QtWidgets.QPushButton(text=UI_TEXT["save_button_text"])
@@ -74,16 +79,23 @@ class DigitalGridView(BaseWidget):
         if self.sip.series:
             self.table_model.validate_all()
 
+        controls_layout = QtWidgets.QHBoxLayout()
+        controls_layout.addWidget(self.name_extension_checkbox)
+        controls_layout.addWidget(self.show_bad_rows_checkbox)
+        controls_layout.addWidget(self.show_dossiers_only_checkbox)
+        controls_layout.addStretch()
+        controls_layout.addWidget(self.column_dropdown)
+        controls_layout.addWidget(self.add_column_button)
+
+        button_layout = QtWidgets.QHBoxLayout()
+        button_layout.addWidget(self.save_button, 1)
+        button_layout.addWidget(self.create_sip_button, 1)
+
         self.grid_layout.addWidget(self.series_label, 0, 0, 1, 4)
         self.grid_layout.addWidget(self.default_sorting_button, 0, 4, 1, 1)
-        self.grid_layout.addWidget(self.name_extension_checkbox, 1, 0)
-        self.grid_layout.addWidget(self.show_bad_rows_checkbox, 1, 1)
-        self.grid_layout.addWidget(self.show_dossiers_only_checkbox, 1, 2)
-        self.grid_layout.addWidget(self.column_dropdown, 1, 3)
-        self.grid_layout.addWidget(self.add_column_button, 1, 4)
+        self.grid_layout.addLayout(controls_layout, 1, 0, 1, 5)
         self.grid_layout.addWidget(self.table_view, 2, 0, 1, 5)
-        self.grid_layout.addWidget(self.save_button, 3, 0, 1, 2)
-        self.grid_layout.addWidget(self.create_sip_button, 3, 2, 1, 3)
+        self.grid_layout.addLayout(button_layout, 3, 0, 1, 5)
 
     def setup_signals(self) -> None:
         self.default_sorting_button.clicked.connect(self.proxy_model.reset_sorting)
@@ -106,19 +118,11 @@ class DigitalGridView(BaseWidget):
     def _update_series_label(self) -> None:
         if self.sip.series:
             self.series_label.setText(self.sip.series.get_full_name())
-            self.series_label.setStyleSheet("")
-            self.series_label.setToolTip("")
-            font = self.series_label.font()
-            font.setBold(False)
-            self.series_label.setFont(font)
+            clear_widget_warning_style(self.series_label)
         else:
             fallback = self.sip.saved_series_name or self.sip.name
             self.series_label.setText(fallback)
-            self.series_label.setStyleSheet("color: red;")
-            self.series_label.setToolTip(UI_TEXT["series_not_found_tooltip"])
-            font = self.series_label.font()
-            font.setBold(True)
-            self.series_label.setFont(font)
+            set_widget_warning_style(self.series_label, COMMON_GRID_TEXT["series_not_found_tooltip"])
 
         self._update_create_sip_button()
 

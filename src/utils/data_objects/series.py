@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 from datetime import datetime
-
 from enum import Enum
+
+from src.utils.constants import APIResponseKey
 
 
 class SeriesStatus(Enum):
@@ -31,43 +32,43 @@ class Series:
 
     @staticmethod
     def from_dict(series: dict):
+        validity_period = series[APIResponseKey.VALIDITY_PERIOD.value]
+
         valid_from = (
-            Series.datetime_from_str(series["ValidityPeriod"]["From"])
-            if "From" in series["ValidityPeriod"]
+            Series.datetime_from_str(validity_period[APIResponseKey.FROM.value])
+            if APIResponseKey.FROM.value in validity_period
             else None
         )
         valid_to = (
-            Series.datetime_from_str(series["ValidityPeriod"]["To"])
-            if "To" in series["ValidityPeriod"]
+            Series.datetime_from_str(validity_period[APIResponseKey.TO.value])
+            if APIResponseKey.TO.value in validity_period
             else None
         )
 
         return Series(
-            _id=series["Id"],
-            name=series["Content"]["Name"],
-            status=SeriesStatus(series["Status"]["Status"]),
+            _id=series[APIResponseKey.ID.value],
+            name=series[APIResponseKey.CONTENT.value][APIResponseKey.NAME.value],
+            status=SeriesStatus(series[APIResponseKey.STATUS.value][APIResponseKey.STATUS.value]),
             valid_from=valid_from,
             valid_to=valid_to,
         )
 
     def to_dict(self) -> dict:
-        # NOTE: this dict mimics the basic structure the API gives (with a lot missing)
-        # Doing it this way just makes it simpler to have one expected structure
         data = {
-            "Id": self._id,
-            "Content": {
-                "Name": self.name
+            APIResponseKey.ID.value: self._id,
+            APIResponseKey.CONTENT.value: {
+                APIResponseKey.NAME.value: self.name
             },
-            "Status": {
-                "Status": self.status.value
+            APIResponseKey.STATUS.value: {
+                APIResponseKey.STATUS.value: self.status.value
             },
-            "ValidityPeriod": {}
+            APIResponseKey.VALIDITY_PERIOD.value: {}
         }
 
         if self.valid_from is not None:
-            data["ValidityPeriod"]["From"] = self.str_from_datetime(self.valid_from)
+            data[APIResponseKey.VALIDITY_PERIOD.value][APIResponseKey.FROM.value] = self.str_from_datetime(self.valid_from)
         if self.valid_to is not None:
-            data["ValidityPeriod"]["To"] = self.str_from_datetime(self.valid_to)
+            data[APIResponseKey.VALIDITY_PERIOD.value][APIResponseKey.TO.value] = self.str_from_datetime(self.valid_to)
 
         return data
 

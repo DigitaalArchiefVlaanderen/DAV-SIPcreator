@@ -77,9 +77,21 @@ class SearchableListWidget(BaseWidget):
             if search_text in get_attr_deep(widget, self.search_field)
         ]
 
-    def clear_widgets(self) -> None:
+    def clear_widgets(self, delete: bool = False) -> None:
         for i in reversed(range(self.list_layout.count())):
-            self.list_layout.removeItem(self.list_layout.itemAt(i))
+            item = self.list_layout.itemAt(i)
+            widget = item.widget()
+            self.list_layout.removeItem(item)
+
+            if delete and widget is not None:
+                widget.hide()
+                widget.deleteLater()
+
+        if delete:
+            self.widgets.clear()
+            self.filtered_widgets.clear()
+
+            self.amount_changed_signal.emit()
 
     def reload_shown_widgets(self, sort: bool=False) -> None:
         self.hide()

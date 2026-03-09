@@ -32,27 +32,71 @@ class ColumnName(Enum):
     DOSSIER_REF = "DossierRef"
     ANALOOG = "Analoog?"
     NAAM = "Naam"
-    BESCHRIJVING = "Beschrijving"
-    DOSSIERCODE_BRON = "Dossiercode_bron"
-    STUKREFERENTIE_BRON = "Stukreferentie_Bron"
     OPENINGSDATUM = "Openingsdatum"
     SLUITINGSDATUM = "Sluitingsdatum"
-    ID_BIS_RIJKSREGISTERNUMMER = "ID_BIS-rijksregisternummer"
     ID_RIJKSREGISTERNUMMER = "ID_Rijksregisternummer"
-    ID_NAAM = "ID_Naam"
-    KBO_NUMMER = "KBO_nummer"
-    OVO_CODE = "OVO_code"
-    ORGANISATIENAAM = "Organisatienaam"
-    TREFWOORDEN_VRIJ = "Trefwoorden_vrij"
-    OPMERKINGEN = "Opmerkingen"
-    AUTEUR = "Auteur"
-    TAAL = "Taal"
-    ID_BESCHRIJVING = "ID Beschrijving"
-    ID_VERPAKKING = "ID Verpakking"
     ORIGINEEL_DOOSNUMMER = "Origineel Doosnummer"
     LEGACY_LOCATIE_ID = "Legacy locatie ID"
     LEGACY_RANGE = "Legacy range"
     VERPAKKINGSTYPE = "Verpakkingstype"
+
+class OverdrachtslijstColumnName(Enum):
+    BESCHRIJVING = "Beschrijving"
+    BEGINDATUM = "Begindatum"
+    EINDDATUM = "Einddatum"
+    DOOSNR = "Doosnr"
+
+
+class DBTableName(Enum):
+    DATA = "data"
+    SIP = "sip"
+    OVERDRACHTSLIJST = "Overdrachtslijst"
+    TABLES = "tables"
+    SIP_CREATOR = "sip_creator"
+    DOSSIER = "dossier"
+
+
+class DBColumnName(Enum):
+    NAME = "name"
+    PATH = "path"
+    STATUS = "status"
+    ENVIRONMENT_NAME = "environment_name"
+    EDEPOT_SIP_ID = "edepot_sip_id"
+    SERIES_JSON = "series_json"
+    METADATA_FILE_PATH = "metadata_file_path"
+    TAG_MAPPING = "tag_mapping"
+    FOLDER_MAPPING = "folder_mapping"
+    OVERDRACHTSLIJST_NAME = "overdrachtslijst_name"
+    TABLE_NAME = "table_name"
+    URI_SERIEREGISTER = "URI Serieregister"
+    EDEPOT_ID = "edepot_id"
+    UPLOADED = "uploaded"
+    VERSION = "version"
+    TRANSFORMED = "transformed"
+
+
+class ConfigKey(Enum):
+    API = "API"
+    FTPS = "FTPS"
+    URL = "url"
+    USERNAME = "username"
+    PASSWORD = "password"
+    CLIENT_ID = "client_id"
+    CLIENT_SECRET = "client_secret"
+    PORT = "port"
+
+
+class APIResponseKey(Enum):
+    ID = "Id"
+    CONTENT = "Content"
+    STATUS = "Status"
+    VALIDITY_PERIOD = "ValidityPeriod"
+    NAME = "Name"
+    FROM = "From"
+    TO = "To"
+    ORGANISATION = "Organisation"
+    TYPE = "Type"
+
 
 class RowType:
     DOSSIER = "dossier"
@@ -62,6 +106,14 @@ class RowType:
 
 class BusinessRules:
     SIP_TITLE_MAX_LENGTH: int = 185
+    MAX_ROWS_PER_SERIES: int = 9998
+
+
+KLANT_ROLE = "klant"
+MIGRATION_MAIN_ID_COLUMN = "main_id"
+SERIES_NAME_COLUMN = "series_name"
+ANALOOG_DEFAULT_VALUE = "ja"
+DB_FILE_EXTENSION = ".db"
 
 
 def resource_path(relative_path):

@@ -1,12 +1,12 @@
 import sqlite3 as sql
 
 from src.utils.base_object import BaseObject
-from src.utils.constants import MAIN_DB_LOCATION
+from src.utils.constants import MAIN_DB_LOCATION, DBTableName
 
 
 class MainDBController(BaseObject):
     TABLES = dict(
-        dossier="dossier"
+        dossier=DBTableName.DOSSIER.value
     )
     
     def __init__(self):

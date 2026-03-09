@@ -9,6 +9,7 @@ from PySide6 import QtWidgets, QtCore, QtGui
 from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.data_objects.digital.sip import SIP
 from src.utils.data_objects.sip_status import SIPStatus
+from src.utils.pyside_helper import set_widget_warning_style, clear_widget_warning_style
 
 from src.controller.upload_controller import UploadController
 
@@ -225,18 +226,10 @@ class ControlsWidget(BaseWidget):
         self._update_upload_button_style(has_series)
 
     def _update_upload_button_style(self, has_series: bool) -> None:
-        font = self.upload_button.font()
-
         if not has_series and self.sip.status == SIPStatus.SIP_CREATED:
-            font.setBold(True)
-            self.upload_button.setFont(font)
-            self.upload_button.setStyleSheet("color: red;")
-            self.upload_button.setToolTip(self.UI_TEXT["upload_no_series_tooltip"])
+            set_widget_warning_style(self.upload_button, self.UI_TEXT["upload_no_series_tooltip"])
         else:
-            font.setBold(False)
-            self.upload_button.setFont(font)
-            self.upload_button.setStyleSheet("")
-            self.upload_button.setToolTip("")
+            clear_widget_warning_style(self.upload_button)
 
     def remove_button_clicked_handler(self) -> None:
         dialog = YesNoDialog(
