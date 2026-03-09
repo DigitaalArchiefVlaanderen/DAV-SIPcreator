@@ -1,22 +1,35 @@
+import os
 import sqlite3 as sql
 
+from natsort import natsorted
+
 from src.utils.base_object import BaseObject
-from src.utils.constants import MAIN_DB_LOCATION, DBTableName
+from src.utils.constants import (
+    MAIN_DB_NAME, OLD_MAIN_DB_NAME, SIP_CREATOR_VERSION, UNKNOWN_TRANSFORMED,
+    DBTableName, DBColumnName,
+)
 
 
 class MainDBController(BaseObject):
     TABLES = dict(
         dossier=DBTableName.DOSSIER.value
     )
-    
+
     def __init__(self):
         super().__init__()
 
+        self._migrate_old_db_name()
         self.create_dossier_table()
+        self.create_sip_creator_table()
+        self.initialize_version_info()
+
+    def _migrate_old_db_name(self) -> None:
+        if os.path.exists(OLD_MAIN_DB_NAME) and not os.path.exists(MAIN_DB_NAME):
+            os.rename(OLD_MAIN_DB_NAME, MAIN_DB_NAME)
 
     @property
     def conn(self) -> sql.Connection:
-        return sql.connect(MAIN_DB_LOCATION)
+        return sql.connect(MAIN_DB_NAME)
 
     def _execute_with_conn(self, func):
         conn = self.conn
@@ -41,6 +54,59 @@ class MainDBController(BaseObject):
                 )
             """
         ))
+
+    def create_sip_creator_table(self) -> None:
+        self._execute_with_conn(lambda conn: conn.execute(
+            f"""
+                CREATE TABLE IF NOT EXISTS {DBTableName.SIP_CREATOR.value} (
+                    {DBColumnName.VERSION.value} text,
+                    {DBColumnName.TRANSFORMED.value} text,
+                    {DBColumnName.LAST_OPENED.value} text
+                )
+            """
+        ))
+
+    def initialize_version_info(self) -> None:
+        def _initialize(conn: sql.Connection) -> None:
+            row = conn.execute(
+                f"SELECT {DBColumnName.VERSION.value}, {DBColumnName.TRANSFORMED.value} "
+                f"FROM {DBTableName.SIP_CREATOR.value}"
+            ).fetchone()
+
+            if row is None:
+                conn.execute(
+                    f"INSERT INTO {DBTableName.SIP_CREATOR.value} "
+                    f"({DBColumnName.VERSION.value}, {DBColumnName.TRANSFORMED.value}, {DBColumnName.LAST_OPENED.value}) "
+                    f"VALUES (?, ?, ?)",
+                    (SIP_CREATOR_VERSION, "", SIP_CREATOR_VERSION)
+                )
+                return
+
+            db_version, transformed = row
+
+            if db_version and self._is_version_older(db_version, SIP_CREATOR_VERSION):
+                if transformed in ("unknown", UNKNOWN_TRANSFORMED):
+                    transformed = db_version
+
+                conn.execute(
+                    f"UPDATE {DBTableName.SIP_CREATOR.value} SET "
+                    f"{DBColumnName.VERSION.value} = ?, {DBColumnName.TRANSFORMED.value} = ?, "
+                    f"{DBColumnName.LAST_OPENED.value} = ?",
+                    (SIP_CREATOR_VERSION, transformed, SIP_CREATOR_VERSION)
+                )
+            else:
+                conn.execute(
+                    f"UPDATE {DBTableName.SIP_CREATOR.value} SET {DBColumnName.LAST_OPENED.value} = ?",
+                    (SIP_CREATOR_VERSION,)
+                )
+
+        self._execute_with_conn(_initialize)
+
+    @staticmethod
+    def _is_version_older(version_a: str, version_b: str) -> bool:
+        sorted_versions = natsorted([version_a, version_b])
+
+        return sorted_versions[0] == version_a and version_a != version_b
 
     def write_dossier_paths(self, paths: list[str]) -> None:
         self._execute_with_conn(lambda conn: conn.executemany(

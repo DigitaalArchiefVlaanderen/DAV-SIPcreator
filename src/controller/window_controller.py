@@ -24,6 +24,10 @@ class WindowController(BaseObject):
 
         self.application.application_environment_changed_signal.connect(self._close_all_tracked_windows)
 
+    def close_controller(self) -> None:
+        self.sip_creator_window.hide()
+        self._close_all_tracked_windows()
+
     def _close_all_tracked_windows(self) -> None:
         for windows_dict in self.trackable_windows.values():
             for window in windows_dict.values():

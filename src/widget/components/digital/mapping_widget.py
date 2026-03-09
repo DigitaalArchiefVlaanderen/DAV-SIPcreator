@@ -118,7 +118,6 @@ class TagMappingWidget(QtWidgets.QFrame):
             f"{selected_metadata_tag.text()} -> {selected_importsjabloon_tag.text()}"
         )
 
-        self.metadata_mapping.remove_selected_tag()
         self.import_mapping.remove_selected_tag()
 
     def unmap_tags_clicked(self):
@@ -127,18 +126,17 @@ class TagMappingWidget(QtWidgets.QFrame):
         if selected_tag is None:
             return
 
-        metadata_tag, importsjabloon_tag = selected_tag.text().split(" -> ")
+        _, importsjabloon_tag = selected_tag.text().split(" -> ")
 
-        self.metadata_mapping.add_tag(metadata_tag)
         self.import_mapping.add_tag(importsjabloon_tag)
 
         self.output_mapping.remove_selected_tag()
 
-    def get_mapping(self) -> dict[str, str]:
-        return {
-            b.text().split(" -> ")[0]: b.text().split(" -> ")[1]
+    def get_mapping(self) -> list[tuple[str, str]]:
+        return [
+            (b.text().split(" -> ")[0], b.text().split(" -> ")[1])
             for b in self.output_mapping.button_group.buttons()
-        }
+        ]
 
 
 class FolderMappingWidget(QtWidgets.QFrame):
@@ -190,15 +188,11 @@ class FolderMappingWidget(QtWidgets.QFrame):
 
         self.output_mapping.add_tag(selected_metadata_tag.text())
 
-        self.metadata_mapping.remove_selected_tag()
-
     def unmap_tags_clicked(self):
         selected_tag = self.output_mapping.get_selected_tag()
 
         if selected_tag is None:
             return
-
-        self.metadata_mapping.add_tag(selected_tag.text())
 
         self.output_mapping.remove_selected_tag()
 

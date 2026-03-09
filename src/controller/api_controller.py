@@ -184,9 +184,7 @@ class APIController:
     @staticmethod
     def get_sip_id(sip: SIP) -> str:
         environment = sip.environment
-        access_token = APIController._get_access_token(
-            environment, reraise=True, warn=False
-        )
+        access_token = APIController._get_access_token(environment)
 
         base_url = environment.api_url
         endpoint = "edepot/api/v1/sips"
@@ -207,8 +205,6 @@ class APIController:
                 url=f"{base_url}/{endpoint}",
                 headers=headers,
                 params=params,
-                reraise=True,
-                warn=False,
             ).json()
 
             sip_objects = response[APIResponseKey.CONTENT.value]
@@ -224,9 +220,7 @@ class APIController:
 
     @staticmethod
     def get_sip_id_for_name(environment: Environment, zip_name: str) -> str:
-        access_token = APIController._get_access_token(
-            environment, reraise=True, warn=False
-        )
+        access_token = APIController._get_access_token(environment)
 
         base_url = environment.api_url
         endpoint = "edepot/api/v1/sips"
@@ -247,8 +241,6 @@ class APIController:
                 url=f"{base_url}/{endpoint}",
                 headers=headers,
                 params=params,
-                reraise=True,
-                warn=False,
             ).json()
 
             sip_objects = response[APIResponseKey.CONTENT.value]

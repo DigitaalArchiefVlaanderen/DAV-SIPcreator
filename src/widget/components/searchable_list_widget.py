@@ -122,12 +122,11 @@ class SearchableListWidget(BaseWidget):
         self.widgets_reloaded_signal.emit()
 
     def add_widgets(self, widgets: list[BaseWidget]) -> None:
-        # NOTE: we only want to add widgets that we don't have yet
         widgets_to_add = [w for w in widgets if w not in self.widgets]
 
         self.widgets.extend(widgets_to_add)
 
-        for widget in self.widgets:
+        for widget in widgets_to_add:
             self.list_layout.addWidget(widget)
 
         self.reload_shown_widgets(sort=True)

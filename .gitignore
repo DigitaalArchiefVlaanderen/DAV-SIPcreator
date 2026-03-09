@@ -20,5 +20,5 @@ build/
 # Project files
 SIP_Creator/
 main.spec
-sqlite.db
+*.db
 test.py

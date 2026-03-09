@@ -23,6 +23,8 @@ from src.window.digital.sip_detail_window import SipDetailWindow
 UI_TEXT = UI_TEXT_ELEMENTS["digital"]["main"]["sip_list"]
 
 class SipListitemWidget(QtWidgets.QFrame):
+    removed_signal = QtCore.Signal(object)
+
     def __init__(self, parent_window: Window, sip: SIP):
         super().__init__()
 
@@ -249,5 +251,4 @@ class ControlsWidget(BaseWidget):
         self.sip.set_status(SIPStatus.DELETED)
 
         sip_listitem_widget = self.parent()
-        sip_listitem_widget.hide()
-        sip_listitem_widget.deleteLater()
+        sip_listitem_widget.removed_signal.emit(sip_listitem_widget)

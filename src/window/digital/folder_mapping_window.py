@@ -3,7 +3,7 @@ import os
 import numpy as np
 
 from src.utils.data_objects.digital.sip import SIP
-from src.utils.constants import UI_TEXT_ELEMENTS
+from src.utils.constants import ColumnName, UI_TEXT_ELEMENTS
 
 from src.widget.central_widgets.digital.folder_structure_widget import FolderStructureWidget
 
@@ -24,10 +24,20 @@ class FolderMappingWindow(Window):
         self.folder_structure_widget = FolderStructureWidget(parent_window=self)
         self.setCentralWidget(self.folder_structure_widget)
         
-        path_in_sip_map_column = [
-            k for k, v in self.sip.tag_mapping.items()
-            if v == "Path in SIP"
-        ][0]
+        path_in_sip_candidates = [
+            meta_col for meta_col, import_col in self.sip.tag_mapping
+            if import_col == ColumnName.PATH_IN_SIP.value
+        ]
+
+        if not path_in_sip_candidates:
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["sip"]["mapping_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["sip"]["mapping_error"]["text"],
+            )
+            self.close()
+            return
+
+        path_in_sip_map_column = path_in_sip_candidates[0]
         # Only allow columns where not all fields are empty
         columns_without_empty_fields = [
             c
@@ -56,12 +66,8 @@ class FolderMappingWindow(Window):
             )
             return
 
-        # Kamerplanten/groot/monstera.docx
-        # jaar -> dor of niet dor
-        # Kamerplanten/groot/**2022/dor**/monstera.docx
-
-        df["__folder"] = df[path_in_sip_map_column].apply(lambda x: x.rsplit("/", 1)[0])
-        df["__file"] = df[path_in_sip_map_column].apply(lambda x: "" if len(x.rsplit("/", 1)) == 1 else x.rsplit("/", 1)[1])
+        df["__folder"] = df[path_in_sip_map_column].apply(lambda x: x.split("/", 1)[0])
+        df["__file"] = df[path_in_sip_map_column].apply(lambda x: x.rsplit("/", 1)[1] if "/" in x else "")
 
         folder_mapping = {
             path_in_sip: mapped_name

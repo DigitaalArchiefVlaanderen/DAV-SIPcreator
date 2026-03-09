@@ -7,7 +7,8 @@ import sqlite3 as sql
 
 from src.utils.base_object import BaseObject
 from src.utils.constants import (
-    UI_TEXT_ELEMENTS, SIP_CREATOR_VERSION, TI_ENVIRONMENT_NAME, PROD_ENVIRONMENT_NAME,
+    UI_TEXT_ELEMENTS, SIP_CREATOR_VERSION, UNKNOWN_TRANSFORMED,
+    TI_ENVIRONMENT_NAME, PROD_ENVIRONMENT_NAME,
     DBTableName, DBColumnName, DB_FILE_EXTENSION, MIGRATION_MAIN_ID_COLUMN,
 )
 from src.utils.data_objects.migration.sip import MigrationSIP
@@ -82,15 +83,16 @@ class MigrationSIPDBController(BaseObject):
                 sip.overdrachtslijst_name,
             ))
 
-            conn.execute("""
-                CREATE TABLE sip_creator (
+            conn.execute(f"""
+                CREATE TABLE {DBTableName.SIP_CREATOR.value} (
                     version text,
-                    transformed text
+                    transformed text,
+                    last_opened text
                 )
             """)
             conn.execute(
-                "INSERT INTO sip_creator (version, transformed) VALUES (?, ?)",
-                (SIP_CREATOR_VERSION, transformed)
+                f"INSERT INTO {DBTableName.SIP_CREATOR.value} (version, transformed, last_opened) VALUES (?, ?, ?)",
+                (SIP_CREATOR_VERSION, transformed, SIP_CREATOR_VERSION)
             )
 
             sip.main_grid_data.data_as_df.to_sql(DBTableName.OVERDRACHTSLIJST.value, conn, index=False, dtype="text")
@@ -187,10 +189,18 @@ class MigrationSIPDBController(BaseObject):
         if not self.db_exists(sip.db_name):
             return
 
-        self._execute_with_conn(sip.db_name, lambda conn: conn.execute(
-            "UPDATE sip SET status = ?, edepot_sip_id = ?",
-            (sip.status.name, sip.edepot_sip_id or "")
-        ))
+        def _persist(conn: sql.Connection) -> None:
+            conn.execute(
+                f"UPDATE {DBTableName.SIP.value} SET status = ?, edepot_sip_id = ?",
+                (sip.status.name, sip.edepot_sip_id or "")
+            )
+
+            conn.execute(
+                f"UPDATE {DBTableName.SIP_CREATOR.value} SET last_opened = ?",
+                (SIP_CREATOR_VERSION,)
+            )
+
+        self._execute_with_conn(sip.db_name, _persist)
 
     def persist_all_sips(self) -> None:
         sips_by_env = self.application.sips.get(MigrationSIP, {})
@@ -351,7 +361,7 @@ class MigrationSIPDBController(BaseObject):
         if os.path.exists(new_db_path):
             return None
 
-        self.create_sip_db(sip=sip, transformed="unknown")
+        self.create_sip_db(sip=sip, transformed=UNKNOWN_TRANSFORMED)
 
         if series_entries:
             old_conn = sql.connect(renamed_old_path)

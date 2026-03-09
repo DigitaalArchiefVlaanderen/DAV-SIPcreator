@@ -311,6 +311,3 @@ class Configuration:
     def sip_db_location(self) -> str:
         return os.path.join(self.misc.save_location, SaveLocations.SIP_DB_FOLDER.value)
 
-    @property
-    def old_sip_db_location(self) -> str:
-        return os.path.join(self.misc.save_location, SaveLocations.OLD_SIP_DB_FOLDER.value)

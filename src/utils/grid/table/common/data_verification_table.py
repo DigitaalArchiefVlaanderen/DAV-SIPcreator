@@ -102,9 +102,13 @@ class CommonDataVerificationTable(DataTable):
             )
 
     def _clear_validator_markings(self, cell_range: CellRange) -> None:
+        empty_rows = self._get_empty_rows(cell_range)
         keys_to_remove = []
 
         for row in range(cell_range.row_start, cell_range.row_end + 1):
+            if row in empty_rows:
+                continue
+
             row_idx = self.raw_data.index[row]
 
             for col in range(self.raw_data.shape[1]):

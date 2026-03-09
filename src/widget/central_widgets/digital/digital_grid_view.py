@@ -79,23 +79,23 @@ class DigitalGridView(BaseWidget):
         if self.sip.series:
             self.table_model.validate_all()
 
-        controls_layout = QtWidgets.QHBoxLayout()
-        controls_layout.addWidget(self.name_extension_checkbox)
-        controls_layout.addWidget(self.show_bad_rows_checkbox)
-        controls_layout.addWidget(self.show_dossiers_only_checkbox)
-        controls_layout.addStretch()
-        controls_layout.addWidget(self.column_dropdown)
-        controls_layout.addWidget(self.add_column_button)
+        checkbox_layout = QtWidgets.QHBoxLayout()
+        checkbox_layout.addWidget(self.name_extension_checkbox)
+        checkbox_layout.addWidget(self.show_bad_rows_checkbox)
+        checkbox_layout.addWidget(self.show_dossiers_only_checkbox)
+        checkbox_layout.addStretch()
 
         button_layout = QtWidgets.QHBoxLayout()
         button_layout.addWidget(self.save_button, 1)
         button_layout.addWidget(self.create_sip_button, 1)
 
-        self.grid_layout.addWidget(self.series_label, 0, 0, 1, 4)
-        self.grid_layout.addWidget(self.default_sorting_button, 0, 4, 1, 1)
-        self.grid_layout.addLayout(controls_layout, 1, 0, 1, 5)
-        self.grid_layout.addWidget(self.table_view, 2, 0, 1, 5)
-        self.grid_layout.addLayout(button_layout, 3, 0, 1, 5)
+        self.grid_layout.addWidget(self.series_label, 0, 0, 1, 3)
+        self.grid_layout.addWidget(self.default_sorting_button, 0, 3, 1, 1)
+        self.grid_layout.addLayout(checkbox_layout, 1, 0, 1, 2)
+        self.grid_layout.addWidget(self.column_dropdown, 1, 2, 1, 1)
+        self.grid_layout.addWidget(self.add_column_button, 1, 3, 1, 1)
+        self.grid_layout.addWidget(self.table_view, 2, 0, 1, 4)
+        self.grid_layout.addLayout(button_layout, 3, 0, 1, 4)
 
     def setup_signals(self) -> None:
         self.default_sorting_button.clicked.connect(self.proxy_model.reset_sorting)

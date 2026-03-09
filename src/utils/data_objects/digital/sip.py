@@ -33,7 +33,7 @@ class SIP(CommonSIP):
 
         self.set_name(Helper().get_next_sip_name())
 
-        self.tag_mapping: dict[str, str] = dict()
+        self.tag_mapping: list[tuple[str, str]] = []
         self.folder_mapping: dict = dict()
 
         self.import_template_path: str = None
@@ -229,5 +229,48 @@ class SIP(CommonSIP):
 
         df.loc[df[type_col] == RowType.DOSSIER, opening_col] = open_dates_df[opening_col]
         df.loc[df[type_col] == RowType.DOSSIER, closing_col] = close_dates_df[closing_col]
+
+        self.grid_data.data_as_df = df.fillna("")
+
+    def apply_tag_mapping(self) -> None:
+        if not self.tag_mapping:
+            return
+
+        metadata_df = self.read_metadata()
+
+        if metadata_df is None:
+            return
+
+        path_in_sip_col = ColumnName.PATH_IN_SIP.value
+        path_metadata_col = next(
+            (meta_col for meta_col, import_col in self.tag_mapping if import_col == path_in_sip_col),
+            None,
+        )
+
+        if path_metadata_col is None:
+            return
+
+        temp_df = metadata_df.copy(deep=True)
+
+        if self.folder_mapping and path_metadata_col in temp_df.columns:
+            temp_df[path_metadata_col] = temp_df[path_metadata_col].replace(
+                self.folder_mapping
+            )
+
+        lookup_df = temp_df.set_index(path_metadata_col, drop=False)
+        df = self.grid_data.data_as_df
+
+        for meta_col, import_col in self.tag_mapping:
+            if import_col == path_in_sip_col:
+                continue
+
+            if meta_col not in lookup_df.columns:
+                continue
+
+            if import_col not in df.columns:
+                continue
+
+            lookup = lookup_df[meta_col]
+            df[import_col] = df[path_in_sip_col].map(lookup).fillna(df[import_col])
 
         self.grid_data.data_as_df = df.fillna("")

@@ -39,7 +39,7 @@ class SipDetailWidget(CentralWidget):
         self.series_type_selector = SeriesTypeSelectorWidget(parent_window=self.parent_window, sip=self.sip)
         self.series_retrieval = SeriesRetrievalWidget(sip=self.sip)
         self.metadata_file_selector = MetadataFileSelectorWidget(parent_window=self.parent_window)
-        self.folder_structure_button = FolderStructureButton(sip=self.sip)
+        self.folder_structure_button = FolderStructureButton()
         self.folder_structure_button.setEnabled(False)
 
         self.tag_mapping_widget = TagMappingWidget()
@@ -59,6 +59,7 @@ class SipDetailWidget(CentralWidget):
 
     def setup_signals(self) -> None:
         self.open_grid_button.clicked.connect(self.open_grid_handler)
+        self.folder_structure_button.clicked.connect(self.open_folder_structure_handler)
         self.series_type_selector.selection_changed_signal.connect(self.series_retrieval.series_dropdown.set_series_type)
         self.series_retrieval.import_template_retrieval_requested_signal.connect(self.import_template_retrieval_requested_handler)
         self.series_retrieval.import_template_retrieved_signal.connect(self.import_template_downloaded_handler)
@@ -66,8 +67,15 @@ class SipDetailWidget(CentralWidget):
         self.metadata_file_selector.metadata_path_selected_signal.connect(self.metadata_file_selected_handler)
 
     # Handlers
-    def open_grid_handler(self) -> None:
+    def _update_tag_mapping(self) -> None:
         self.sip.tag_mapping = self.tag_mapping_widget.get_mapping()
+
+    def open_folder_structure_handler(self) -> None:
+        self._update_tag_mapping()
+        self.application.window_controller.open_folder_mapping_window(sip=self.sip)
+
+    def open_grid_handler(self) -> None:
+        self._update_tag_mapping()
 
         self.application.window_controller.open_digital_grid_signal.emit(self.sip)
 
@@ -309,20 +317,11 @@ class MetadataFileSelectorWidget(ComponentWidget):
         self.metadata_path_label.setText(metadata_path)
         self.metadata_path_selected_signal.emit(metadata_path)
 
-class FolderStructureButton(QtWidgets.QPushButton, ApplicationMixin):
-    def __init__(self, sip: SIP):
+class FolderStructureButton(QtWidgets.QPushButton):
+    def __init__(self):
         super().__init__()
 
-        self.sip = sip
-
         self.setText(UI_TEXT["folder_structure_button_text"])
-
-        self.setup_signals()
-        
-    def setup_signals(self) -> None:
-        self.clicked.connect(
-            lambda: self.application.window_controller.open_folder_mapping_window(sip=self.sip)
-        )
 
 class OpenGridButton(QtWidgets.QPushButton, ApplicationMixin):
     def __init__(self):

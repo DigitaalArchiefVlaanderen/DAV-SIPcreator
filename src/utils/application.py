@@ -11,6 +11,7 @@ from PySide6 import QtWidgets, QtCore
 from src.controller.config_controller import ConfigController
 from src.controller.main_db_controller import MainDBController
 from src.controller.digital.sip_db_controller import DigitalSIPDBController
+from src.controller.analog.sip_db_controller import AnalogSIPDBController
 from src.controller.migration.sip_db_controller import MigrationSIPDBController
 from src.controller.worker_controller import WorkerController
 from src.controller.window_controller import WindowController
@@ -22,7 +23,9 @@ from src.utils.data_objects.sip import SIP
 from src.utils.pyside_helper import Helper
 from src.utils.worker_user.series_retriever import SeriesRetriever
 from src.utils.worker_user.digital.sip_retriever import DigitalSIPRetriever
+from src.utils.worker_user.analog.analog_retriever import AnalogRetriever
 from src.utils.worker_user.migration.migration_retriever import MigrationRetriever
+from src.utils.worker_user.sip_status_checker import SIPStatusChecker
 from src.utils.workers.worker import Worker
 
 from src.widget.dialog.warning_dialog import WarningDialog
@@ -54,6 +57,7 @@ class Application(QtWidgets.QApplication):
 
     digital_sip_loaded_signal = QtCore.Signal(object)
     migration_sip_loaded_signal = QtCore.Signal(object)
+    analog_sip_loaded_signal = QtCore.Signal(object)
 
     work_in_progress_signal = QtCore.Signal((Window, str), arguments=["window", "description"])
     work_ended_signal = QtCore.Signal(Window)
@@ -76,13 +80,16 @@ class Application(QtWidgets.QApplication):
 
         self.main_db_controller = MainDBController()
         self.digital_sip_db_controller = DigitalSIPDBController()
+        self.analog_sip_db_controller = AnalogSIPDBController()
         self.migration_sip_db_controller = MigrationSIPDBController()
         self.worker_controller = WorkerController()
         self.series_retriever = SeriesRetriever()
         self.digital_sip_retriever = DigitalSIPRetriever()
+        self.analog_sip_retriever = AnalogRetriever()
         self.migration_sip_retriever = MigrationRetriever()
         self.window_controller = WindowController()
         self.bestandscontrole_controller = BestandsControleController()
+        self.sip_status_checker = SIPStatusChecker()
 
         self.sips: dict[type[SIP], dict[str, list[SIP]]] = {}
 
@@ -116,8 +123,10 @@ class Application(QtWidgets.QApplication):
         self.series_updated_signal.emit()
 
     def setup_signals(self) -> None:
+        self.aboutToQuit.connect(self.window_controller.close_controller)
         self.aboutToQuit.connect(lambda: self.configuration.save())
         self.aboutToQuit.connect(self.digital_sip_db_controller.persist_all_sips)
+        self.aboutToQuit.connect(self.analog_sip_db_controller.persist_all_sips)
         self.aboutToQuit.connect(self.migration_sip_db_controller.persist_all_sips)
         self.aboutToQuit.connect(self.worker_controller.close_controller)
 
@@ -132,11 +141,15 @@ class Application(QtWidgets.QApplication):
 
         self.notify_user_signal.connect(lambda title, text: self.warn_user(title, text))
 
+        self.sip_status_checker.edepot_id_resolved_signal.connect(self._persist_sip_handler)
+        self.sip_status_checker.status_changed_signal.connect(self._persist_sip_handler)
+        self.sip_status_checker.error_occurred_signal.connect(self.error_handler)
+
 
     # Utils
     def register_window(self, window: Window) -> None:
         self.windows.append(window)
-        window.window_about_to_close_signal.connect(lambda: self.windows.remove(window))
+        window.window_about_to_close_signal.connect(lambda: self.windows.remove(window) if window in self.windows else None)
 
         if window.IS_MAIN:
             self.series_updated_signal.connect(
@@ -172,6 +185,12 @@ class Application(QtWidgets.QApplication):
         self.migration_sip_retriever.migration_sip_loaded_signal.connect(self.migration_sip_loaded_signal.emit)
         self.migration_sip_retriever.error_occurred_signal.connect(self.error_handler)
         self.migration_sip_retriever.run()
+
+        self.analog_sip_retriever.analog_sip_loaded_signal.connect(self.analog_sip_loaded_signal.emit)
+        self.analog_sip_retriever.error_occurred_signal.connect(self.error_handler)
+        self.analog_sip_retriever.run()
+
+        self.sip_status_checker.run(worker_controller=self.worker_controller)
 
     def add_sip(self, sip: SIP) -> None:
         sip.moveToThread(self.thread())
@@ -264,6 +283,18 @@ class Application(QtWidgets.QApplication):
             title,
             text
         )
+
+    def _persist_sip_handler(self, sip: SIP, _) -> None:
+        from src.utils.data_objects.digital.sip import SIP as DigitalSIP
+        from src.utils.data_objects.migration.sip import MigrationSIP
+        from src.utils.data_objects.analog.sip import AnalogSIP
+
+        if isinstance(sip, DigitalSIP):
+            self.digital_sip_db_controller.persist_sip(sip)
+        elif isinstance(sip, MigrationSIP):
+            self.migration_sip_db_controller.persist_sip(sip)
+        elif isinstance(sip, AnalogSIP):
+            self.analog_sip_db_controller.persist_sip(sip)
 
     def start_work_handler(self, window: Window, description: str) -> None:
         if window not in self.windows:

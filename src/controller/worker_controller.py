@@ -9,8 +9,6 @@ from src.utils.base_object import BaseObject
 from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.workers.worker import Worker
 
-from src.window.base_window import Window
-
 UI_TEXT = UI_TEXT_ELEMENTS["errors"]
 
 
@@ -18,22 +16,18 @@ class WorkerController(BaseObject):
     def __init__(self) -> None:
         super().__init__()
 
-        self.active_windows: list[Window] = []
         self.active_workers: list[Worker] = []
         self.active_threads: list[QtCore.QThread] = []
 
     def close_controller(self) -> None:
-        # Ensure clean stopping of workers and threads
         for worker in self.active_workers[:]:
             worker.force_stop = True
-        
-        for thread in self.active_threads[:]:
-            thread.quit()
 
         for thread in self.active_threads[:]:
             thread.quit()
 
-        self.active_windows = []
+        for thread in self.active_threads[:]:
+            thread.wait()
 
     def run_thread(self, thread_function: Callable, thread_is_generator: bool) -> Worker:
         if not self.application.configuration.active_environment.has_api_credentials():

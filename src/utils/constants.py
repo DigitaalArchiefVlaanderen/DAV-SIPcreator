@@ -19,8 +19,7 @@ class SaveLocations(Enum):
     IMPORT_TEMPLATES_FOLDER = "import_templates"
     GRID_FOLDER = "Grid"
     SIPS_FOLDER = "SIPs"
-    SIP_DB_FOLDER = "sip_databases"
-    OLD_SIP_DB_FOLDER = "SIP_dbs"
+    SIP_DB_FOLDER = "SIP_dbs"
 
     OVERDRACHTSLIJSTEN_FOLDER = "overdrachtslijsten"
     
@@ -35,6 +34,8 @@ class ColumnName(Enum):
     OPENINGSDATUM = "Openingsdatum"
     SLUITINGSDATUM = "Sluitingsdatum"
     ID_RIJKSREGISTERNUMMER = "ID_Rijksregisternummer"
+    ID_BESCHRIJVING = "ID beschrijving"
+    ID_VERPAKKING = "ID verpakking"
     ORIGINEEL_DOOSNUMMER = "Origineel Doosnummer"
     LEGACY_LOCATIE_ID = "Legacy locatie ID"
     LEGACY_RANGE = "Legacy range"
@@ -73,6 +74,9 @@ class DBColumnName(Enum):
     UPLOADED = "uploaded"
     VERSION = "version"
     TRANSFORMED = "transformed"
+    LAST_OPENED = "last_opened"
+    SERIES_ID = "series_id"
+    SERIES_NAME = "series_name"
 
 
 class ConfigKey(Enum):
@@ -146,7 +150,9 @@ FILE_REGEXES_TO_IGNORE = [
     r"^\.fseventsd$"
 ]
 
-MAIN_DB_LOCATION = "sqlite.db"
+MAIN_DB_NAME = "sip_creator.db"
+OLD_MAIN_DB_NAME = "sqlite.db"
+UNKNOWN_TRANSFORMED = "<3.0"
 BASE_SIP_NAME = "SIP {number}"
 
 CHECKABLE_SIP_STATUSES = (SIPStatus.UPLOADED, SIPStatus.PROCESSING)

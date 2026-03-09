@@ -114,13 +114,19 @@ class DigitalWidget(CentralWidget):
             return
 
         listitem = SipListitemWidget(parent_window=self.parent_window, sip=sip)
+        listitem.removed_signal.connect(self._remove_sip_listitem)
         self.sip_list_widget.add_widgets([listitem])
+
+    def _remove_sip_listitem(self, listitem: SipListitemWidget) -> None:
+        self.sip_list_widget.remove_widgets([listitem])
+        listitem.deleteLater()
 
     def environment_changed_handler(self) -> None:
         self.sip_list_widget.clear_widgets(delete=True)
 
         for sip in self.application.get_sips(SIP):
             listitem = SipListitemWidget(parent_window=self.parent_window, sip=sip)
+            listitem.removed_signal.connect(self._remove_sip_listitem)
             self.sip_list_widget.add_widgets([listitem])
 
     def dossier_selection_changed_handler(self) -> None:
@@ -147,6 +153,7 @@ class DigitalWidget(CentralWidget):
     def open_grid_handler(self, sip: SIP) -> None:
         if not self.application.digital_sip_db_controller.db_exists(sip.db_name):
             sip.set_data_from_dossiers()
+            sip.apply_tag_mapping()
             self.application.digital_sip_db_controller.create_sip_db(sip=sip)
 
         if not self.application.digital_sip_db_controller.is_valid_db(sip.db_name):

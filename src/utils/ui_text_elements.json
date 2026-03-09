@@ -226,6 +226,42 @@
             }
         }
     },
+    "analog": {
+        "main": {
+            "controls": {
+                "start_sip_button_text": "Start SIP",
+                "sip_creation_loading_text": "Analoog SIP aan het aanmaken..."
+            }
+        },
+        "grid_creation": {
+            "window_title": "SIP Analoog",
+            "open_grid_button_text": "Open metadata grid"
+        },
+        "grid": {
+            "default_sorting_button_text": "Reset sortering",
+            "bad_rows_checkbox_text": "Toon enkel rijen met fouten",
+            "add_column_button_text": "Voeg kolom toe",
+            "row_count_label": "{count} rijen",
+            "save_button_text": "Opslaan",
+            "create_sip_button_text": "Maak SIP",
+            "save_success": {
+                "title": "Opgeslagen",
+                "text": "De metadata is succesvol opgeslagen."
+            },
+            "create_sip_success": {
+                "title": "SIP aangemaakt",
+                "text": "De SIP is aangemaakt."
+            },
+            "unsaved_changes_dialog": {
+                "title": "Opslaan",
+                "text": "Gemaakte wijzigingen opslaan?"
+            },
+            "too_many_rows_error": {
+                "title": "Te veel lijnen",
+                "text": "Er zijn te veel lijnen.\n\nMaximum: {max_rows}\nGevonden: {found_rows}"
+            }
+        }
+    },
     "configuration": {
         "save_button_text": "Opslaan",
         "save_on_close_dialog": {
@@ -355,6 +391,9 @@
         },
         "migration": {
             "startup_loading_items_text": "Overdrachtslijsten aan het inladen"
+        },
+        "analog": {
+            "startup_loading_items_text": "Analoog SIPs aan het inladen"
         }
     },
     "grid_checks": {
@@ -389,6 +428,13 @@
         "migration": {
             "location_group_incomplete": "Alle locatie kolommen in een groep moeten ingevuld zijn",
             "path_in_sip_slash_error": "Path in SIP mag geen '/' bevatten"
+        },
+        "analog": {
+            "beschrijving_empty_error": "ID beschrijving moet een waarde hebben",
+            "beschrijving_duplicate_error": "ID beschrijving moet uniek zijn",
+            "verpakking_empty_error": "ID verpakking moet een waarde hebben",
+            "path_in_sip_empty_error": "Path in SIP mag niet leeg zijn",
+            "path_in_sip_duplicate_error": "Path in SIP moet uniek zijn"
         }
     }
 }
