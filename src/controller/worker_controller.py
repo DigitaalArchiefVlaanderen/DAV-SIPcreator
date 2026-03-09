@@ -18,6 +18,7 @@ class WorkerController(BaseObject):
 
         self.active_workers: list[Worker] = []
         self.active_threads: list[QtCore.QThread] = []
+        self.credentials_warning_shown = False
 
     def close_controller(self) -> None:
         for worker in self.active_workers[:]:
@@ -31,10 +32,13 @@ class WorkerController(BaseObject):
 
     def run_thread(self, thread_function: Callable, thread_is_generator: bool) -> Worker:
         if not self.application.configuration.active_environment.has_api_credentials():
-            self.application.notify_user_signal.emit(
-                UI_TEXT["api"]["missing_credentials_error"]["title"],
-                UI_TEXT["api"]["missing_credentials_error"]["text"],
-            )
+            if not self.credentials_warning_shown:
+                self.credentials_warning_shown = True
+
+                self.application.notify_user_signal.emit(
+                    UI_TEXT["api"]["missing_credentials_error"]["title"],
+                    UI_TEXT["api"]["missing_credentials_error"]["text"],
+                )
 
             return
 

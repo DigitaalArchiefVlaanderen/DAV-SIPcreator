@@ -254,12 +254,18 @@ class Application(QtWidgets.QApplication):
         d.open()
 
     # Task
-    def start_task(self, window: Window, description: str, function: Callable, is_generator: bool) -> Worker:
+    def start_task(self, window: Window, description: str, function: Callable, is_generator: bool) -> Worker | None:
         self.work_in_progress_signal.emit(window, description)
         window.worker = self.worker_controller.run_thread(
             thread_function=function,
             thread_is_generator=is_generator
         )
+
+        if window.worker is None:
+            self.work_ended_signal.emit(window)
+
+            return None
+
         window.worker.about_to_finish_signal.connect(
             lambda: self.work_ended_signal.emit(window)
         )

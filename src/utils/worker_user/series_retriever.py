@@ -62,6 +62,9 @@ class SeriesRetriever(WorkerUser):
             thread_is_generator=True
         )
 
+        if worker is None:
+            return
+
         worker.result_ready_signal.connect(lambda series: self.new_series_ready_handler(series=series, environment_name=environment_name))
         worker.about_to_finish_signal.connect(lambda: self.series_retrieval_done_handler(environment_name=environment_name))
         worker.error_encountered_signal.connect(self.error_occurred_signal.emit)
