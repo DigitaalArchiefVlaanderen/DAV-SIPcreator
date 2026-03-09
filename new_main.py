@@ -10,8 +10,9 @@ def excepthook(cls, exception: Exception, traceback: TracebackType):
     app.error_handler(exception=exception)
 
 
-import faulthandler
-faulthandler.enable()
+if sys.stderr is not None:
+    import faulthandler
+    faulthandler.enable()
 sys.excepthook = excepthook
 
 
