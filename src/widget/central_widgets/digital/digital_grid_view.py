@@ -106,6 +106,7 @@ class DigitalGridView(BaseWidget):
         self.save_button.clicked.connect(self._save_button_clicked)
         self.create_sip_button.clicked.connect(self._create_sip_clicked)
         self.table_model.dataChanged.connect(self._data_changed)
+        self.table_model.validation_started_signal.connect(self._update_create_sip_button)
         self.table_model.validation_finished_signal.connect(self._update_create_sip_button)
         self.sip.series_changed_signal.connect(self._on_series_changed)
 

@@ -2,13 +2,12 @@ import os
 import json
 
 from src.utils.data_objects.configuration import Configuration, ConfigurationVersion
-from src.utils.constants import CONFIGURATION_PATH, ConfigKey
+from src.utils.constants import CONFIGURATION_FILE_NAME, ConfigKey, SaveLocations
 from src.utils.path import is_path_exists_or_creatable
 
 class ConfigController:
     @staticmethod
-    def _verify_configuration(configuration: dict, version: ConfigurationVersion=ConfigurationVersion.V4) -> bool:
-        """Verifies the integrity of the configuration"""
+    def _verify_configuration(configuration: dict, root_path: str, version: ConfigurationVersion=ConfigurationVersion.V4) -> bool:
         if "misc" not in configuration:
             return False
 
@@ -16,11 +15,10 @@ class ConfigController:
             if not isinstance(values, dict):
                 return False
 
-            # NOTE: misc needs a few things
             if environment == "misc":
                 if not "SIP Creator opslag locatie" in values:
                     return False
-                
+
                 if version in (ConfigurationVersion.V5, ConfigurationVersion.V4, ConfigurationVersion.V3):
                     if not "Bestandscontrole lijst locatie" in values:
                         return False
@@ -28,7 +26,9 @@ class ConfigController:
                 if not is_path_exists_or_creatable(
                     values["SIP Creator opslag locatie"]
                 ):
-                    configuration[environment]["SIP Creator opslag locatie"] = os.path.join(os.getcwd(), "SIP_Creator")
+                    configuration[environment]["SIP Creator opslag locatie"] = os.path.join(
+                        root_path, SaveLocations.DEFAULT_BASE_SAVE_LOCATION.value
+                    )
 
                 if version == ConfigurationVersion.V1:
                     tabs = ("Omgevingen",)
@@ -91,21 +91,20 @@ class ConfigController:
         return True
 
     @staticmethod
-    def get_configuration() -> Configuration:
-        if not os.path.exists(CONFIGURATION_PATH):
-            return Configuration.get_default()
+    def get_configuration(root_path: str) -> Configuration:
+        configuration_path = os.path.join(root_path, CONFIGURATION_FILE_NAME)
 
-        with open(CONFIGURATION_PATH, "r", encoding="utf-8") as f:
+        if not os.path.exists(configuration_path):
+            return Configuration.get_default(root_path)
+
+        with open(configuration_path, "r", encoding="utf-8") as f:
             try:
                 configuration = json.load(f)
             except Exception:
-                return Configuration.get_default()
+                return Configuration.get_default(root_path)
 
-            # Run in reverse order of versions to ensure we have the latest one
             for v in (ConfigurationVersion.V5, ConfigurationVersion.V4, ConfigurationVersion.V3, ConfigurationVersion.V2, ConfigurationVersion.V1):
-                if ConfigController._verify_configuration(configuration, version=v):
-                    # Valid for this version
-                    return Configuration.from_json(configuration, version=v)
+                if ConfigController._verify_configuration(configuration, root_path, version=v):
+                    return Configuration.from_json(configuration, root_path, version=v)
 
-            # No older config is valid, return default
-            return Configuration.get_default()
+            return Configuration.get_default(root_path)

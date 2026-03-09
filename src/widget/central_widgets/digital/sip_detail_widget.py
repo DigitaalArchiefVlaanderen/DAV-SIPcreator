@@ -75,6 +75,13 @@ class SipDetailWidget(CentralWidget):
         self.application.window_controller.open_folder_mapping_window(sip=self.sip)
 
     def open_grid_handler(self) -> None:
+        if self.application.digital_sip_db_controller.db_exists(self.sip.db_name):
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["sip"]["duplicate_name_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["sip"]["duplicate_name_error"]["text"].format(name=self.sip.name),
+            )
+            return
+
         self._update_tag_mapping()
 
         self.application.window_controller.open_digital_grid_signal.emit(self.sip)
@@ -141,6 +148,9 @@ class SipNameEditAndStatusWidget(ComponentWidget):
     def setup_signals(self) -> None:
         self.title_edit.editingFinished.connect(
             lambda: self.sip.set_name(self.title_edit.text())
+        )
+        self.sip.name_changed_signal.connect(
+            lambda: self.title_edit.setText(self.sip.name)
         )
 
 class SeriesTypeSelectorWidget(ComponentWidget):

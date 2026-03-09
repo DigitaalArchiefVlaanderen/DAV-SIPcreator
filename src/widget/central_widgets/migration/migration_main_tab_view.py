@@ -2,7 +2,6 @@ from PySide6 import QtWidgets, QtCore
 
 from src.utils.constants import UI_TEXT_ELEMENTS, KLANT_ROLE
 from src.utils.data_objects.migration.sip import MigrationSIP
-from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.grid.table.common.data_table import DataTable, CellColor, MarkingSource
 from src.utils.grid.table.common.grid_table_view import GridTableView
 from src.utils.grid.table.common.proxy_model import SortFilterProxyModel, TableFilter
@@ -18,6 +17,7 @@ SERIES_NAME_COLUMN = "series_name"
 
 class MigrationMainTabView(BaseWidget):
     assign_to_series_signal = QtCore.Signal(list, str, str)
+    create_sip_signal = QtCore.Signal()
 
     def __init__(self, sip: MigrationSIP) -> None:
         super().__init__()
@@ -198,10 +198,4 @@ class MigrationMainTabView(BaseWidget):
         )
 
     def _create_sip_clicked(self) -> None:
-        self._save_button_clicked()
-        self.sip.set_status(SIPStatus.SIP_CREATED)
-
-        self.application.notify_user_signal.emit(
-            UI_TEXT["create_sip_success"]["title"],
-            UI_TEXT["create_sip_success"]["text"],
-        )
+        self.create_sip_signal.emit()

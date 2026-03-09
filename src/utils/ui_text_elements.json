@@ -35,26 +35,30 @@
                 "text": "Bezig met upload",
                 "priority": 2
             },
+            "partially_uploaded": {
+                "text": "Gedeeltelijk geüpload",
+                "priority": 3
+            },
             "uploaded": {
                 "text": "Klaar met upload",
-                "priority": 3
+                "priority": 4
             },
             "processing": {
                 "text": "E-edepot verwerking",
-                "priority": 4
+                "priority": 5
             },
             "accepted": {
                 "text": "Geaccepteerd",
-                "priority": 5
+                "priority": 6
             },
             "rejected": {
                 "text": "Geweigerd",
-                "priority": 6
+                "priority": 7
             },
 
             "deleted": {
                 "text": "Aan het verwijderen",
-                "priority": 7
+                "priority": 8
             }
         },
         "controls": {
@@ -132,7 +136,11 @@
                 "title": "Te veel rijen",
                 "text": "Het maximaal aantal rijen per serie is {max_rows}. Na toewijzing zou de serie {total_rows} rijen bevatten."
             },
-            "tab_loading_text": "Laden..."
+            "tab_loading_text": "Laden...",
+            "create_all_sips_success": {
+                "title": "SIPs aangemaakt",
+                "text": "Alle series zijn succesvol klaargezet voor upload."
+            }
         },
         "grid": {
             "default_sorting_button_text": "Reset sortering",
@@ -158,6 +166,21 @@
                 "title": "Trage actie",
                 "text": "Omdat er veel rijen moeten veranderen kan de actie tot enkele minuten duren."
             }
+        },
+        "upload_dialog": {
+            "title": "Upload series",
+            "description": "Selecteer welke series je wilt uploaden:",
+            "upload_button_text": "Upload geselecteerde",
+            "cancel_button_text": "Annuleren",
+            "no_selection": {
+                "title": "Geen selectie",
+                "text": "Selecteer minstens één serie om te uploaden."
+            }
+        },
+        "tab_status_dialog": {
+            "title": "Status per serie",
+            "series_column": "Serie",
+            "status_column": "Status"
         }
     },
     "digital": {
@@ -283,7 +306,17 @@
             "sip_selection_title": "Actieve SIP type"
         }
     },
+    "application": {
+        "upload_in_progress_close_warning": {
+            "title": "Upload actief",
+            "text": "Er is momenteel een upload bezig. Weet je zeker dat je de applicatie wilt sluiten?"
+        }
+    },
     "errors": {
+        "root_path": {
+            "title": "Schrijffout",
+            "text": "SIP Creator kan geen bestanden schrijven naar de installatiemap of naar AppData. Controleer de machtigingen en probeer opnieuw."
+        },
         "api": {
             "missing_credentials_error": {
                 "title": "Ontbrekende API credentials",
@@ -338,6 +371,10 @@
             "folder_structure_missing_path_error": {
                 "title": "Folderstructuur fout",
                 "text": "Verandering in folderstructuur gevonden.\n\n'{path_in_sip}' was aanwezig bij het aanmaken van de SIP, maar is niet meer aanwezig."
+            },
+            "duplicate_name_error": {
+                "title": "Dubbele SIP naam",
+                "text": "Er bestaat al een SIP met de naam '{name}'. Kies een andere naam."
             }
         },
         "upload": {
@@ -435,6 +472,12 @@
             "verpakking_empty_error": "ID verpakking moet een waarde hebben",
             "path_in_sip_empty_error": "Path in SIP mag niet leeg zijn",
             "path_in_sip_duplicate_error": "Path in SIP moet uniek zijn"
+        }
+    },
+    "grid_table": {
+        "bulk_paste_warning": {
+            "title": "Grote hoeveelheid data",
+            "text": "Er worden {count} cellen tegelijk aangepast. Dit kan even duren."
         }
     }
 }

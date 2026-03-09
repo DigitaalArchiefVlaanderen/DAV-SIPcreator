@@ -11,6 +11,7 @@ DATE_COLUMNS = {ColumnName.OPENINGSDATUM.value, ColumnName.SLUITINGSDATUM.value}
 
 
 class CommonDataVerificationTable(DataTable):
+    validation_started_signal = QtCore.Signal()
     validation_finished_signal = QtCore.Signal()
 
     COLUMN_VALIDATORS: dict[ColumnName, BaseCheck] = {
@@ -49,7 +50,7 @@ class CommonDataVerificationTable(DataTable):
             if self.raw_data.iat[row, type_col] == RowType.GEEN
         }
 
-    def _run_bulk_validators(self, cell_range: CellRange) -> list[BulkResult]:
+    def _run_bulk_validators(self, cell_range: CellRange) -> tuple[list[BulkResult], set[int]]:
         results: list[BulkResult] = []
         empty_rows = self._get_empty_rows(cell_range)
 
@@ -63,11 +64,16 @@ class CommonDataVerificationTable(DataTable):
                 if r[0] not in empty_rows
             )
 
-        return results
+        return results, empty_rows
 
-    def _apply_bulk_results(self, results: list[BulkResult], cell_range: CellRange | None = None) -> None:
+    def _apply_bulk_results(
+        self,
+        results: list[BulkResult],
+        cell_range: CellRange | None = None,
+        empty_rows: set[int] | None = None,
+    ) -> None:
         if cell_range:
-            self._clear_validator_markings(cell_range)
+            self._clear_validator_markings(cell_range, empty_rows or set())
 
         min_row = float("inf")
         max_row = 0
@@ -101,25 +107,17 @@ class CommonDataVerificationTable(DataTable):
                 self.index(max_row, max_col),
             )
 
-    def _clear_validator_markings(self, cell_range: CellRange) -> None:
-        empty_rows = self._get_empty_rows(cell_range)
-        keys_to_remove = []
+    def _clear_validator_markings(self, cell_range: CellRange, empty_rows: set[int]) -> None:
+        row_range = set(range(cell_range.row_start, cell_range.row_end + 1)) - empty_rows
+        valid_row_indices = {self.raw_data.index[row] for row in row_range}
 
-        for row in range(cell_range.row_start, cell_range.row_end + 1):
-            if row in empty_rows:
-                continue
-
-            row_idx = self.raw_data.index[row]
-
-            for col in range(self.raw_data.shape[1]):
-                key_cell = (row_idx, col, MarkingSource.CELL)
-                key_wide = (row_idx, col, MarkingSource.WIDE)
-
-                if key_cell in self.markings and self.markings[key_cell][0] != CellColor.GREY:
-                    keys_to_remove.append(key_cell)
-
-                if key_wide in self.markings:
-                    keys_to_remove.append(key_wide)
+        keys_to_remove = [
+            key for key in self.markings
+            if key[0] in valid_row_indices and (
+                (key[2] == MarkingSource.WIDE)
+                or (key[2] == MarkingSource.CELL and self.markings[key][0] != CellColor.GREY)
+            )
+        ]
 
         for key in keys_to_remove:
             del self.markings[key]
@@ -145,9 +143,11 @@ class CommonDataVerificationTable(DataTable):
         worker.moveToThread(thread)
         self._active_workers.append((worker, thread))
 
+        self.validation_started_signal.emit()
+
         thread.started.connect(worker.run)
         worker.result_ready_signal.connect(
-            lambda results: self._apply_bulk_results(results, cell_range)
+            lambda result: self._apply_bulk_results(result[0], cell_range, result[1])
         )
 
         worker.finished_signal.connect(thread.quit)
@@ -195,33 +195,49 @@ class CommonDataVerificationTable(DataTable):
         if not changes:
             return
 
-        min_row = float("inf")
-        max_row = 0
-        min_col = float("inf")
-        max_col = 0
-        date_rows: set[int] = set()
+        raw_changes = [
+            (index.row(), index.column(), self._sanitize_value(value))
+            for index, value in changes
+        ]
 
-        for index, value in changes:
-            value = self._sanitize_value(value)
+        df_copy = self.raw_data.copy()
 
-            self.raw_data.iat[index.row(), index.column()] = value
+        def background_apply():
+            date_rows: set[int] = set()
 
-            min_row = min(min_row, index.row())
-            max_row = max(max_row, index.row())
-            min_col = min(min_col, index.column())
-            max_col = max(max_col, index.column())
+            for row, col, value in raw_changes:
+                df_copy.iat[row, col] = value
 
-            if self.raw_data.columns[index.column()] in DATE_COLUMNS:
-                date_rows.add(index.row())
+                if df_copy.columns[col] in DATE_COLUMNS:
+                    date_rows.add(row)
 
-        self.dataChanged.emit(
-            self.index(min_row, min_col),
-            self.index(max_row, max_col),
-        )
+            return df_copy, date_rows
+
+        worker = Worker(function=background_apply, is_generator=False)
+        thread = QtCore.QThread()
+
+        worker.moveToThread(thread)
+        self._active_workers.append((worker, thread))
+
+        thread.started.connect(worker.run)
+        worker.result_ready_signal.connect(self._on_bulk_data_applied)
+        worker.finished_signal.connect(thread.quit)
+        worker.finished_signal.connect(thread.deleteLater)
+        worker.finished_signal.connect(lambda: self._on_worker_finished(worker, thread))
+
+        thread.start()
+
+    def _on_bulk_data_applied(self, result: tuple) -> None:
+        df_copy, date_rows = result
+
+        self.beginResetModel()
+        self.raw_data = df_copy
+        self.sip.grid_data.data_as_df = self.raw_data
+        self.endResetModel()
 
         cell_range = CellRange(
-            row_start=min_row,
-            row_end=max_row,
+            row_start=0,
+            row_end=self.raw_data.shape[0] - 1,
             col_start=0,
             col_end=self.raw_data.shape[1] - 1,
         )
@@ -230,10 +246,10 @@ class CommonDataVerificationTable(DataTable):
 
     def _validate_and_auto_update(self, cell_range: CellRange, date_rows: set[int]) -> None:
         def background_task():
-            results = self._run_bulk_validators(cell_range)
+            results, empty_rows = self._run_bulk_validators(cell_range)
             auto_updates = self._compute_auto_updates(date_rows) if date_rows else []
 
-            return results, auto_updates
+            return results, empty_rows, auto_updates
 
         worker = Worker(
             function=background_task,
@@ -256,9 +272,9 @@ class CommonDataVerificationTable(DataTable):
         thread.start()
 
     def _apply_validation_and_auto_updates(self, result: tuple, cell_range: CellRange | None = None) -> None:
-        results, auto_updates = result
+        results, empty_rows, auto_updates = result
 
-        self._apply_bulk_results(results, cell_range)
+        self._apply_bulk_results(results, cell_range, empty_rows)
 
         for dossier_row_pos, col, value in auto_updates:
             self.setData(self.index(dossier_row_pos, col), value)

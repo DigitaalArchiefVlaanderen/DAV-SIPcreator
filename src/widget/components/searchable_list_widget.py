@@ -95,6 +95,7 @@ class SearchableListWidget(BaseWidget):
 
     def reload_shown_widgets(self, sort: bool=False) -> None:
         self.hide()
+        self._remove_deleted_widgets()
         self.search_for_widgets()
 
         if sort:
@@ -102,7 +103,6 @@ class SearchableListWidget(BaseWidget):
                 self.widgets, key=lambda w: get_attr_deep(w, self.search_field)
             )
 
-            # Clear and read all the widgets to the layout
             self.clear_widgets()
 
             for widget in self.widgets:
@@ -120,6 +120,12 @@ class SearchableListWidget(BaseWidget):
         self.show()
 
         self.widgets_reloaded_signal.emit()
+
+    def _remove_deleted_widgets(self) -> None:
+        import shiboken6
+
+        self.widgets = [w for w in self.widgets if shiboken6.isValid(w)]
+        self.filtered_widgets = [w for w in self.filtered_widgets if shiboken6.isValid(w)]
 
     def add_widgets(self, widgets: list[BaseWidget]) -> None:
         widgets_to_add = [w for w in widgets if w not in self.widgets]

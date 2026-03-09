@@ -3,14 +3,16 @@ from types import TracebackType
 
 from src.utils.application import Application
 
+import traceback as tb_module
+
 def excepthook(cls, exception: Exception, traceback: TracebackType):
+    tb_module.print_exception(cls, exception, traceback)
     app.error_handler(exception=exception)
-    print(traceback.tb_frame)
 
 
 import faulthandler
 faulthandler.enable()
-# sys.excepthook = excepthook
+sys.excepthook = excepthook
 
 
 app = Application()

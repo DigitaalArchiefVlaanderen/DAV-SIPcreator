@@ -5,6 +5,7 @@ class SIPStatus(enum.Enum):
     IN_PROGRESS = "color: #000000;"
     SIP_CREATED = "color: #010101;"
     UPLOADING = "color: #68B581;"
+    PARTIALLY_UPLOADED = "color: #5BA87A;"
     DELETED = "color: white"
 
     # Status coming from API

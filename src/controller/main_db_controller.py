@@ -24,12 +24,18 @@ class MainDBController(BaseObject):
         self.initialize_version_info()
 
     def _migrate_old_db_name(self) -> None:
-        if os.path.exists(OLD_MAIN_DB_NAME) and not os.path.exists(MAIN_DB_NAME):
-            os.rename(OLD_MAIN_DB_NAME, MAIN_DB_NAME)
+        root_path = self.application.configuration.root_path
+        old_path = os.path.join(root_path, OLD_MAIN_DB_NAME)
+        new_path = os.path.join(root_path, MAIN_DB_NAME)
+
+        if os.path.exists(old_path) and not os.path.exists(new_path):
+            os.rename(old_path, new_path)
 
     @property
     def conn(self) -> sql.Connection:
-        return sql.connect(MAIN_DB_NAME)
+        root_path = self.application.configuration.root_path
+
+        return sql.connect(os.path.join(root_path, MAIN_DB_NAME))
 
     def _execute_with_conn(self, func):
         conn = self.conn

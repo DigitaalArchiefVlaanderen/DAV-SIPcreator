@@ -112,6 +112,7 @@ class AnalogWidget(CentralWidget):
                     )
                 ),
             )
+
             return
 
         if not sip.grid_data.has_data:
@@ -141,22 +142,22 @@ class AnalogWidget(CentralWidget):
 
             return columns
 
-        worker = Worker(function=background_create, is_generator=False)
-        thread = QtCore.QThread()
+        self._template_worker = Worker(function=background_create, is_generator=False)
+        self._template_thread = QtCore.QThread()
 
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.result_ready_signal.connect(
+        self._template_worker.moveToThread(self._template_thread)
+        self._template_thread.started.connect(self._template_worker.run)
+        self._template_worker.result_ready_signal.connect(
             lambda columns: self._on_template_downloaded(sip_name, series_id, columns)
         )
-        worker.error_encountered_signal.connect(
+        self._template_worker.error_encountered_signal.connect(
             lambda e: self.application.error_handler(e)
         )
-        worker.finished_signal.connect(thread.quit)
-        worker.finished_signal.connect(thread.deleteLater)
-        worker.finished_signal.connect(lambda: self.start_sip_button.setEnabled(True))
+        self._template_worker.finished_signal.connect(self._template_thread.quit)
+        self._template_worker.finished_signal.connect(self._template_thread.deleteLater)
+        self._template_worker.finished_signal.connect(lambda: self.start_sip_button.setEnabled(True))
 
-        thread.start()
+        self._template_thread.start()
 
     def _on_template_downloaded(self, sip_name: str, series_id: str, columns: list[str]) -> None:
         env_name = self.application.configuration.active_environment_name
@@ -171,24 +172,21 @@ class AnalogWidget(CentralWidget):
             return
 
         sip = AnalogSIP()
-        sip.set_name(sip_name)
-        sip.set_series(series)
 
-        db_path = os.path.join(self.application.configuration.analoog_location, sip.db_name)
-
-        if os.path.exists(db_path):
-            self.application.notify_user_signal.emit(
-                "Database bestaat al",
-                "Database met deze naam bestaat al, kies een andere naam",
-            )
+        if not sip.set_name(sip_name):
             return
 
-        self.application.analog_sip_db_controller.create_sip_db(
+        sip.set_series(series)
+
+        success = self.application.analog_sip_db_controller.create_sip_db(
             sip=sip,
             columns=columns,
             series_id=series_id,
             series_name=series.get_full_name(),
         )
+
+        if not success:
+            return
 
         df = pd.DataFrame(columns=columns)
         df.loc[0] = [""] * len(columns)

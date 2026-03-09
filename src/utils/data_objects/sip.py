@@ -4,6 +4,7 @@ import uuid
 from PySide6 import QtCore
 
 from src.utils.base_object import BaseObject
+from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.data_objects.configuration import Environment
 from src.utils.data_objects.grid_data import GridData
 from src.utils.data_objects.series import Series
@@ -34,7 +35,27 @@ class SIP(BaseObject):
     def name(self) -> str:
         return self.__name
 
-    def set_name(self, new_name: str) -> None:
+    def set_name(self, new_name: str) -> bool:
+        if new_name == self.__name:
+            return True
+
+        from src.utils.pyside_helper import Helper
+
+        if not Helper().is_sip_name_available(new_name, sip_type=type(self), exclude_sip=self):
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["sip"]["duplicate_name_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["sip"]["duplicate_name_error"]["text"].format(name=new_name),
+            )
+            self.name_changed_signal.emit()
+
+            return False
+
+        self.__name = new_name
+        self.name_changed_signal.emit()
+
+        return True
+
+    def force_set_name(self, new_name: str) -> None:
         self.__name = new_name
         self.name_changed_signal.emit()
 

@@ -1,11 +1,15 @@
+import hashlib
 import os
 import re
+import zipfile
 
 import pandas as pd
+from openpyxl import load_workbook
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from src.controller.api_controller import APIController
 from src.controller.excel_controller import ExcelController
+from src.controller.file_controller import SIDECAR_TEMPLATE
 from src.utils.constants import (
     ColumnName, UI_TEXT_ELEMENTS, OverdrachtslijstColumnName, RowType, BusinessRules,
     ANALOOG_DEFAULT_VALUE, MIGRATION_MAIN_ID_COLUMN, SERIES_NAME_COLUMN,
@@ -13,6 +17,7 @@ from src.utils.constants import (
 )
 from src.utils.data_objects.grid_data import GridData
 from src.utils.data_objects.migration.sip import MigrationSIP
+from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.pyside_helper import set_widget_warning_style, clear_widget_warning_style
 from src.utils.workers.worker import Worker
 
@@ -60,11 +65,13 @@ class MigrationTabWindow(Window):
 
         self._ensure_series_name_column()
 
+        self.sip.grid_data = self.sip.main_grid_data
         self.main_tab_view = MigrationMainTabView(sip=self.sip)
         self.tab_widget.addTab(self.main_tab_view, UI_TEXT["main_tab_title"])
 
     def setup_signals(self) -> None:
         self.main_tab_view.assign_to_series_signal.connect(self._assign_rows_to_series)
+        self.main_tab_view.create_sip_signal.connect(self._create_all_sips)
         self.sip.name_changed_signal.connect(lambda: self.setWindowTitle(self.sip.name))
         self.application.application_environment_changed_signal.connect(self.close)
 
@@ -92,7 +99,7 @@ class MigrationTabWindow(Window):
             tables = self.application.migration_sip_db_controller.read_tables(self.sip.db_name)
             results = []
 
-            for table_name, uri_serieregister, edepot_id, uploaded in tables:
+            for table_name, uri_serieregister, edepot_id, status in tables:
                 df = self.application.migration_sip_db_controller.read_series_data(self.sip.db_name, table_name)
                 results.append((table_name, df))
 
@@ -126,6 +133,8 @@ class MigrationTabWindow(Window):
             self.sip.series_grid_data[table_name] = grid_data
 
             grid_view = MigrationGridView(sip=self.sip, series_name=table_name, grid_data=grid_data)
+            grid_view.table_model.validation_finished_signal.connect(self.update_global_create_sip_button)
+            grid_view.create_sip_signal.connect(self._create_all_sips)
             self.series_tabs[table_name] = grid_view
 
             tab_index = self.tab_widget.addTab(grid_view, table_name)
@@ -201,6 +210,8 @@ class MigrationTabWindow(Window):
             )
 
             grid_view = MigrationGridView(sip=self.sip, series_name=series_name, grid_data=grid_data)
+            grid_view.table_model.validation_finished_signal.connect(self.update_global_create_sip_button)
+            grid_view.create_sip_signal.connect(self._create_all_sips)
             self.series_tabs[series_name] = grid_view
             self.tab_widget.addTab(grid_view, series_name)
 
@@ -344,9 +355,7 @@ class MigrationTabWindow(Window):
             grid_view.table_model.endResetModel()
 
             grid_view.table_model.re_mark_disabled_columns()
-
-            if grid_view.series:
-                grid_view.table_model.validate_all()
+            grid_view.table_model.validate_all()
 
             self.application.migration_sip_db_controller.save_series_data(
                 self.sip, table_name, combined_df
@@ -361,6 +370,8 @@ class MigrationTabWindow(Window):
             )
 
             grid_view = MigrationGridView(sip=self.sip, series_name=series_name, grid_data=grid_data)
+            grid_view.table_model.validation_finished_signal.connect(self.update_global_create_sip_button)
+            grid_view.create_sip_signal.connect(self._create_all_sips)
             self.series_tabs[table_name] = grid_view
             self.tab_widget.addTab(grid_view, series_name)
 
@@ -505,6 +516,161 @@ class MigrationTabWindow(Window):
 
         mapped_data[ColumnName.TYPE.value] = types
         mapped_data[ColumnName.DOSSIER_REF.value] = refs
+
+    def update_global_create_sip_button(self) -> None:
+        all_valid = (
+            self.series_tabs
+            and all(
+                not gv.table_model.has_bad_rows
+                and gv.series is not None
+                and not gv.table_model.is_validating
+                for gv in self.series_tabs.values()
+            )
+            and not self.main_tab_view.table_model.has_bad_rows
+        )
+
+        self.main_tab_view.create_sip_button.setEnabled(all_valid)
+
+        for grid_view in self.series_tabs.values():
+            grid_view.create_sip_button.setEnabled(all_valid)
+
+    def _create_all_sips(self) -> None:
+        for grid_view in self.series_tabs.values():
+            grid_view._save_button_clicked(silent=True)
+
+        self.main_tab_view._save_button_clicked()
+
+        series_data: list[tuple[str, str, pd.DataFrame]] = []
+
+        for series_name, grid_view in self.series_tabs.items():
+            if grid_view.series is None:
+                continue
+
+            series_id = grid_view.series._id
+            df = grid_view.table_model.raw_data.copy()
+
+            if MIGRATION_MAIN_ID_COLUMN in df.columns:
+                df = df.drop(columns=[MIGRATION_MAIN_ID_COLUMN])
+
+            if len(df) > BusinessRules.MAX_ROWS_PER_SERIES:
+                self.application.notify_user_signal.emit(
+                    UI_TEXT["row_limit_error"]["title"],
+                    UI_TEXT["row_limit_error"]["text"].format(
+                        max_rows=BusinessRules.MAX_ROWS_PER_SERIES,
+                        total_rows=len(df),
+                    ),
+                )
+
+                return
+
+            series_data.append((series_name, series_id, df))
+
+        if not series_data:
+            return
+
+        self._set_controls_busy(True)
+
+        def background_create_sips():
+            self.application.configuration.create_locations()
+            configuration = self.application.configuration
+            ol_name = self.sip.overdrachtslijst_name[:185]
+
+            for series_name, series_id, df in series_data:
+                import_template_loc = APIController.get_import_template(
+                    configuration=configuration,
+                    environment=self.sip.environment,
+                    series_id=series_id,
+                )
+
+                temp_loc = os.path.join(
+                    configuration.grid_location,
+                    f"temp_{series_id}.xlsx"
+                )
+
+                wb = load_workbook(import_template_loc)
+
+                try:
+                    ws = wb["Details"]
+
+                    for col_index, col_name in enumerate(df.columns):
+                        clean_name = col_name.strip()
+                        matches = re.match(r"(.+)[\s.]\d+$", clean_name)
+
+                        if matches is not None:
+                            clean_name = matches.group(1)
+
+                        ws.cell(row=1, column=col_index + 1, value=clean_name)
+
+                    for row_index in range(len(df)):
+                        for col_index in range(len(df.columns)):
+                            ws.cell(
+                                row=row_index + 2,
+                                column=col_index + 1,
+                                value=str(df.iat[row_index, col_index])
+                            )
+
+                    wb.save(temp_loc)
+                finally:
+                    wb.close()
+
+                sip_file_name = f"{series_id}-{ol_name}-SIPC.zip"
+                sidecar_file_name = f"{series_id}-{ol_name}-SIPC.xml"
+
+                sip_location = os.path.join(configuration.sips_location, sip_file_name)
+                sidecar_location = os.path.join(configuration.sips_location, sidecar_file_name)
+
+                with zipfile.ZipFile(sip_location, "w", compression=zipfile.ZIP_DEFLATED) as zfile:
+                    zfile.write(temp_loc, "Metadata.xlsx")
+
+                with open(sip_location, "rb") as f:
+                    md5 = hashlib.md5(f.read()).hexdigest()
+
+                with open(sidecar_location, "w", encoding="utf-8") as f:
+                    f.write(SIDECAR_TEMPLATE.format(md5=md5))
+
+                os.remove(temp_loc)
+
+            return True
+
+        worker = Worker(function=background_create_sips, is_generator=False)
+        thread = QtCore.QThread()
+
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.result_ready_signal.connect(self._on_all_sips_created)
+        worker.error_encountered_signal.connect(
+            lambda e: self.application.error_handler(e)
+        )
+        worker.finished_signal.connect(thread.quit)
+        worker.finished_signal.connect(thread.deleteLater)
+        worker.finished_signal.connect(lambda: self._set_controls_busy(False))
+
+        self._active_workers.append((worker, thread))
+        worker.finished_signal.connect(lambda: self._on_create_worker_finished(worker, thread))
+
+        thread.start()
+
+    def _on_all_sips_created(self, success: bool) -> None:
+        if not success:
+            return
+
+        for series_name in self.series_tabs:
+            self.sip.series_statuses[series_name] = SIPStatus.SIP_CREATED
+
+            self.application.migration_sip_db_controller.update_series_status(
+                self.sip, series_name, SIPStatus.SIP_CREATED
+            )
+
+        self.sip.set_status(SIPStatus.SIP_CREATED)
+
+        self.application.notify_user_signal.emit(
+            UI_TEXT["create_all_sips_success"]["title"],
+            UI_TEXT["create_all_sips_success"]["text"],
+        )
+
+    def _on_create_worker_finished(self, worker: Worker, thread: QtCore.QThread) -> None:
+        if (worker, thread) in self._active_workers:
+            self._active_workers.remove((worker, thread))
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         has_unsaved = any(

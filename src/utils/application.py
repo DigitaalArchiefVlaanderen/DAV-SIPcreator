@@ -1,6 +1,7 @@
 """
 Implementation of the main application
 """
+import sys
 import traceback
 
 import requests
@@ -16,7 +17,7 @@ from src.controller.migration.sip_db_controller import MigrationSIPDBController
 from src.controller.worker_controller import WorkerController
 from src.controller.window_controller import WindowController
 
-from src.utils.constants import UI_TEXT_ELEMENTS, TI_ENVIRONMENT_NAME, PROD_ENVIRONMENT_NAME
+from src.utils.constants import UI_TEXT_ELEMENTS, TI_ENVIRONMENT_NAME, PROD_ENVIRONMENT_NAME, determine_root_path
 from src.utils.data_objects.configuration import Configuration
 from src.utils.data_objects.series import Series
 from src.utils.data_objects.sip import SIP
@@ -67,7 +68,17 @@ class Application(QtWidgets.QApplication):
     def __init__(self) -> None:
         super().__init__()
 
-        self.configuration: Configuration = ConfigController.get_configuration()
+        root_path = determine_root_path()
+
+        if root_path is None:
+            QtWidgets.QMessageBox.critical(
+                None,
+                UI_ERROR_TEXT["root_path"]["title"],
+                UI_ERROR_TEXT["root_path"]["text"],
+            )
+            sys.exit(1)
+
+        self.configuration: Configuration = ConfigController.get_configuration(root_path)
 
         # Keep a reference to the windows
         self.windows: list[Window] = []

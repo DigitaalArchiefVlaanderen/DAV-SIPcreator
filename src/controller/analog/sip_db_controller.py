@@ -42,7 +42,7 @@ class AnalogSIPDBController(BaseObject):
         finally:
             conn.close()
 
-    def create_sip_db(self, sip: AnalogSIP, columns: list[str], series_id: str, series_name: str, transformed: str = "") -> None:
+    def create_sip_db(self, sip: AnalogSIP, columns: list[str], series_id: str, series_name: str, transformed: str = "") -> bool:
         db_path = os.path.join(self.application.configuration.analoog_location, sip.db_name)
 
         if os.path.exists(db_path):
@@ -52,7 +52,8 @@ class AnalogSIPDBController(BaseObject):
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_already_exists_error"]["title"],
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_already_exists_error"]["text"].format(db_apth=db_path),
             )
-            return
+
+            return False
 
         def _create(conn: sql.Connection) -> None:
             conn.execute(f"""
@@ -100,6 +101,8 @@ class AnalogSIPDBController(BaseObject):
 
         self._execute_with_conn(sip.db_name, _create)
 
+        return True
+
     def read_sip_db(self, db_file_name: str) -> tuple[AnalogSIP, str, str]:
         def _read(conn: sql.Connection) -> tuple[AnalogSIP, str, str]:
             result = conn.execute(
@@ -111,7 +114,7 @@ class AnalogSIPDBController(BaseObject):
             name, status, environment_name, series_id, series_name, edepot_sip_id, uploaded = result
 
             sip = AnalogSIP()
-            sip.set_name(name)
+            sip.force_set_name(name)
             sip.set_status(SIPStatus[status])
             sip.environment = self.application.configuration.get_environment(environment_name)
             sip.saved_series_name = series_name
@@ -243,7 +246,7 @@ class AnalogSIPDBController(BaseObject):
         os.rename(old_path, renamed_path)
 
         sip = AnalogSIP()
-        sip.set_name(os.path.splitext(db_file_name)[0])
+        sip.force_set_name(os.path.splitext(db_file_name)[0])
         sip.set_status(status)
         sip.environment = self.application.configuration.get_environment(environment_name)
         sip.uploaded = bool(edepot_id)

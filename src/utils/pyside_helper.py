@@ -28,20 +28,56 @@ def clear_widget_warning_style(widget: QtWidgets.QWidget) -> None:
 
 
 class Helper(BaseObject):
-    def __get_all_sip_names(self) -> list[str]:
-        for _, _, files in os.walk(self.application.configuration.sip_db_location):
-            return [os.path.splitext(f)[0] for f in files]
+    def get_all_sip_names(self, sip_type: type = None) -> set[str]:
+        from src.utils.data_objects.analog.sip import AnalogSIP
+        from src.utils.data_objects.migration.sip import MigrationSIP
 
-        return []
+        db_names = set()
 
-    def get_next_sip_name(self) -> str:
+        if sip_type is None or sip_type not in (AnalogSIP, MigrationSIP):
+            db_location = self.application.configuration.sip_db_location
+        elif sip_type is AnalogSIP:
+            db_location = self.application.configuration.analoog_location
+        else:
+            db_location = self.application.configuration.overdrachtslijsten_location
+
+        if os.path.exists(db_location):
+            for _, _, files in os.walk(db_location):
+                db_names = {os.path.splitext(f)[0] for f in files}
+                break
+
+        if sip_type is not None:
+            memory_names = {
+                sip.name
+                for sip_list in self.application.sips.get(sip_type, {}).values()
+                for sip in sip_list
+            }
+        else:
+            memory_names = {
+                sip.name
+                for sip_type_dict in self.application.sips.values()
+                for sip_list in sip_type_dict.values()
+                for sip in sip_list
+            }
+
+        return db_names | memory_names
+
+    def get_next_sip_name(self, sip_type: type = None) -> str:
         next_sip_number = 1
-        all_sip_names = self.__get_all_sip_names()
+        all_sip_names = self.get_all_sip_names(sip_type=sip_type)
 
         while (next_sip_name := BASE_SIP_NAME.format(number=next_sip_number)) in all_sip_names:
             next_sip_number += 1
 
         return next_sip_name
+
+    def is_sip_name_available(self, name: str, sip_type: type = None, exclude_sip=None) -> bool:
+        all_names = self.get_all_sip_names(sip_type=sip_type)
+
+        if exclude_sip is not None:
+            all_names.discard(exclude_sip.name)
+
+        return name not in all_names
 
     def wait_for_signal_or_value(
             self,

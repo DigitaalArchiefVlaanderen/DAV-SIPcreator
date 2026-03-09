@@ -1,9 +1,7 @@
-import os
-
 from PySide6 import QtWidgets, QtCore, QtGui
 
 from src.utils.base_object import ApplicationMixin
-from src.utils.constants import UI_TEXT_ELEMENTS, BusinessRules, BASE_SIP_NAME, DB_FILE_EXTENSION
+from src.utils.constants import UI_TEXT_ELEMENTS, BusinessRules
 from src.utils.data_objects.series import SeriesStatus
 
 
@@ -74,15 +72,10 @@ class AnalogGridCreationDialog(QtWidgets.QWidget, ApplicationMixin):
             self.series_combobox.addItem(series.get_full_name(), userData=series._id)
 
     def _get_next_name(self) -> str:
-        os.makedirs(self.application.configuration.analoog_location, exist_ok=True)
+        from src.utils.data_objects.analog.sip import AnalogSIP
+        from src.utils.pyside_helper import Helper
 
-        existing = os.listdir(self.application.configuration.analoog_location)
-        n = 1
-
-        while BASE_SIP_NAME.format(number=n) + DB_FILE_EXTENSION in existing:
-            n += 1
-
-        return BASE_SIP_NAME.format(number=n)
+        return Helper().get_next_sip_name(sip_type=AnalogSIP)
 
     def _on_open_grid_clicked(self) -> None:
         sip_name = self.title_input.text().strip()

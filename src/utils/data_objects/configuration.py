@@ -104,7 +104,7 @@ class Misc:
     bestandscontrole_lijst_location: str
 
     @staticmethod
-    def get_default() -> "Misc":
+    def get_default(root_path: str) -> "Misc":
         return Misc(
             environments_activity=dict(
                 ti=False,
@@ -120,7 +120,7 @@ class Misc:
                 onroerend_erfgoed=False,
                 analoog=False,
             ),
-            save_location=os.path.join(os.getcwd(), SaveLocations.DEFAULT_BASE_SAVE_LOCATION.value),
+            save_location=os.path.join(root_path, SaveLocations.DEFAULT_BASE_SAVE_LOCATION.value),
             bestandscontrole_lijst_location=""
         )
 
@@ -137,23 +137,24 @@ class Misc:
 class Configuration:
     environments: List[Environment]
     misc: Misc
+    root_path: str
 
     def create_locations(self) -> None:
-        # NOTE: creates all required folders
         os.makedirs(self.sip_db_location, exist_ok=True)
         os.makedirs(self.import_templates_location, exist_ok=True)
         os.makedirs(self.overdrachtslijsten_location, exist_ok=True)
-        # os.makedirs(self.grid_location, exist_ok=True)
         os.makedirs(self.analoog_location, exist_ok=True)
-        os.makedirs(self.sips_location, exist_ok=True) 
+        os.makedirs(self.sips_location, exist_ok=True)
 
     def save(self) -> None:
-        with open(SaveLocations.CONFIGURATION_FILE.value, "w", encoding="utf-8") as f:
+        configuration_path = os.path.join(self.root_path, SaveLocations.CONFIGURATION_FILE.value)
+
+        with open(configuration_path, "w", encoding="utf-8") as f:
             json.dump(self.to_json(), f, indent=4)
 
     @staticmethod
-    def get_default() -> "Configuration":
-        misc = Misc.get_default()
+    def get_default(root_path: str) -> "Configuration":
+        misc = Misc.get_default(root_path)
         ti = Environment.get_default("ti")
         prod = Environment.get_default("prod")
 
@@ -166,6 +167,7 @@ class Configuration:
         return Configuration(
             environments=[ti, prod],
             misc=misc,
+            root_path=root_path,
         )
 
     def to_json(self) -> dict:
@@ -178,14 +180,14 @@ class Configuration:
         }
 
     @staticmethod
-    def from_json(json: dict, version: ConfigurationVersion) -> "Configuration":
+    def from_json(json: dict, root_path: str, version: ConfigurationVersion) -> "Configuration":
         environments = []
         misc = None
 
         for k, v in json.items():
             if k == "misc":
                 if version == ConfigurationVersion.V1:
-                    misc_default = Misc.get_default()
+                    misc_default = Misc.get_default(root_path)
 
                     misc = Misc(
                         environments_activity=v["Omgevingen"],
@@ -256,7 +258,7 @@ class Configuration:
                     )
                 )
 
-        return Configuration(environments=environments, misc=misc)
+        return Configuration(environments=environments, misc=misc, root_path=root_path)
 
     def get_environment(self, name: str) -> Environment:
         for env in self.environments:

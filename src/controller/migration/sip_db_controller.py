@@ -102,7 +102,7 @@ class MigrationSIPDBController(BaseObject):
                     table_name text,
                     "URI Serieregister" text,
                     edepot_id text,
-                    uploaded integer default 0,
+                    status text default 'IN_PROGRESS',
                     UNIQUE(table_name)
                 )
             """)
@@ -117,7 +117,7 @@ class MigrationSIPDBController(BaseObject):
             name, status, environment_name, edepot_sip_id, overdrachtslijst_name = result
 
             sip = MigrationSIP()
-            sip.set_name(name)
+            sip.force_set_name(name)
             sip.set_status(SIPStatus[status])
             sip.environment = self.application.configuration.get_environment(environment_name)
             sip.edepot_sip_id = edepot_sip_id
@@ -132,9 +132,9 @@ class MigrationSIPDBController(BaseObject):
             pd.read_sql(f"SELECT * FROM {DBTableName.OVERDRACHTSLIJST.value}", conn, dtype=str).fillna("")
         )
 
-    def read_tables(self, sip_db_file_name: str) -> list[tuple[str, str, str, int]]:
+    def read_tables(self, sip_db_file_name: str) -> list[tuple[str, str, str, str]]:
         return self._execute_with_conn(sip_db_file_name, lambda conn:
-            conn.execute('SELECT table_name, "URI Serieregister", edepot_id, uploaded FROM tables').fetchall()
+            conn.execute('SELECT table_name, "URI Serieregister", edepot_id, status FROM tables').fetchall()
         )
 
     def read_series_data(self, sip_db_file_name: str, table_name: str) -> pd.DataFrame:
@@ -145,13 +145,30 @@ class MigrationSIPDBController(BaseObject):
     def create_series_table(self, sip: MigrationSIP, uri_serieregister: str, table_name: str, df: pd.DataFrame) -> None:
         def _create(conn: sql.Connection) -> None:
             conn.execute(
-                'INSERT INTO tables (table_name, "URI Serieregister", edepot_id, uploaded) VALUES (?, ?, ?, 0)',
-                (table_name, uri_serieregister, "")
+                'INSERT INTO tables (table_name, "URI Serieregister", edepot_id, status) VALUES (?, ?, ?, ?)',
+                (table_name, uri_serieregister, "", SIPStatus.IN_PROGRESS.name)
             )
 
             df.to_sql(table_name, conn, index=False, dtype="text")
 
         self._execute_with_conn(sip.db_name, _create)
+
+    def update_series_status(self, sip: MigrationSIP, table_name: str, status: SIPStatus, edepot_id: str = "") -> None:
+        def _update(conn: sql.Connection) -> None:
+            conn.execute(
+                'UPDATE tables SET status = ?, edepot_id = ? WHERE table_name = ?',
+                (status.name, edepot_id, table_name)
+            )
+
+        self._execute_with_conn(sip.db_name, _update)
+
+    def read_series_statuses(self, sip_db_file_name: str) -> dict[str, tuple[str, str]]:
+        def _read(conn: sql.Connection) -> dict[str, tuple[str, str]]:
+            rows = conn.execute('SELECT table_name, status, edepot_id FROM tables').fetchall()
+
+            return {name: (status, edepot_id) for name, status, edepot_id in rows}
+
+        return self._execute_with_conn(sip_db_file_name, _read)
 
     def save_series_data(self, sip: MigrationSIP, table_name: str, df: pd.DataFrame) -> None:
         self._execute_with_conn(sip.db_name, lambda conn:
@@ -199,6 +216,12 @@ class MigrationSIPDBController(BaseObject):
                 f"UPDATE {DBTableName.SIP_CREATOR.value} SET last_opened = ?",
                 (SIP_CREATOR_VERSION,)
             )
+
+            for series_name, series_status in sip.series_statuses.items():
+                conn.execute(
+                    'UPDATE tables SET status = ? WHERE table_name = ?',
+                    (series_status.name, series_name)
+                )
 
         self._execute_with_conn(sip.db_name, _persist)
 
@@ -276,6 +299,23 @@ class MigrationSIPDBController(BaseObject):
         except (ValueError, IndexError):
             return False
 
+    @staticmethod
+    def _migrate_tables_uploaded_to_status(conn: sql.Connection) -> None:
+        tables_columns = {
+            col_name
+            for _, col_name, *_ in conn.execute("PRAGMA table_info(tables);").fetchall()
+        }
+
+        if "uploaded" in tables_columns and "status" not in tables_columns:
+            conn.execute("ALTER TABLE tables ADD COLUMN status text default 'IN_PROGRESS'")
+
+            conn.execute(f"""
+                UPDATE tables SET status = CASE
+                    WHEN uploaded = 1 THEN '{SIPStatus.UPLOADED.name}'
+                    ELSE '{SIPStatus.IN_PROGRESS.name}'
+                END
+            """)
+
     def is_valid_db(self, sip_db_file_name: str) -> bool | None:
         if not self.db_exists(sip_db_file_name):
             return False
@@ -325,6 +365,8 @@ class MigrationSIPDBController(BaseObject):
 
                 if data_type != columns[column]:
                     return False
+
+            self._migrate_tables_uploaded_to_status(conn)
 
             return True
 
@@ -413,15 +455,15 @@ class MigrationSIPDBController(BaseObject):
                         table_name text,
                         "URI Serieregister" text,
                         edepot_id text,
-                        uploaded integer default 0,
+                        status text default 'IN_PROGRESS',
                         UNIQUE(table_name)
                     )
                 """)
 
                 for series_id, series_name, table_name in rows:
                     conn.execute(
-                        'INSERT INTO tables (table_name, "URI Serieregister", edepot_id, uploaded) VALUES (?, ?, ?, 0)',
-                        (series_name, "", "")
+                        'INSERT INTO tables (table_name, "URI Serieregister", edepot_id, status) VALUES (?, ?, ?, ?)',
+                        (series_name, "", "", SIPStatus.IN_PROGRESS.name)
                     )
 
                     conn.execute(f'ALTER TABLE [{table_name}] RENAME TO [{series_name}]')
@@ -431,7 +473,7 @@ class MigrationSIPDBController(BaseObject):
                         table_name text,
                         "URI Serieregister" text,
                         edepot_id text,
-                        uploaded integer default 0,
+                        status text default 'IN_PROGRESS',
                         UNIQUE(table_name)
                     )
                 """)
@@ -521,7 +563,7 @@ class OldMigrationSIPDBController(BaseObject):
                     break
 
             sip = MigrationSIP()
-            sip.set_name(overdrachtslijst_name)
+            sip.force_set_name(overdrachtslijst_name)
             sip.overdrachtslijst_name = overdrachtslijst_name
             sip.environment = self.application.configuration.get_environment(environment_name)
 

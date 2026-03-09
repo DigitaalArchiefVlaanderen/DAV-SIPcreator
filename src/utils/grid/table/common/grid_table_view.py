@@ -4,7 +4,11 @@ import io
 from PySide6 import QtWidgets, QtCore, QtGui
 
 from src.utils.base_object import ApplicationMixin
+from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.grid.table.common.proxy_model import SortFilterProxyModel
+
+BULK_PASTE_THRESHOLD = 1000
+GRID_TABLE_TEXT = UI_TEXT_ELEMENTS["grid_table"]
 
 
 class GridTableView(QtWidgets.QTableView, ApplicationMixin):
@@ -126,6 +130,7 @@ class GridTableView(QtWidgets.QTableView, ApplicationMixin):
 
         init_index = indexes[0]
         proxy = self.model(proxy=True)
+        source_model = self.model()
 
         visible_rows = [r for r in range(proxy.rowCount()) if not self.isRowHidden(r)]
 
@@ -134,24 +139,50 @@ class GridTableView(QtWidgets.QTableView, ApplicationMixin):
         except ValueError:
             return
 
-        usable_rows = visible_rows[init_visible_row:init_visible_row + len(parsed_rows)]
-
         if init_index.column() + len(parsed_rows[0]) > proxy.columnCount():
             return
 
-        if len(usable_rows) != len(parsed_rows):
+        usable_rows = visible_rows[init_visible_row:init_visible_row + len(parsed_rows)]
+        can_expand = hasattr(source_model, "set_bulk_data")
+        extra_rows_needed = len(parsed_rows) - len(usable_rows)
+
+        if extra_rows_needed > 0 and not can_expand:
             return
 
+        self.setUpdatesEnabled(False)
+
+        if extra_rows_needed > 0 and hasattr(source_model, "_insert_empty_rows"):
+            source_model._insert_empty_rows(extra_rows_needed)
+
+            for i in range(extra_rows_needed):
+                usable_rows.append(proxy.rowCount() - extra_rows_needed + i)
+
+        is_proxied = isinstance(proxy, QtCore.QSortFilterProxyModel)
         changes: list[tuple[QtCore.QModelIndex, str]] = []
 
-        for row, col_contents in zip(usable_rows, parsed_rows):
+        for paste_offset, col_contents in enumerate(parsed_rows):
+            row = usable_rows[paste_offset]
+
             for col_offset, col_content in enumerate(col_contents):
                 index = proxy.index(row, init_index.column() + col_offset)
 
                 if self._is_cell_editable(index):
-                    changes.append((index, col_content))
+                    source_index = proxy.mapToSource(index) if is_proxied else index
+                    changes.append((source_index, col_content))
 
-        self._apply_bulk_changes(changes)
+        if len(changes) >= BULK_PASTE_THRESHOLD:
+            self.application.notify_user_signal.emit(
+                GRID_TABLE_TEXT["bulk_paste_warning"]["title"],
+                GRID_TABLE_TEXT["bulk_paste_warning"]["text"].format(count=len(changes)),
+            )
+
+        if hasattr(source_model, "set_bulk_data"):
+            source_model.set_bulk_data(changes)
+        else:
+            for index, value in changes:
+                source_model.setData(index, value, QtCore.Qt.ItemDataRole.EditRole)
+
+        self.setUpdatesEnabled(True)
 
     def delete_content(self, indexes: list[QtCore.QModelIndex]) -> None:
         changes = [
@@ -174,6 +205,14 @@ class GridTableView(QtWidgets.QTableView, ApplicationMixin):
                 (proxy.mapToSource(index), value)
                 for index, value in changes
             ]
+
+        self._apply_bulk_changes_direct(changes)
+
+    def _apply_bulk_changes_direct(self, changes: list[tuple[QtCore.QModelIndex, str]]) -> None:
+        if not changes:
+            return
+
+        source_model = self.model()
 
         self.setUpdatesEnabled(False)
 

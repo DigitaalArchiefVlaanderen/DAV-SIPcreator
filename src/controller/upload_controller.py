@@ -1,7 +1,6 @@
 import ftplib
 import os
 import socket
-import time
 
 from src.utils.base_object import BaseObject
 from src.utils.constants import UI_TEXT_ELEMENTS
@@ -50,6 +49,9 @@ class UploadController(BaseObject):
         return True
 
     def _perform_upload(self, sip: SIP, sip_location: str, sidecar_location: str) -> None:
+        sip_remote_name = os.path.basename(sip_location)
+        sidecar_remote_name = os.path.basename(sidecar_location)
+
         with ftplib.FTP_TLS(
             sip.environment.ftps_url,
             sip.environment.ftps_username,
@@ -58,11 +60,9 @@ class UploadController(BaseObject):
             session.prot_p()
 
             with open(sip_location, "rb") as f:
-                session.storbinary(f"STOR {sip.file_name}", f)
+                session.storbinary(f"STOR {sip_remote_name}", f)
             with open(sidecar_location, "rb") as f:
-                session.storbinary(f"STOR {sip.sidecar_file_name}", f)
-
-        sip.set_status(SIPStatus.UPLOADED)
+                session.storbinary(f"STOR {sidecar_remote_name}", f)
 
     def upload_sip(self, sip: SIP) -> None:
         configuration = self.application.configuration
@@ -75,3 +75,4 @@ class UploadController(BaseObject):
 
         sip.set_status(SIPStatus.UPLOADING)
         self._perform_upload(sip, sip_location, sidecar_location)
+        sip.set_status(SIPStatus.UPLOADED)

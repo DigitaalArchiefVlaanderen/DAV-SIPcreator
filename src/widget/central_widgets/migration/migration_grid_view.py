@@ -8,6 +8,7 @@ from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.pyside_helper import set_widget_warning_style, clear_widget_warning_style
 from src.utils.data_objects.grid_data import GridData
 from src.utils.data_objects.series import Series
+from src.utils.grid.checks.common.date_check import DateCheck
 from src.utils.grid.checks.migration.location_group_check import LOCATION_COLUMNS, _get_location_groups
 from src.utils.grid.table.common.grid_table_view import GridTableView
 from src.utils.grid.table.common.proxy_model import SortFilterProxyModel, TableFilter
@@ -43,6 +44,8 @@ LOCATION_COLUMN_BASES = {
 
 
 class MigrationGridView(BaseWidget):
+    create_sip_signal = QtCore.Signal()
+
     def __init__(self, sip: MigrationSIP, series_name: str, grid_data: GridData) -> None:
         super().__init__()
 
@@ -54,6 +57,7 @@ class MigrationGridView(BaseWidget):
 
         self._lookup_series()
         self.setup_ui()
+        self._update_date_check_series()
         self.setup_signals()
         self._update_role_visibility()
 
@@ -86,8 +90,10 @@ class MigrationGridView(BaseWidget):
 
         self.load_bestandscontrole_button = QtWidgets.QPushButton(text=UI_TEXT["load_bestandscontrole_button_text"])
 
+        previous_grid_data = self.sip.grid_data
         self.sip.grid_data = self.grid_data
         self.table_model = MigrationDataVerificationTable(sip=self.sip)
+        self.sip.grid_data = previous_grid_data
 
         self.proxy_model = SortFilterProxyModel()
         self.proxy_model.setSourceModel(self.table_model)
@@ -103,9 +109,7 @@ class MigrationGridView(BaseWidget):
         self.create_sip_button = QtWidgets.QPushButton(text=UI_TEXT["create_sip_button_text"])
 
         self._update_series_label()
-
-        if self.series:
-            self.table_model.validate_all()
+        self.table_model.validate_all()
 
         self.duplication_layout = QtWidgets.QHBoxLayout()
         self.duplication_layout.setContentsMargins(0, 0, 0, 0)
@@ -134,9 +138,15 @@ class MigrationGridView(BaseWidget):
         self.save_button.clicked.connect(self._save_button_clicked)
         self.create_sip_button.clicked.connect(self._create_sip_clicked)
         self.table_model.dataChanged.connect(self._data_changed)
+        self.table_model.validation_started_signal.connect(self._update_create_sip_button)
         self.table_model.validation_finished_signal.connect(self._update_create_sip_button)
         self.application.series_updated_signal.connect(self._on_series_updated)
         self.application.application_role_changed_signal.connect(self._update_role_visibility)
+
+    def _update_date_check_series(self) -> None:
+        for validator in self.table_model.COLUMN_VALIDATORS.values():
+            if isinstance(validator, DateCheck):
+                validator._series_provider = lambda: self.series
 
     def _on_series_updated(self) -> None:
         if self.series:
@@ -324,9 +334,4 @@ class MigrationGridView(BaseWidget):
             )
 
     def _create_sip_clicked(self) -> None:
-        self._save_button_clicked()
-
-        self.application.notify_user_signal.emit(
-            UI_TEXT["create_sip_success"]["title"],
-            UI_TEXT["create_sip_success"]["text"],
-        )
+        self.create_sip_signal.emit()

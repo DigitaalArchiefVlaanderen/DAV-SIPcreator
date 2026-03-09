@@ -132,7 +132,49 @@ def get_logo() -> QtGui.QIcon:
 with open(resource_path("src/utils/ui_text_elements.json"), "r") as f:
     UI_TEXT_ELEMENTS = json.load(f)
 
-CONFIGURATION_PATH = "configuration.json"
+CONFIGURATION_FILE_NAME = "configuration.json"
+APPDATA_FALLBACK_FOLDER = "SIP_Creator"
+
+
+def _can_write_to(directory: str) -> bool:
+    test_file = os.path.join(directory, ".write_test")
+
+    try:
+        with open(test_file, "w") as f:
+            f.write("test")
+
+        os.remove(test_file)
+
+        return True
+    except (PermissionError, OSError):
+        return False
+
+
+def determine_root_path() -> str | None:
+    if getattr(sys, 'frozen', False):
+        exe_dir = os.path.dirname(sys.executable)
+    else:
+        exe_dir = os.getcwd()
+
+    if _can_write_to(exe_dir):
+        return exe_dir
+
+    appdata = os.environ.get("APPDATA", "")
+
+    if not appdata:
+        return None
+
+    appdata_folder = os.path.join(appdata, APPDATA_FALLBACK_FOLDER)
+
+    try:
+        os.makedirs(appdata_folder, exist_ok=True)
+    except OSError:
+        return None
+
+    if _can_write_to(appdata_folder):
+        return appdata_folder
+
+    return None
 
 TI_ENVIRONMENT_NAME = "ti"
 PROD_ENVIRONMENT_NAME = "prod"

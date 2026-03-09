@@ -139,7 +139,7 @@ class DigitalSIPDBController(BaseObject):
             name, status, environment_name, series_id, series_name, edepot_sip_id, dossiers_list, tag_mapping, folder_mapping = result
 
             sip = DigitalSIP()
-            sip.set_name(name)
+            sip.force_set_name(name)
             sip.set_status(SIPStatus[status])
             sip.environment = self.application.configuration.get_environment(environment_name)
 
@@ -400,7 +400,7 @@ class OldDigitalSIPDBController(BaseObject):
             environment_name, sip_status_label, series_json, _, tag_mapping, folder_mapping, edepot_sip_id = sip_table_results
 
             sip = DigitalSIP()
-            sip.set_name(os.path.splitext(sip_db_file_name)[0])
+            sip.force_set_name(os.path.splitext(sip_db_file_name)[0])
             sip.environment = self.application.configuration.get_environment(environment_name)
             sip.set_status(SIPStatus[sip_status_label])
 

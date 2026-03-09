@@ -31,7 +31,7 @@ class SIP(CommonSIP):
 
         self.__dossiers: list[DossierWidget] = []
 
-        self.set_name(Helper().get_next_sip_name())
+        self.set_name(Helper().get_next_sip_name(sip_type=type(self)))
 
         self.tag_mapping: list[tuple[str, str]] = []
         self.folder_mapping: dict = dict()

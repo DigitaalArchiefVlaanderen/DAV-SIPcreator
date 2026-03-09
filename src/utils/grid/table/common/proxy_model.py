@@ -15,6 +15,7 @@ class SortFilterProxyModel(QtCore.QSortFilterProxyModel):
     def __init__(self, parent=None):
         super().__init__(parent)
 
+        self.setDynamicSortFilter(False)
         self.active_filters: set[TableFilter] = set()
 
     def reset_sorting(self) -> None:

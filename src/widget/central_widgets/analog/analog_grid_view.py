@@ -47,7 +47,6 @@ class AnalogGridView(BaseWidget):
         self.setLayout(self.grid_layout)
 
         self.series_label = QtWidgets.QLabel()
-        self._update_series_label()
 
         self.default_sorting_button = QtWidgets.QPushButton(text=UI_TEXT["default_sorting_button_text"])
 
@@ -73,6 +72,7 @@ class AnalogGridView(BaseWidget):
         self.save_button = QtWidgets.QPushButton(text=UI_TEXT["save_button_text"])
         self.create_sip_button = QtWidgets.QPushButton(text=UI_TEXT["create_sip_button_text"])
 
+        self._update_series_label()
         self._update_row_count_label(self.table_model.count_data_rows())
 
         if self.sip.series:
@@ -103,6 +103,7 @@ class AnalogGridView(BaseWidget):
         self.create_sip_button.clicked.connect(self._create_sip_clicked)
         self.table_model.dataChanged.connect(self._data_changed)
         self.table_model.data_rows_changed_signal.connect(self._update_row_count_label)
+        self.table_model.validation_started_signal.connect(self._update_create_sip_button)
         self.table_model.validation_finished_signal.connect(self._update_create_sip_button)
         self.sip.series_changed_signal.connect(self._on_series_changed)
 
@@ -179,20 +180,20 @@ class AnalogGridView(BaseWidget):
         self.save_button.setEnabled(False)
         self.create_sip_button.setEnabled(False)
 
-        worker = Worker(function=self._background_create_sip, is_generator=False)
-        thread = QtCore.QThread()
+        self._create_sip_worker = Worker(function=self._background_create_sip, is_generator=False)
+        self._create_sip_thread = QtCore.QThread()
 
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.result_ready_signal.connect(self._on_sip_created)
-        worker.error_encountered_signal.connect(
+        self._create_sip_worker.moveToThread(self._create_sip_thread)
+        self._create_sip_thread.started.connect(self._create_sip_worker.run)
+        self._create_sip_worker.result_ready_signal.connect(self._on_sip_created)
+        self._create_sip_worker.error_encountered_signal.connect(
             lambda e: self.application.error_handler(e)
         )
-        worker.finished_signal.connect(thread.quit)
-        worker.finished_signal.connect(thread.deleteLater)
-        worker.finished_signal.connect(self._on_create_sip_finished)
+        self._create_sip_worker.finished_signal.connect(self._create_sip_thread.quit)
+        self._create_sip_worker.finished_signal.connect(self._create_sip_thread.deleteLater)
+        self._create_sip_worker.finished_signal.connect(self._on_create_sip_finished)
 
-        thread.start()
+        self._create_sip_thread.start()
 
     def _background_create_sip(self) -> bool:
         non_empty_df = self.table_model.get_non_empty_df()

@@ -8,6 +8,7 @@ from src.utils.data_objects.sip import SIP
 from src.utils.grid.checks.analog import AnalogPathInSipCheck, BeschrijvingCheck, VerpakkingCheck
 from src.utils.grid.checks.base_check import CellRange
 from src.utils.grid.table.common import CommonDataVerificationTable, CellColor, MarkingSource
+from src.utils.workers.worker import Worker
 
 
 DISABLED_COLUMNS = [
@@ -143,36 +144,132 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
             extra = max_row_needed - self.raw_data.shape[0] + 2
             self._insert_empty_rows(extra)
 
-        min_row = float("inf")
-        max_row = 0
+        raw_changes = [
+            (index.row(), index.column(), self._sanitize_value(value))
+            for index, value in changes
+        ]
 
-        for index, value in changes:
-            value = self._sanitize_value(value)
-            col_name = self.raw_data.columns[index.column()]
+        df_copy = self.raw_data.copy()
+        columns = list(df_copy.columns)
+        disabled_col_indices = [
+            df_copy.columns.get_loc(col)
+            for col in DISABLED_COLUMNS
+            if col in df_copy.columns
+        ]
 
-            if col_name == ColumnName.PATH_IN_SIP.value:
-                self._auto_fill_from_path(index.row(), value)
+        def background_apply():
+            auto_fill_rows: list[tuple[int, str]] = []
 
-            self.raw_data.iat[index.row(), index.column()] = value
+            for row, col, value in raw_changes:
+                if columns[col] == ColumnName.PATH_IN_SIP.value:
+                    auto_fill_rows.append((row, value))
 
-            min_row = min(min_row, index.row())
-            max_row = max(max_row, index.row())
+                df_copy.iat[row, col] = value
 
-        self.dataChanged.emit(
-            self.index(min_row, 0),
-            self.index(max_row, self.raw_data.shape[1] - 1),
-        )
+            if auto_fill_rows:
+                self._background_bulk_auto_fill(df_copy, auto_fill_rows)
+
+            markings = self._background_build_disabled_markings(df_copy, disabled_col_indices)
+            data_row_count = self._background_count_data_rows(df_copy)
+            needs_empty_row = df_copy.shape[0] == 0 or not self._background_is_row_empty(df_copy, df_copy.shape[0] - 1)
+
+            return df_copy, markings, data_row_count, needs_empty_row
+
+        worker = Worker(function=background_apply, is_generator=False)
+        thread = QtCore.QThread()
+
+        worker.moveToThread(thread)
+        self._active_workers.append((worker, thread))
+
+        thread.started.connect(worker.run)
+        worker.result_ready_signal.connect(self._on_analog_bulk_data_applied)
+        worker.finished_signal.connect(thread.quit)
+        worker.finished_signal.connect(thread.deleteLater)
+        worker.finished_signal.connect(lambda: self._on_worker_finished(worker, thread))
+
+        thread.start()
+
+    def _on_analog_bulk_data_applied(self, result: tuple) -> None:
+        df_copy, markings, data_row_count, needs_empty_row = result
+
+        self.beginResetModel()
+        self.raw_data = df_copy
+        self.sip.grid_data.data_as_df = self.raw_data
+        self.markings = markings
+        self.endResetModel()
 
         cell_range = CellRange(
-            row_start=min_row,
-            row_end=max_row,
+            row_start=0,
+            row_end=self.raw_data.shape[0] - 1,
             col_start=0,
             col_end=self.raw_data.shape[1] - 1,
         )
 
         self.validate_range(cell_range)
-        self._ensure_empty_bottom_row()
-        self.data_rows_changed_signal.emit(self.count_data_rows())
+
+        if needs_empty_row:
+            self._insert_empty_rows(1)
+
+        self.data_rows_changed_signal.emit(data_row_count)
+
+    @staticmethod
+    def _background_build_disabled_markings(
+        df: "pd.DataFrame",
+        disabled_col_indices: list[int],
+    ) -> dict:
+        markings = {}
+
+        for col in disabled_col_indices:
+            for row in df.index:
+                markings[(row, col, MarkingSource.CELL)] = (CellColor.GREY, "")
+
+        return markings
+
+    @staticmethod
+    def _background_count_data_rows(df: "pd.DataFrame") -> int:
+        count = 0
+
+        for row in range(df.shape[0]):
+            if not AnalogDataVerificationTable._background_is_row_empty(df, row):
+                count += 1
+
+        return count
+
+    @staticmethod
+    def _background_is_row_empty(df: "pd.DataFrame", row: int) -> bool:
+        for col in range(df.shape[1]):
+            if str(df.iat[row, col]) != "":
+                return False
+
+        return True
+
+    @staticmethod
+    def _background_bulk_auto_fill(df: "pd.DataFrame", rows: list[tuple[int, str]]) -> None:
+        if ColumnName.TYPE.value not in df.columns:
+            return
+
+        type_col = df.columns.get_loc(ColumnName.TYPE.value)
+        dossier_ref_col = df.columns.get_loc(ColumnName.DOSSIER_REF.value)
+        analoog_col = df.columns.get_loc(ColumnName.ANALOOG.value)
+        has_naam = ColumnName.NAAM.value in df.columns
+        naam_col = df.columns.get_loc(ColumnName.NAAM.value) if has_naam else None
+
+        for row, value in rows:
+            if value:
+                new_type = "" if "/" in value else RowType.DOSSIER
+                new_ref = value.split("/", 1)[0]
+                new_analoog = ANALOOG_DEFAULT_VALUE
+            else:
+                new_type = ""
+                new_ref = ""
+                new_analoog = ""
+
+            df.iat[row, type_col] = new_type
+            df.iat[row, dossier_ref_col] = new_ref
+            df.iat[row, analoog_col] = new_analoog
+
+            if has_naam:
+                df.iat[row, naam_col] = value
 
     def _auto_fill_from_path(self, row: int, value: str) -> None:
         if ColumnName.TYPE.value not in self.raw_data.columns:
