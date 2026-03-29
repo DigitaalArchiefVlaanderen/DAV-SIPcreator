@@ -184,7 +184,7 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
         thread.started.connect(worker.run)
         worker.result_ready_signal.connect(self._on_analog_bulk_data_applied)
         worker.finished_signal.connect(thread.quit)
-        worker.finished_signal.connect(thread.deleteLater)
+        thread.finished.connect(thread.deleteLater)
         worker.finished_signal.connect(lambda: self._on_worker_finished(worker, thread))
 
         thread.start()
@@ -198,6 +198,9 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
         self.markings = markings
         self.endResetModel()
 
+        if needs_empty_row:
+            self._insert_empty_rows(1)
+
         cell_range = CellRange(
             row_start=0,
             row_end=self.raw_data.shape[0] - 1,
@@ -206,9 +209,6 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
         )
 
         self.validate_range(cell_range)
-
-        if needs_empty_row:
-            self._insert_empty_rows(1)
 
         self.data_rows_changed_signal.emit(data_row_count)
 

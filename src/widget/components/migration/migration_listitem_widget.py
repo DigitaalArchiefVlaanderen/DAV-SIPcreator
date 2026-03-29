@@ -250,7 +250,7 @@ class MigrationControlsWidget(BaseWidget):
             lambda e: self.application.error_handler(e)
         )
         worker.finished_signal.connect(thread.quit)
-        worker.finished_signal.connect(thread.deleteLater)
+        thread.finished.connect(thread.deleteLater)
 
         thread.start()
 

@@ -52,13 +52,12 @@ class WorkerController(BaseObject):
         thread.started.connect(worker.run)
 
         worker.finished_signal.connect(thread.quit)
-        worker.finished_signal.connect(thread.deleteLater)
-        worker.finished_signal.connect(lambda: self.active_threads.remove(thread))
-        worker.finished_signal.connect(lambda: self.active_workers.remove(worker))
+        thread.finished.connect(thread.deleteLater)
+        worker.finished_signal.connect(lambda: self.active_threads.remove(thread) if thread in self.active_threads else None)
+        worker.finished_signal.connect(lambda: self.active_workers.remove(worker) if worker in self.active_workers else None)
         worker.stopped_forcibly_signal.connect(thread.quit)
-        worker.stopped_forcibly_signal.connect(thread.deleteLater)
-        worker.stopped_forcibly_signal.connect(lambda: self.active_threads.remove(thread))
-        worker.stopped_forcibly_signal.connect(lambda: self.active_workers.remove(worker))
+        worker.stopped_forcibly_signal.connect(lambda: self.active_threads.remove(thread) if thread in self.active_threads else None)
+        worker.stopped_forcibly_signal.connect(lambda: self.active_workers.remove(worker) if worker in self.active_workers else None)
 
         thread.start()
 

@@ -151,13 +151,14 @@ class CommonDataVerificationTable(DataTable):
         )
 
         worker.finished_signal.connect(thread.quit)
-        worker.finished_signal.connect(thread.deleteLater)
+        thread.finished.connect(thread.deleteLater)
         worker.finished_signal.connect(lambda: self._on_worker_finished(worker, thread))
 
         thread.start()
 
     def _on_worker_finished(self, worker: Worker, thread: QtCore.QThread) -> None:
-        self._active_workers.remove((worker, thread))
+        if (worker, thread) in self._active_workers:
+            self._active_workers.remove((worker, thread))
 
         if not self._active_workers:
             self.validation_finished_signal.emit()
@@ -222,7 +223,7 @@ class CommonDataVerificationTable(DataTable):
         thread.started.connect(worker.run)
         worker.result_ready_signal.connect(self._on_bulk_data_applied)
         worker.finished_signal.connect(thread.quit)
-        worker.finished_signal.connect(thread.deleteLater)
+        thread.finished.connect(thread.deleteLater)
         worker.finished_signal.connect(lambda: self._on_worker_finished(worker, thread))
 
         thread.start()
@@ -266,7 +267,7 @@ class CommonDataVerificationTable(DataTable):
         )
 
         worker.finished_signal.connect(thread.quit)
-        worker.finished_signal.connect(thread.deleteLater)
+        thread.finished.connect(thread.deleteLater)
         worker.finished_signal.connect(lambda: self._on_worker_finished(worker, thread))
 
         thread.start()

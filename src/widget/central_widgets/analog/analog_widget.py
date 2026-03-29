@@ -154,7 +154,7 @@ class AnalogWidget(CentralWidget):
             lambda e: self.application.error_handler(e)
         )
         self._template_worker.finished_signal.connect(self._template_thread.quit)
-        self._template_worker.finished_signal.connect(self._template_thread.deleteLater)
+        self._template_thread.finished.connect(self._template_thread.deleteLater)
         self._template_worker.finished_signal.connect(lambda: self.start_sip_button.setEnabled(True))
 
         self._template_thread.start()

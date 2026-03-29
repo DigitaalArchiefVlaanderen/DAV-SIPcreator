@@ -190,7 +190,7 @@ class AnalogGridView(BaseWidget):
             lambda e: self.application.error_handler(e)
         )
         self._create_sip_worker.finished_signal.connect(self._create_sip_thread.quit)
-        self._create_sip_worker.finished_signal.connect(self._create_sip_thread.deleteLater)
+        self._create_sip_thread.finished.connect(self._create_sip_thread.deleteLater)
         self._create_sip_worker.finished_signal.connect(self._on_create_sip_finished)
 
         self._create_sip_thread.start()

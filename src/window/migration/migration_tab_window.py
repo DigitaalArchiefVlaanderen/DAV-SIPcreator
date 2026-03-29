@@ -117,7 +117,7 @@ class MigrationTabWindow(Window):
             lambda e: self.application.error_handler(e)
         )
         worker.finished_signal.connect(thread.quit)
-        worker.finished_signal.connect(thread.deleteLater)
+        thread.finished.connect(thread.deleteLater)
         worker.finished_signal.connect(lambda: self._on_load_worker_finished(worker, thread))
 
         thread.start()
@@ -334,7 +334,7 @@ class MigrationTabWindow(Window):
             lambda e: self._on_assign_error(e, worker, thread)
         )
         worker.finished_signal.connect(thread.quit)
-        worker.finished_signal.connect(thread.deleteLater)
+        thread.finished.connect(thread.deleteLater)
         worker.finished_signal.connect(lambda: self._on_assign_worker_finished(worker, thread))
 
         thread.start()
@@ -642,7 +642,7 @@ class MigrationTabWindow(Window):
             lambda e: self.application.error_handler(e)
         )
         worker.finished_signal.connect(thread.quit)
-        worker.finished_signal.connect(thread.deleteLater)
+        thread.finished.connect(thread.deleteLater)
         worker.finished_signal.connect(lambda: self._set_controls_busy(False))
 
         self._active_workers.append((worker, thread))
