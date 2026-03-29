@@ -16,9 +16,26 @@ configuration*.json
 dist/
 output/
 build/
+*.spec
+*.toml
+build.bat
+wix314.exe
+installer/
 
 # Project files
 SIP_Creator/
 main.spec
 *.db
 test.py
+
+# Coverage
+htmlcov/
+.coverage
+coverage.xml
+
+# Tool caches
+.ruff_cache/
+.pytest_cache/
+
+# Tests
+tst/
