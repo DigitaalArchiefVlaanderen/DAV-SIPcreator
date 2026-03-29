@@ -2,6 +2,7 @@ from PySide6 import QtWidgets, QtCore
 
 from src.controller.file_controller import FileController
 from src.utils.constants import ColumnName, UI_TEXT_ELEMENTS
+from src.utils.workers.worker import Worker
 from src.utils.pyside_helper import set_widget_warning_style, clear_widget_warning_style
 from src.utils.data_objects.digital.sip import SIP
 from src.utils.data_objects.sip_status import SIPStatus
@@ -190,7 +191,20 @@ class DigitalGridView(BaseWidget):
     def _create_sip_clicked(self) -> None:
         self._save_button_clicked()
 
-        if not FileController().create_sip(sip=self.sip, strip_name_extensions=self.table_model.should_filter_name_column):
+        self.save_button.setEnabled(False)
+        self.create_sip_button.setEnabled(False)
+
+        strip = self.table_model.should_filter_name_column
+
+        self._create_sip_worker = Worker.start(
+            lambda: FileController().create_sip(sip=self.sip, strip_name_extensions=strip),
+            on_result=self._on_sip_created,
+            on_error=lambda e: self.application.error_handler(e),
+            on_finished=self._on_create_sip_finished,
+        )
+
+    def _on_sip_created(self, success: bool) -> None:
+        if not success:
             return
 
         self.sip.set_status(SIPStatus.SIP_CREATED)
@@ -199,3 +213,7 @@ class DigitalGridView(BaseWidget):
             UI_TEXT["create_sip_success"]["title"],
             UI_TEXT["create_sip_success"]["text"],
         )
+
+    def _on_create_sip_finished(self) -> None:
+        self.save_button.setEnabled(True)
+        self._update_create_sip_button()

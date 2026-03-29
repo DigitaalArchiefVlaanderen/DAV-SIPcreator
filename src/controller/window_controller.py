@@ -9,6 +9,7 @@ from src.window.sip_creator_window import SipCreatorWindow
 
 from src.window.digital.folder_mapping_window import FolderMappingWindow
 from src.window.digital.sip_detail_window import SipDetailWindow
+from src.window.grid_window import GridWindow
 
 
 class WindowController(BaseObject):
@@ -51,18 +52,36 @@ class WindowController(BaseObject):
     def __open_from_trackable(self, sip: SIP, window_type: type[Window], *window_args, **window_kwargs) -> Window:
         windows_dict = self.trackable_windows.setdefault(sip, dict())
 
-        # NOTE: we could use another setdefault here
-        # But that would mean instantiating the detail window even if we don't need it anymore
-        # Since that might take up some time, we avoid that unless we need it
         if window_type in windows_dict:
-            return windows_dict[window_type]
-        
-        # We need it
+            existing = windows_dict[window_type]
+            existing.show()
+            existing.raise_()
+            existing.activateWindow()
+            return existing
+
         window_kwargs["sip"] = sip
-        window = windows_dict.setdefault(window_type, window_type(*window_args, **window_kwargs))
+        window = window_type(*window_args, **window_kwargs)
+        windows_dict[window_type] = window
+
+        window.window_about_to_close_signal.connect(
+            lambda: self._untrack_window(sip, window_type)
+        )
 
         window.show()
         return window
+
+    def _untrack_window(self, sip: SIP, window_type: type[Window]) -> None:
+        if sip in self.trackable_windows and window_type in self.trackable_windows[sip]:
+            del self.trackable_windows[sip][window_type]
+
+    def close_windows_for_sip(self, sip: SIP) -> None:
+        if sip not in self.trackable_windows:
+            return
+
+        for window in list(self.trackable_windows[sip].values()):
+            window.close()
+
+        self.trackable_windows.pop(sip, None)
 
     # Digital
     def open_folder_mapping_window(self, sip: SIP) -> FolderMappingWindow:
@@ -75,5 +94,11 @@ class WindowController(BaseObject):
         return self.__open_from_trackable(
             sip=sip,
             window_type=SipDetailWindow
+        )
+
+    def open_grid_window(self, sip: SIP) -> GridWindow:
+        return self.__open_from_trackable(
+            sip=sip,
+            window_type=GridWindow
         )
 

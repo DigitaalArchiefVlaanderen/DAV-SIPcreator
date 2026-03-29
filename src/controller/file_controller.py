@@ -131,6 +131,16 @@ class FileController(BaseObject):
         ):
             return False
 
+        # Validate all files still exist before zipping
+        for location in filtered_folder_structure.values():
+            file_path = location["path"]
+            if not os.path.exists(file_path):
+                self.application.notify_user_signal.emit(
+                    UI_TEXT["folder_structure_missing_path_error"]["title"],
+                    UI_TEXT["folder_structure_missing_path_error"]["text"].format(path_in_sip=file_path),
+                )
+                return False
+
         temp_excel_location = os.path.join(
             configuration.import_templates_location,
             "temp.xlsx"
@@ -145,23 +155,29 @@ class FileController(BaseObject):
         sip_location = os.path.join(storage_location, sip.file_name)
         sidecar_location = os.path.join(storage_location, sip.sidecar_file_name)
 
-        with zipfile.ZipFile(sip_location, "w", compression=zipfile.ZIP_DEFLATED) as zfile:
-            zfile.write(temp_excel_location, "Metadata.xlsx")
-
-            for location in filtered_folder_structure.values():
-                zfile.write(location["path"], location[ColumnName.PATH_IN_SIP.value])
-
-        with open(sip_location, "rb") as f:
-            md5 = hashlib.md5(f.read()).hexdigest()
-
-        with open(sidecar_location, "w", encoding="utf-8") as f:
-            f.write(SIDECAR_TEMPLATE.format(md5=md5))
-
         try:
-            os.remove(temp_excel_location)
-        except PermissionError:
-            import gc
-            gc.collect()
-            os.remove(temp_excel_location)
+            with zipfile.ZipFile(sip_location, "w", compression=zipfile.ZIP_DEFLATED) as zfile:
+                zfile.write(temp_excel_location, "Metadata.xlsx")
+
+                for location in filtered_folder_structure.values():
+                    zfile.write(location["path"], location[ColumnName.PATH_IN_SIP.value])
+
+            with open(sip_location, "rb") as f:
+                md5 = hashlib.md5(f.read()).hexdigest()
+
+            with open(sidecar_location, "w", encoding="utf-8") as f:
+                f.write(SIDECAR_TEMPLATE.format(md5=md5))
+        except OSError as e:
+            from src.utils.constants import UI_TEXT_ELEMENTS
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["file_system"]["disk_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["file_system"]["disk_error"]["text"].format(error=e),
+            )
+            return False
+        finally:
+            try:
+                os.remove(temp_excel_location)
+            except (PermissionError, FileNotFoundError):
+                pass
 
         return True

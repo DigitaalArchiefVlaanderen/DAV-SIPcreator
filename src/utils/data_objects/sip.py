@@ -36,8 +36,19 @@ class SIP(BaseObject):
         return self.__name
 
     def set_name(self, new_name: str) -> bool:
+        new_name = new_name.strip()
+
         if new_name == self.__name:
             return True
+
+        if not new_name:
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["sip_name"]["empty_name_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["sip_name"]["empty_name_error"]["text"],
+            )
+            self.name_changed_signal.emit()
+
+            return False
 
         from src.utils.pyside_helper import Helper
 

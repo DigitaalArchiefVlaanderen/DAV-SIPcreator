@@ -243,9 +243,12 @@ class ControlsWidget(BaseWidget):
         if not dialog.result():
             return
 
+        # Close any open windows for this SIP (grid, detail, folder mapping)
+        self.application.window_controller.close_windows_for_sip(self.sip)
+
         db_location = os.path.join(self.application.configuration.sip_db_location, self.sip.db_name)
 
-        with suppress(FileNotFoundError):
+        with suppress(FileNotFoundError, PermissionError):
             os.remove(db_location)
 
         self.sip.set_status(SIPStatus.DELETED)

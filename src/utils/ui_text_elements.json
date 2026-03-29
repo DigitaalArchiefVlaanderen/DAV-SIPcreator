@@ -395,6 +395,32 @@
                 "text": "Je FTPS connectie url staat niet in orde voor omgeving '{environment_name}'"
             }
         },
+        "excel": {
+            "read_error": {
+                "title": "Fout bij het lezen van Excel bestand",
+                "text": "Het bestand '{path}' kon niet gelezen worden. Controleer of het een geldig Excel (.xlsx) bestand is."
+            }
+        },
+        "file_system": {
+            "path_not_found_error": {
+                "title": "Pad niet gevonden",
+                "text": "Het pad '{path}' bestaat niet of is niet meer beschikbaar."
+            },
+            "permission_error": {
+                "title": "Toegang geweigerd",
+                "text": "Geen lees/schrijf rechten op '{path}'. Controleer de machtigingen."
+            },
+            "disk_error": {
+                "title": "Schrijffout",
+                "text": "Fout bij het schrijven naar schijf: {error}"
+            }
+        },
+        "sip_name": {
+            "empty_name_error": {
+                "title": "Ongeldige SIP naam",
+                "text": "De SIP naam mag niet leeg zijn."
+            }
+        },
         "series": {
             "series_not_found_error": {
                 "title": "Serie niet gevonden",

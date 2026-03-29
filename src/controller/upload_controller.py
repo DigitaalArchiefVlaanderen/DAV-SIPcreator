@@ -74,5 +74,11 @@ class UploadController(BaseObject):
             return
 
         sip.set_status(SIPStatus.UPLOADING)
-        self._perform_upload(sip, sip_location, sidecar_location)
+
+        try:
+            self._perform_upload(sip, sip_location, sidecar_location)
+        except Exception:
+            sip.set_status(SIPStatus.SIP_CREATED)
+            raise
+
         sip.set_status(SIPStatus.UPLOADED)

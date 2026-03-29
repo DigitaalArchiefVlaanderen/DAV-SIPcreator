@@ -90,37 +90,25 @@ class SIP(CommonSIP):
 
     def _get_dossier_folder_structure(self, base_path: str, dossier_path: str) -> dict[str, str]:
         """
-            This one is a bit confusing so let me tell you what it does
-
-            you pass in <root-folder>, <root-folder>
-            and it gives you a dictionary that looks like this
+            Returns a dict mapping file/folder names to their relative paths from base_path.
 
             {
                 <file_name_1>: <root>/<file_name_1>,
                 <file_name_2>: <root>/<subfolder>/<file_name_2>,
-                <file_name_3>: <root>/<subfolder>/<file_name_3>,
-                <file_name_4>: <root>/<subfolder>/<2nd_subfolder>/<file_name_4>,
+                ...
             }
-
-            keep in mind this is just an example
-
-            os.walk would work better, let me tell you (on my todo list)
         """
         structure = {}
 
-        for location in os.listdir(dossier_path):
-            location_path = os.path.join(dossier_path, location)
+        for dirpath, dirnames, filenames in os.walk(dossier_path):
+            # Include empty directories
+            if not filenames and not dirnames:
+                dir_name = os.path.basename(dirpath)
+                structure[dir_name] = os.path.relpath(dirpath, base_path).replace("\\", "/")
 
-            if os.path.isfile(location_path) or len(os.listdir(location_path)) == 0:
-                structure[location] = os.path.relpath(
-                    location_path,
-                    base_path,
-                ).replace("\\", "/")
-            else:
-                structure = {
-                    **structure,
-                    **self._get_dossier_folder_structure(base_path, location_path),
-                }
+            for filename in filenames:
+                file_path = os.path.join(dirpath, filename)
+                structure[filename] = os.path.relpath(file_path, base_path).replace("\\", "/")
 
         return structure
 

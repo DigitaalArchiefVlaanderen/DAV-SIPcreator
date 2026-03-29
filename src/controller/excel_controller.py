@@ -1,19 +1,33 @@
 import pandas as pd
 
+
+class ExcelReadError(Exception):
+    pass
+
+
 class ExcelController:
     @staticmethod
     def read_excel(path: str) -> pd.DataFrame:
-        df = pd.read_excel(path, engine="openpyxl")
+        """
+        Reads an Excel file and returns its contents as a DataFrame.
+        All values are read as strings (as-displayed), except dates which are formatted as YYYY-MM-DD.
 
-        date_cols = []
+        Raises ExcelReadError if the file cannot be read.
+        """
+        try:
+            df = pd.read_excel(path, engine="openpyxl")
 
-        for col in df.columns:
-            if pd.api.types.is_datetime64_any_dtype(df[col]):
-                df[col] = df[col].dt.strftime("%Y-%m-%d")
-                date_cols.append(col)
+            date_cols = []
 
-        df2 = pd.read_excel(path, dtype=str, engine="openpyxl")
-        for col in date_cols:
-            df2[col] = df[col]
+            for col in df.columns:
+                if pd.api.types.is_datetime64_any_dtype(df[col]):
+                    df[col] = df[col].dt.strftime("%Y-%m-%d")
+                    date_cols.append(col)
 
-        return df2.fillna("")
+            df2 = pd.read_excel(path, dtype=str, engine="openpyxl")
+            for col in date_cols:
+                df2[col] = df[col]
+
+            return df2.fillna("")
+        except Exception as e:
+            raise ExcelReadError(str(e)) from e

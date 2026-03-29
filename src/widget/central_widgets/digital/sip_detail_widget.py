@@ -75,7 +75,16 @@ class SipDetailWidget(CentralWidget):
         self.application.window_controller.open_folder_mapping_window(sip=self.sip)
 
     def open_grid_handler(self) -> None:
-        if self.application.digital_sip_db_controller.db_exists(self.sip.db_name):
+        if not self.sip.name.strip():
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["sip_name"]["empty_name_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["sip_name"]["empty_name_error"]["text"],
+            )
+            return
+
+        from src.utils.pyside_helper import Helper
+
+        if not Helper().is_sip_name_available(self.sip.name, sip_type=type(self.sip), exclude_sip=self.sip):
             self.application.notify_user_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["sip"]["duplicate_name_error"]["title"],
                 UI_TEXT_ELEMENTS["errors"]["sip"]["duplicate_name_error"]["text"].format(name=self.sip.name),
@@ -95,16 +104,39 @@ class SipDetailWidget(CentralWidget):
         )
 
     def import_template_downloaded_handler(self) -> None:
-        self.open_grid_button.setEnabled(True)
+        from src.controller.excel_controller import ExcelReadError
 
-        # NOTE: this will always have a value here, since we only just downloaded it
-        import_df = self.sip.read_import_template()
+        try:
+            import_df = self.sip.read_import_template()
+        except ExcelReadError:
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["excel"]["read_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["excel"]["read_error"]["text"].format(path=self.sip.import_template_path),
+            )
+            return
+
+        if import_df is None:
+            return
+
+        self.open_grid_button.setEnabled(True)
         self.tag_mapping_widget.add_to_import_template(import_df.columns)
 
     def metadata_file_selected_handler(self, path: str) -> None:
+        from src.controller.excel_controller import ExcelReadError
+
         self.sip.metadata_path = path
 
-        metadata_df = self.sip.read_metadata()
+        try:
+            metadata_df = self.sip.read_metadata()
+        except ExcelReadError:
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["excel"]["read_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["excel"]["read_error"]["text"].format(path=path),
+            )
+            return
+
+        if metadata_df is None:
+            return
 
         columns_without_empty_fields = [
             c

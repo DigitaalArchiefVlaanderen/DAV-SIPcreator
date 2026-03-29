@@ -151,8 +151,28 @@ class DigitalWidget(CentralWidget):
         self.digital_sip_loaded_handler(sip)
 
     def open_grid_handler(self, sip: SIP) -> None:
+        from src.controller.excel_controller import ExcelReadError
+        from src.window.grid_window import GridWindow
+
+        # If already open, bring to foreground
+        wc = self.application.window_controller
+        existing = wc.trackable_windows.get(sip, {}).get(GridWindow)
+        if existing is not None:
+            existing.show()
+            existing.raise_()
+            existing.activateWindow()
+            return
+
         if not self.application.digital_sip_db_controller.db_exists(sip.db_name):
-            sip.set_data_from_dossiers()
+            try:
+                sip.set_data_from_dossiers()
+            except (ExcelReadError, FileNotFoundError, PermissionError) as e:
+                self.application.notify_user_signal.emit(
+                    UI_TEXT_ELEMENTS["errors"]["file_system"]["path_not_found_error"]["title"],
+                    str(e),
+                )
+                return
+
             sip.apply_tag_mapping()
             self.application.digital_sip_db_controller.create_sip_db(sip=sip)
 
@@ -171,10 +191,9 @@ class DigitalWidget(CentralWidget):
         if not sip.grid_data.has_data:
             sip.grid_data.data_as_df = self.application.digital_sip_db_controller.read_sip_data(sip.db_name)
 
-        self.grid_window = GridWindow(sip=sip)
+        grid_window = wc.open_grid_window(sip=sip)
         grid_view = DigitalGridView(sip=sip)
-        self.grid_window.setCentralWidget(grid_view)
-        self.grid_window.show()
+        grid_window.setCentralWidget(grid_view)
 
 
 # Controls
@@ -253,14 +272,21 @@ class StartSIPButton(QtWidgets.QPushButton, ApplicationMixin):
         self.setDisabled(True)
 
     def button_click_handler(self, selected_dossiers: list[DossierWidget]) -> None:
-        # NOTE: maximum amount of lines is 9999 + header
-        amount_of_files = count_files_from_dirs([d.path for d in selected_dossiers])
+        try:
+            amount_of_files = count_files_from_dirs([d.path for d in selected_dossiers])
+        except (FileNotFoundError, PermissionError) as e:
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["file_system"]["path_not_found_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["file_system"]["path_not_found_error"]["text"].format(path=e),
+            )
+            return
 
+        # NOTE: maximum amount of lines is 9999 + header
         if amount_of_files > 9999:
             self.application.notify_user_signal.emit(
                 self.UI_TEXT["too_many_files_warning"]["title"],
                 self.UI_TEXT["too_many_files_warning"]["text"].format(amount_of_files=amount_of_files)
             )
             return
-        
+
         self.interaction_finished_signal.emit()
