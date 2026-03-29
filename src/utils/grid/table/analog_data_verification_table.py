@@ -175,19 +175,12 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
 
             return df_copy, markings, data_row_count, needs_empty_row
 
-        worker = Worker(function=background_apply, is_generator=False)
-        thread = QtCore.QThread()
-
-        worker.moveToThread(thread)
-        self._active_workers.append((worker, thread))
-
-        thread.started.connect(worker.run)
-        worker.result_ready_signal.connect(self._on_analog_bulk_data_applied)
-        worker.finished_signal.connect(thread.quit)
-        thread.finished.connect(thread.deleteLater)
-        worker.finished_signal.connect(lambda: self._on_worker_finished(worker, thread))
-
-        thread.start()
+        Worker.start(
+            background_apply,
+            on_result=self._on_analog_bulk_data_applied,
+            on_finished=self._check_validation_complete,
+            track_in=self._active_workers,
+        )
 
     def _on_analog_bulk_data_applied(self, result: tuple) -> None:
         df_copy, markings, data_row_count, needs_empty_row = result

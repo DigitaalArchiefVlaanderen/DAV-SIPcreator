@@ -29,6 +29,50 @@ class Worker(QtCore.QObject):
 
         self.forcibly_stop_signal.connect(self.set_force_stop)
 
+    @staticmethod
+    def start(
+        function: Callable,
+        *,
+        is_generator: bool = False,
+        on_result: Callable | None = None,
+        on_error: Callable | None = None,
+        on_finished: Callable | None = None,
+        track_in: list | None = None,
+    ) -> "Worker":
+        worker = Worker(function=function, is_generator=is_generator)
+        thread = QtCore.QThread()
+
+        worker.moveToThread(thread)
+
+        thread.started.connect(worker.run)
+
+        if on_result is not None:
+            worker.result_ready_signal.connect(on_result)
+
+        if on_error is not None:
+            worker.error_encountered_signal.connect(on_error)
+
+        worker.finished_signal.connect(thread.quit)
+        worker.stopped_forcibly_signal.connect(thread.quit)
+        thread.finished.connect(thread.deleteLater)
+
+        if track_in is not None:
+            track_in.append((worker, thread))
+
+            def _remove():
+                if (worker, thread) in track_in:
+                    track_in.remove((worker, thread))
+
+            worker.finished_signal.connect(_remove)
+            worker.stopped_forcibly_signal.connect(_remove)
+
+        if on_finished is not None:
+            worker.finished_signal.connect(on_finished)
+
+        thread.start()
+
+        return worker
+
     def set_force_stop(self):
         self.force_stop = True
 

@@ -142,22 +142,12 @@ class AnalogWidget(CentralWidget):
 
             return columns
 
-        self._template_worker = Worker(function=background_create, is_generator=False)
-        self._template_thread = QtCore.QThread()
-
-        self._template_worker.moveToThread(self._template_thread)
-        self._template_thread.started.connect(self._template_worker.run)
-        self._template_worker.result_ready_signal.connect(
-            lambda columns: self._on_template_downloaded(sip_name, series_id, columns)
+        self._template_worker = Worker.start(
+            background_create,
+            on_result=lambda columns: self._on_template_downloaded(sip_name, series_id, columns),
+            on_error=lambda e: self.application.error_handler(e),
+            on_finished=lambda: self.start_sip_button.setEnabled(True),
         )
-        self._template_worker.error_encountered_signal.connect(
-            lambda e: self.application.error_handler(e)
-        )
-        self._template_worker.finished_signal.connect(self._template_thread.quit)
-        self._template_thread.finished.connect(self._template_thread.deleteLater)
-        self._template_worker.finished_signal.connect(lambda: self.start_sip_button.setEnabled(True))
-
-        self._template_thread.start()
 
     def _on_template_downloaded(self, sip_name: str, series_id: str, columns: list[str]) -> None:
         env_name = self.application.configuration.active_environment_name

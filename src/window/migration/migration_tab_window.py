@@ -105,22 +105,13 @@ class MigrationTabWindow(Window):
 
             return results
 
-        worker = Worker(function=background_load_tabs, is_generator=False)
-        thread = QtCore.QThread()
-
-        worker.moveToThread(thread)
-        self._active_workers.append((worker, thread))
-
-        thread.started.connect(worker.run)
-        worker.result_ready_signal.connect(self._on_tabs_loaded)
-        worker.error_encountered_signal.connect(
-            lambda e: self.application.error_handler(e)
+        Worker.start(
+            background_load_tabs,
+            on_result=self._on_tabs_loaded,
+            on_error=lambda e: self.application.error_handler(e),
+            on_finished=self._on_load_finished,
+            track_in=self._active_workers,
         )
-        worker.finished_signal.connect(thread.quit)
-        thread.finished.connect(thread.deleteLater)
-        worker.finished_signal.connect(lambda: self._on_load_worker_finished(worker, thread))
-
-        thread.start()
 
     def _on_tabs_loaded(self, results: list[tuple[str, pd.DataFrame]]) -> None:
         existing_table_names = set()
@@ -142,8 +133,7 @@ class MigrationTabWindow(Window):
 
         self._create_missing_series_tabs(existing_table_names)
 
-    def _on_load_worker_finished(self, worker: Worker, thread: QtCore.QThread) -> None:
-        self._active_workers.remove((worker, thread))
+    def _on_load_finished(self) -> None:
         self._set_controls_busy(False)
 
         for i in range(self.tab_widget.count()):
@@ -320,24 +310,16 @@ class MigrationTabWindow(Window):
 
             return series_df, template_columns
 
-        worker = Worker(function=background_assign, is_generator=False)
-        thread = QtCore.QThread()
-
-        worker.moveToThread(thread)
-        self._active_workers.append((worker, thread))
-
-        thread.started.connect(worker.run)
-        worker.result_ready_signal.connect(
-            lambda result: self._on_assign_complete(result, table_name, uri_serieregister, series_name)
+        Worker.start(
+            background_assign,
+            on_result=lambda result: self._on_assign_complete(result, table_name, uri_serieregister, series_name),
+            on_error=lambda e: self.application.notify_user_signal.emit(
+                UI_TEXT["assign_error"]["title"],
+                UI_TEXT["assign_error"]["text"],
+            ),
+            on_finished=lambda: self._set_controls_busy(False),
+            track_in=self._active_workers,
         )
-        worker.error_encountered_signal.connect(
-            lambda e: self._on_assign_error(e, worker, thread)
-        )
-        worker.finished_signal.connect(thread.quit)
-        thread.finished.connect(thread.deleteLater)
-        worker.finished_signal.connect(lambda: self._on_assign_worker_finished(worker, thread))
-
-        thread.start()
 
     def _on_assign_complete(self, result: tuple, table_name: str, uri_serieregister: str, series_name: str) -> None:
         series_df, template_columns = result
@@ -374,16 +356,6 @@ class MigrationTabWindow(Window):
             grid_view.create_sip_signal.connect(self._create_all_sips)
             self.series_tabs[table_name] = grid_view
             self.tab_widget.addTab(grid_view, series_name)
-
-    def _on_assign_error(self, error: Exception, worker: Worker, thread: QtCore.QThread) -> None:
-        self.application.notify_user_signal.emit(
-            UI_TEXT["assign_error"]["title"],
-            UI_TEXT["assign_error"]["text"],
-        )
-
-    def _on_assign_worker_finished(self, worker: Worker, thread: QtCore.QThread) -> None:
-        self._active_workers.remove((worker, thread))
-        self._set_controls_busy(False)
 
     def _remove_rows_from_old_series(self, main_df: pd.DataFrame, source_rows: list[int], new_table_name: str) -> None:
         if SERIES_NAME_COLUMN not in main_df.columns:
@@ -632,23 +604,13 @@ class MigrationTabWindow(Window):
 
             return True
 
-        worker = Worker(function=background_create_sips, is_generator=False)
-        thread = QtCore.QThread()
-
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.result_ready_signal.connect(self._on_all_sips_created)
-        worker.error_encountered_signal.connect(
-            lambda e: self.application.error_handler(e)
+        Worker.start(
+            background_create_sips,
+            on_result=self._on_all_sips_created,
+            on_error=lambda e: self.application.error_handler(e),
+            on_finished=lambda: self._set_controls_busy(False),
+            track_in=self._active_workers,
         )
-        worker.finished_signal.connect(thread.quit)
-        thread.finished.connect(thread.deleteLater)
-        worker.finished_signal.connect(lambda: self._set_controls_busy(False))
-
-        self._active_workers.append((worker, thread))
-        worker.finished_signal.connect(lambda: self._on_create_worker_finished(worker, thread))
-
-        thread.start()
 
     def _on_all_sips_created(self, success: bool) -> None:
         if not success:
@@ -667,10 +629,6 @@ class MigrationTabWindow(Window):
             UI_TEXT["create_all_sips_success"]["title"],
             UI_TEXT["create_all_sips_success"]["text"],
         )
-
-    def _on_create_worker_finished(self, worker: Worker, thread: QtCore.QThread) -> None:
-        if (worker, thread) in self._active_workers:
-            self._active_workers.remove((worker, thread))
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         has_unsaved = any(

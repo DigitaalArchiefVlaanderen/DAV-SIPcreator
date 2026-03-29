@@ -134,32 +134,16 @@ class CommonDataVerificationTable(DataTable):
         ))
 
     def validate_range(self, cell_range: CellRange) -> None:
-        worker = Worker(
-            function=lambda: self._run_bulk_validators(cell_range),
-            is_generator=False,
-        )
-        thread = QtCore.QThread()
-
-        worker.moveToThread(thread)
-        self._active_workers.append((worker, thread))
-
         self.validation_started_signal.emit()
 
-        thread.started.connect(worker.run)
-        worker.result_ready_signal.connect(
-            lambda result: self._apply_bulk_results(result[0], cell_range, result[1])
+        Worker.start(
+            lambda: self._run_bulk_validators(cell_range),
+            on_result=lambda result: self._apply_bulk_results(result[0], cell_range, result[1]),
+            on_finished=self._check_validation_complete,
+            track_in=self._active_workers,
         )
 
-        worker.finished_signal.connect(thread.quit)
-        thread.finished.connect(thread.deleteLater)
-        worker.finished_signal.connect(lambda: self._on_worker_finished(worker, thread))
-
-        thread.start()
-
-    def _on_worker_finished(self, worker: Worker, thread: QtCore.QThread) -> None:
-        if (worker, thread) in self._active_workers:
-            self._active_workers.remove((worker, thread))
-
+    def _check_validation_complete(self) -> None:
         if not self._active_workers:
             self.validation_finished_signal.emit()
 
@@ -214,19 +198,12 @@ class CommonDataVerificationTable(DataTable):
 
             return df_copy, date_rows
 
-        worker = Worker(function=background_apply, is_generator=False)
-        thread = QtCore.QThread()
-
-        worker.moveToThread(thread)
-        self._active_workers.append((worker, thread))
-
-        thread.started.connect(worker.run)
-        worker.result_ready_signal.connect(self._on_bulk_data_applied)
-        worker.finished_signal.connect(thread.quit)
-        thread.finished.connect(thread.deleteLater)
-        worker.finished_signal.connect(lambda: self._on_worker_finished(worker, thread))
-
-        thread.start()
+        Worker.start(
+            background_apply,
+            on_result=self._on_bulk_data_applied,
+            on_finished=self._check_validation_complete,
+            track_in=self._active_workers,
+        )
 
     def _on_bulk_data_applied(self, result: tuple) -> None:
         df_copy, date_rows = result
@@ -252,25 +229,12 @@ class CommonDataVerificationTable(DataTable):
 
             return results, empty_rows, auto_updates
 
-        worker = Worker(
-            function=background_task,
-            is_generator=False,
+        Worker.start(
+            background_task,
+            on_result=lambda result: self._apply_validation_and_auto_updates(result, cell_range),
+            on_finished=self._check_validation_complete,
+            track_in=self._active_workers,
         )
-        thread = QtCore.QThread()
-
-        worker.moveToThread(thread)
-        self._active_workers.append((worker, thread))
-
-        thread.started.connect(worker.run)
-        worker.result_ready_signal.connect(
-            lambda result: self._apply_validation_and_auto_updates(result, cell_range)
-        )
-
-        worker.finished_signal.connect(thread.quit)
-        thread.finished.connect(thread.deleteLater)
-        worker.finished_signal.connect(lambda: self._on_worker_finished(worker, thread))
-
-        thread.start()
 
     def _apply_validation_and_auto_updates(self, result: tuple, cell_range: CellRange | None = None) -> None:
         results, empty_rows, auto_updates = result

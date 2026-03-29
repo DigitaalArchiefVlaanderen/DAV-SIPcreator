@@ -240,19 +240,11 @@ class MigrationControlsWidget(BaseWidget):
 
             return results
 
-        worker = Worker(function=background_upload, is_generator=False)
-        thread = QtCore.QThread()
-
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.result_ready_signal.connect(self._on_upload_complete)
-        worker.error_encountered_signal.connect(
-            lambda e: self.application.error_handler(e)
+        Worker.start(
+            background_upload,
+            on_result=self._on_upload_complete,
+            on_error=lambda e: self.application.error_handler(e),
         )
-        worker.finished_signal.connect(thread.quit)
-        thread.finished.connect(thread.deleteLater)
-
-        thread.start()
 
     def _on_upload_complete(self, results: list[tuple[str, bool]]) -> None:
         for series_name, success in results:

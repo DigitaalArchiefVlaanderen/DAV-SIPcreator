@@ -3,8 +3,6 @@ Controller of background workers
 """
 from typing import Callable
 
-from PySide6 import QtCore
-
 from src.utils.base_object import BaseObject
 from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.workers.worker import Worker
@@ -16,18 +14,17 @@ class WorkerController(BaseObject):
     def __init__(self) -> None:
         super().__init__()
 
-        self.active_workers: list[Worker] = []
-        self.active_threads: list[QtCore.QThread] = []
+        self.active_pairs: list[tuple[Worker, ...]] = []
         self.credentials_warning_shown = False
 
     def close_controller(self) -> None:
-        for worker in self.active_workers[:]:
+        for worker, _ in self.active_pairs[:]:
             worker.force_stop = True
 
-        for thread in self.active_threads[:]:
+        for _, thread in self.active_pairs[:]:
             thread.quit()
 
-        for thread in self.active_threads[:]:
+        for _, thread in self.active_pairs[:]:
             thread.wait()
 
     def run_thread(self, thread_function: Callable, thread_is_generator: bool) -> Worker:
@@ -42,23 +39,8 @@ class WorkerController(BaseObject):
 
             return
 
-        worker = Worker(function=thread_function, is_generator=thread_is_generator)
-        thread = QtCore.QThread()
-
-        worker.moveToThread(thread)
-        self.active_threads.append(thread)
-        self.active_workers.append(worker)
-
-        thread.started.connect(worker.run)
-
-        worker.finished_signal.connect(thread.quit)
-        thread.finished.connect(thread.deleteLater)
-        worker.finished_signal.connect(lambda: self.active_threads.remove(thread) if thread in self.active_threads else None)
-        worker.finished_signal.connect(lambda: self.active_workers.remove(worker) if worker in self.active_workers else None)
-        worker.stopped_forcibly_signal.connect(thread.quit)
-        worker.stopped_forcibly_signal.connect(lambda: self.active_threads.remove(thread) if thread in self.active_threads else None)
-        worker.stopped_forcibly_signal.connect(lambda: self.active_workers.remove(worker) if worker in self.active_workers else None)
-
-        thread.start()
-
-        return worker
+        return Worker.start(
+            function=thread_function,
+            is_generator=thread_is_generator,
+            track_in=self.active_pairs,
+        )

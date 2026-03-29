@@ -180,20 +180,12 @@ class AnalogGridView(BaseWidget):
         self.save_button.setEnabled(False)
         self.create_sip_button.setEnabled(False)
 
-        self._create_sip_worker = Worker(function=self._background_create_sip, is_generator=False)
-        self._create_sip_thread = QtCore.QThread()
-
-        self._create_sip_worker.moveToThread(self._create_sip_thread)
-        self._create_sip_thread.started.connect(self._create_sip_worker.run)
-        self._create_sip_worker.result_ready_signal.connect(self._on_sip_created)
-        self._create_sip_worker.error_encountered_signal.connect(
-            lambda e: self.application.error_handler(e)
+        self._create_sip_worker = Worker.start(
+            self._background_create_sip,
+            on_result=self._on_sip_created,
+            on_error=lambda e: self.application.error_handler(e),
+            on_finished=self._on_create_sip_finished,
         )
-        self._create_sip_worker.finished_signal.connect(self._create_sip_thread.quit)
-        self._create_sip_thread.finished.connect(self._create_sip_thread.deleteLater)
-        self._create_sip_worker.finished_signal.connect(self._on_create_sip_finished)
-
-        self._create_sip_thread.start()
 
     def _background_create_sip(self) -> bool:
         non_empty_df = self.table_model.get_non_empty_df()
