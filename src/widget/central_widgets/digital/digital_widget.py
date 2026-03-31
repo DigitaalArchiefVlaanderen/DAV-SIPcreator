@@ -87,14 +87,8 @@ class DigitalWidget(CentralWidget):
         self.application.digital_sip_loaded_signal.connect(self.digital_sip_loaded_handler)
         self.application.application_environment_changed_signal.connect(self.environment_changed_handler)
 
-        self.add_dossier_button.interaction_finished_signal.connect(lambda d: self.dossier_list_widget.add_widgets([d]))
-        self.add_dossier_button.interaction_finished_signal.connect(
-            lambda d: self.application.main_db_controller.write_dossier_paths([d.path])
-        )
-        self.add_dossiers_button.interaction_finished_signal.connect(self.dossier_list_widget.add_widgets)
-        self.add_dossiers_button.interaction_finished_signal.connect(
-            lambda widgets: self.application.main_db_controller.write_dossier_paths([w.path for w in widgets])
-        )
+        self.add_dossier_button.interaction_finished_signal.connect(self._add_dossiers)
+        self.add_dossiers_button.interaction_finished_signal.connect(self._add_dossiers)
 
         self.dossier_list_widget.selection_changed_signal.connect(self.dossier_selection_changed_handler)
         self.start_sip_button.clicked.connect(
@@ -115,6 +109,16 @@ class DigitalWidget(CentralWidget):
         dossier_paths = self.application.main_db_controller.read_dossier_paths()
         self.dossier_loaded_signal.emit(dossier_paths)
         yield
+
+    def _add_dossiers(self, widgets: list[DossierWidget]) -> None:
+        existing = [w.base_widget for w in self.dossier_list_widget.widgets]
+        new_widgets = [w for w in widgets if w not in existing]
+
+        if not new_widgets:
+            return
+
+        self.dossier_list_widget.add_widgets(new_widgets)
+        self.application.main_db_controller.write_dossier_paths([w.path for w in new_widgets])
 
     # Handlers
     # NOTE: this needs to happen here, since we cannot create widgets in a thread
@@ -208,7 +212,7 @@ class DigitalWidget(CentralWidget):
 class AddDossierButton(QtWidgets.QPushButton):
     UI_TEXT = UI_TEXT_ELEMENTS["digital"]["main"]["controls"]["add_dossier_button"]
 
-    interaction_finished_signal = QtCore.Signal(DossierWidget)
+    interaction_finished_signal = QtCore.Signal(list)
 
     def __init__(self):
         super().__init__()
@@ -225,7 +229,7 @@ class AddDossierButton(QtWidgets.QPushButton):
 
         dossier_widget = DossierWidget(path=dossier_path)
 
-        self.interaction_finished_signal.emit(dossier_widget)
+        self.interaction_finished_signal.emit([dossier_widget])
 
 
 class AddDossiersButton(QtWidgets.QPushButton, ApplicationMixin):
