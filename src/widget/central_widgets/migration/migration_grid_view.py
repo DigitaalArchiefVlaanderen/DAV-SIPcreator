@@ -220,8 +220,10 @@ class MigrationGridView(BaseWidget):
 
         col_loc = df.columns.get_loc(column)
         spaces = len(new_column_name) - len(column)
-        df.insert(col_loc + spaces, new_column_name, "")
+        insert_pos = col_loc + spaces
+        df.insert(insert_pos, new_column_name, "")
 
+        self.table_model.shift_markings_for_insert(insert_pos)
         self.table_model.endResetModel()
 
     def _duplicate_location_columns_clicked(self) -> None:
@@ -245,6 +247,7 @@ class MigrationGridView(BaseWidget):
 
         for i, col_name in enumerate(new_columns):
             df.insert(insert_pos + i, col_name, "")
+            self.table_model.shift_markings_for_insert(insert_pos + i)
 
         self.table_model.endResetModel()
 

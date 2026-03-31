@@ -300,8 +300,10 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
 
         col_loc = self.raw_data.columns.get_loc(col_name)
         spaces = len(new_column_name) - len(col_name)
-        self.raw_data.insert(col_loc + spaces, new_column_name, "")
+        insert_pos = col_loc + spaces
+        self.raw_data.insert(insert_pos, new_column_name, "")
 
+        self.shift_markings_for_insert(insert_pos)
         self.endResetModel()
 
     def get_non_empty_df(self) -> pd.DataFrame:

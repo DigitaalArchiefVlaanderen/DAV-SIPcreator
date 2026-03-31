@@ -163,8 +163,10 @@ class DigitalGridView(BaseWidget):
 
         col_loc = df.columns.get_loc(column)
         spaces = len(new_column_name) - len(column)
-        df.insert(col_loc + spaces, new_column_name, "")
+        insert_pos = col_loc + spaces
+        df.insert(insert_pos, new_column_name, "")
 
+        self.table_model.shift_markings_for_insert(insert_pos)
         self.table_model.endResetModel()
 
     def _save_button_clicked(self) -> None:
