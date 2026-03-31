@@ -75,6 +75,7 @@ class FolderMappingWindow(Window):
                 .astype(str)
                 .convert_dtypes()
                 .agg("/".join, axis=1),
+                strict=True,
             )
             # NOTE: only do aggregate mapping if it's a stuk (with an extension)
             if os.path.splitext(path_in_sip)[1] != ""

@@ -279,7 +279,7 @@ class DigitalSIPDBController(BaseObject):
         try:
             conn = self.conn(sip_db_file_name)
             conn.close()
-        except:
+        except Exception:
             return False
 
         def _validate(conn: sql.Connection) -> bool:
@@ -380,7 +380,7 @@ class OldDigitalSIPDBController(BaseObject):
         try:
             conn = self.conn(sip_db_file_name)
             conn.close()
-        except:
+        except Exception:
             return False
 
         def _validate(conn: sql.Connection) -> bool:

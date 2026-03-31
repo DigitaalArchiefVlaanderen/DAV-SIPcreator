@@ -21,7 +21,7 @@ class AnalogPathInSipCheck(BaseCheck):
         non_empty = ~empty_mask
         all_values = raw_data.iloc[:, col].astype(str)
 
-        for i, row in enumerate(row_list):
+        for i in range(len(row_list)):
             if not non_empty.iloc[i]:
                 continue
 

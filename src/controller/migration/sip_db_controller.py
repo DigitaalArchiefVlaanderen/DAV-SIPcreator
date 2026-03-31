@@ -416,7 +416,7 @@ class MigrationSIPDBController(BaseObject):
             old_conn = sql.connect(renamed_old_path)
 
             try:
-                for table_name, uri, edepot_id in series_entries:
+                for table_name, uri, _ in series_entries:
                     clean_name = table_name.strip('"')
 
                     if clean_name == DBTableName.OVERDRACHTSLIJST.value:
@@ -462,7 +462,7 @@ class MigrationSIPDBController(BaseObject):
                     )
                 """)
 
-                for series_id, series_name, table_name in rows:
+                for _, series_name, table_name in rows:
                     conn.execute(
                         'INSERT INTO tables (table_name, "URI Serieregister", edepot_id, status) VALUES (?, ?, ?, ?)',
                         (series_name, "", "", SIPStatus.IN_PROGRESS.name),

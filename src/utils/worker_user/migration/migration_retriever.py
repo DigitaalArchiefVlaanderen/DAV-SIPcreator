@@ -33,7 +33,7 @@ class MigrationRetriever(WorkerUser):
         for sip in db_controller.g_read_all_sip_dbs():
             series_statuses = db_controller.read_series_statuses(sip.db_name)
 
-            for table_name, (status_name, edepot_id) in series_statuses.items():
+            for table_name, (status_name, _) in series_statuses.items():
                 try:
                     sip.series_statuses[table_name] = SIPStatus[status_name]
                 except KeyError:

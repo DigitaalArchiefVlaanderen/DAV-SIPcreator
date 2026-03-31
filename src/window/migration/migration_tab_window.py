@@ -101,7 +101,7 @@ class MigrationTabWindow(Window):
             tables = self.application.migration_sip_db_controller.read_tables(self.sip.db_name)
             results = []
 
-            for table_name, uri_serieregister, edepot_id, status in tables:
+            for table_name, _, _, _ in tables:
                 df = self.application.migration_sip_db_controller.read_series_data(self.sip.db_name, table_name)
                 results.append((table_name, df))
 
@@ -434,10 +434,7 @@ class MigrationTabWindow(Window):
         series_df = pd.DataFrame()
 
         for col in ordered_columns:
-            if col in mapped_data:
-                series_df[col] = mapped_data[col]
-            else:
-                series_df[col] = ""
+            series_df[col] = mapped_data.get(col, "")
 
         return series_df.fillna("").reset_index(drop=True)
 
@@ -543,7 +540,7 @@ class MigrationTabWindow(Window):
             configuration = self.application.configuration
             ol_name = self.sip.overdrachtslijst_name[:185]
 
-            for series_name, series_id, df in series_data:
+            for _, series_id, df in series_data:
                 import_template_loc = APIController.get_import_template(
                     configuration=configuration,
                     environment=self.sip.environment,

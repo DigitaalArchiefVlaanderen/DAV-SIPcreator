@@ -188,7 +188,7 @@ class GridTableView(QtWidgets.QTableView, ApplicationMixin):
         if not changes:
             return
 
-        source_model = self.model()
+        self.model()
         proxy = self.model(proxy=True)
 
         if isinstance(proxy, QtCore.QSortFilterProxyModel):

@@ -37,7 +37,7 @@ class NameCheck(BaseCheck):
 
             non_empty_dossier = is_dossier & ok_length & (values != "")
 
-            for i, row in enumerate(row_list):
+            for i in range(len(row_list)):
                 if not non_empty_dossier.iloc[i]:
                     continue
 

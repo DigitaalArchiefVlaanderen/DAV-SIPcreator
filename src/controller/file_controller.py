@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import zipfile
+from contextlib import suppress
 
 import pandas as pd
 from openpyxl import load_workbook
@@ -164,9 +165,7 @@ class FileController(BaseObject):
             )
             return False
         finally:
-            try:
+            with suppress(PermissionError, FileNotFoundError):
                 os.remove(temp_excel_location)
-            except (PermissionError, FileNotFoundError):
-                pass
 
         return True
