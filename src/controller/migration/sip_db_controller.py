@@ -51,7 +51,7 @@ class MigrationSIPDBController(BaseObject):
         if os.path.exists(db_path):
             self.application.notify_user_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_already_exists_error"]["title"],
-                UI_TEXT_ELEMENTS["errors"]["sip"]["db_already_exists_error"]["text"].format(db_apth=db_path),
+                UI_TEXT_ELEMENTS["errors"]["sip"]["db_already_exists_error"]["text"].format(db_path=db_path),
             )
             return
 

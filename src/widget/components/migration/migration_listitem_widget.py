@@ -313,7 +313,7 @@ class MigrationControlsWidget(BaseWidget):
         if not dialog.result():
             return
 
-        with suppress(FileNotFoundError):
+        with suppress(FileNotFoundError, PermissionError):
             os.remove(self.sip.db_path)
 
         self.sip.set_status(SIPStatus.DELETED)
