@@ -110,12 +110,11 @@ class FileController(BaseObject):
 
         os.makedirs(storage_location, exist_ok=True)
 
-        if not os.path.exists(import_template_location):
-            import_template_location = APIController.get_import_template(
-                configuration=configuration,
-                series_id=sip.series._id,
-                environment=sip.environment,
-            )
+        import_template_location = APIController.get_import_template(
+            configuration=configuration,
+            series_id=sip.series._id,
+            environment=sip.environment,
+        )
 
         sip_folder_structure = sip._get_folder_structure()
         filtered_folder_structure = {

@@ -205,18 +205,14 @@ class MigrationTabWindow(Window):
             self.tab_widget.addTab(grid_view, series_name)
 
     def _get_template_columns(self, series_id: str) -> list[str] | None:
-        storage_location = self.application.configuration.misc.save_location
-        file_location = os.path.join(storage_location, "import_templates", f"{series_id}.xlsx")
-
-        if not os.path.exists(file_location):
-            try:
-                file_location = APIController.get_import_template(
-                    configuration=self.application.configuration,
-                    environment=self.sip.environment,
-                    series_id=series_id,
-                )
-            except Exception:
-                return None
+        try:
+            file_location = APIController.get_import_template(
+                configuration=self.application.configuration,
+                environment=self.sip.environment,
+                series_id=series_id,
+            )
+        except Exception:
+            return None
 
         template_df = ExcelController.read_excel(file_location)
 
