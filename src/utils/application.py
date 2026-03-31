@@ -89,6 +89,10 @@ class Application(QtWidgets.QApplication):
             in self.configuration.environments
         }
 
+        self.sips: dict[type[SIP], dict[str, list[SIP]]] = {}
+        self.dialogs: list[QtWidgets.QDialog] = []
+        self.series_retrieval_busy = False
+
         self.main_db_controller = MainDBController()
         self.digital_sip_db_controller = DigitalSIPDBController()
         self.analog_sip_db_controller = AnalogSIPDBController()
@@ -102,12 +106,7 @@ class Application(QtWidgets.QApplication):
         self.bestandscontrole_controller = BestandsControleController()
         self.sip_status_checker = SIPStatusChecker()
 
-        self.sips: dict[type[SIP], dict[str, list[SIP]]] = {}
-
-        self.dialogs: list[QtWidgets.QDialog] = []
-
         self.setup_signals()
-        self.series_retrieval_busy = False
 
         # NOTE: these things need to happen at startup
         self.configuration.create_locations()
@@ -115,6 +114,12 @@ class Application(QtWidgets.QApplication):
         self.load_sips()
 
         QtCore.QTimer.singleShot(0, self.reset_bestandscontrole_location)
+
+        if not self.configuration.active_environment.has_api_credentials():
+            QtCore.QTimer.singleShot(0, lambda: self.warn_user(
+                UI_ERROR_TEXT["api"]["missing_credentials_error"]["title"],
+                UI_ERROR_TEXT["api"]["missing_credentials_error"]["text"],
+            ))
 
     # NOTE: some parts of the code need access to the dict, even if it's empty
     # shhhh don't tell anyone
