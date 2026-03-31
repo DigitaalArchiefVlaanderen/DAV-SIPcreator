@@ -56,17 +56,15 @@ class Series:
     def to_dict(self) -> dict:
         data = {
             APIResponseKey.ID.value: self._id,
-            APIResponseKey.CONTENT.value: {
-                APIResponseKey.NAME.value: self.name
-            },
-            APIResponseKey.STATUS.value: {
-                APIResponseKey.STATUS.value: self.status.value
-            },
-            APIResponseKey.VALIDITY_PERIOD.value: {}
+            APIResponseKey.CONTENT.value: {APIResponseKey.NAME.value: self.name},
+            APIResponseKey.STATUS.value: {APIResponseKey.STATUS.value: self.status.value},
+            APIResponseKey.VALIDITY_PERIOD.value: {},
         }
 
         if self.valid_from is not None:
-            data[APIResponseKey.VALIDITY_PERIOD.value][APIResponseKey.FROM.value] = self.str_from_datetime(self.valid_from)
+            data[APIResponseKey.VALIDITY_PERIOD.value][APIResponseKey.FROM.value] = self.str_from_datetime(
+                self.valid_from
+            )
         if self.valid_to is not None:
             data[APIResponseKey.VALIDITY_PERIOD.value][APIResponseKey.TO.value] = self.str_from_datetime(self.valid_to)
 
@@ -131,5 +129,3 @@ class Series:
 
     def __repr__(self) -> str:
         return self.get_full_name()
-
-

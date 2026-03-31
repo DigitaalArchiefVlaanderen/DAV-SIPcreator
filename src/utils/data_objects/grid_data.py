@@ -1,6 +1,6 @@
-from pandas import DataFrame
-
 from dataclasses import dataclass
+
+from pandas import DataFrame
 
 
 @dataclass
@@ -28,11 +28,11 @@ class GridData:
     def data_as_dict(self) -> dict[str, list[str]]:
         if self.__data_as_dict is not None:
             return self.__data_as_dict
-        
+
         if self.data_as_df is not None:
             self.__data_as_dict = self.data_as_df.to_dict(orient="list")
             return self.__data_as_dict
-        
+
         raise ValueError("Tried to get data where none existed")
 
     @data_as_dict.setter
@@ -45,18 +45,12 @@ class GridData:
             return self.__data_as_df
 
         if self.__data_as_dict is not None:
-            self.__data_as_df = DataFrame(
-                self.__data_as_dict,
-                dtype=str
-            ).fillna("").convert_dtypes()
+            self.__data_as_df = DataFrame(self.__data_as_dict, dtype=str).fillna("").convert_dtypes()
         elif self.__data_as_records is not None:
-            self.__data_as_df = DataFrame(
-                self.__data_as_records,
-                dtype=str
-            ).fillna("").convert_dtypes()
+            self.__data_as_df = DataFrame(self.__data_as_records, dtype=str).fillna("").convert_dtypes()
         else:
             raise ValueError("Tried to get data where none existed")
-        
+
         return self.__data_as_df
 
     @data_as_df.setter
@@ -68,7 +62,7 @@ class GridData:
         conditions = (
             self.__data_as_records is not None,
             self.__data_as_dict is not None,
-            self.__data_as_df is not None
+            self.__data_as_df is not None,
         )
 
         return any(conditions)

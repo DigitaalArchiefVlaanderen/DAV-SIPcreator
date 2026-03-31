@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from pandas import DataFrame
 
-from src.utils.constants import ColumnName, UI_TEXT_ELEMENTS
+from src.utils.constants import UI_TEXT_ELEMENTS, ColumnName
 from src.utils.grid.checks.base_check import BaseCheck, BulkResult, CellRange
 
 UI_TEXT = UI_TEXT_ELEMENTS["grid_checks"]["common"]
@@ -171,21 +171,32 @@ class DateCheck(BaseCheck):
 
         if has_type and has_paired and ColumnName.DOSSIER_REF.value in raw_data.columns:
             self._check_hierarchy_bulk(
-                raw_data, row_list, col, is_opening,
-                values, dates, cell_tooltips, wide_tooltips,
-                series_start, series_end,
+                raw_data,
+                row_list,
+                col,
+                is_opening,
+                values,
+                dates,
+                cell_tooltips,
+                wide_tooltips,
+                series_start,
+                series_end,
             )
 
-        return [
-            (row, col, values.iloc[i], cell_tooltips[i], wide_tooltips[i])
-            for i, row in enumerate(rows)
-        ]
+        return [(row, col, values.iloc[i], cell_tooltips[i], wide_tooltips[i]) for i, row in enumerate(rows)]
 
     def _check_hierarchy_bulk(
-        self, raw_data: DataFrame, row_list: list[int], col: int, is_opening: bool,
-        values: pd.Series, dates: pd.Series,
-        cell_tooltips: np.ndarray, wide_tooltips: np.ndarray,
-        series_start: datetime | None, series_end: datetime | None,
+        self,
+        raw_data: DataFrame,
+        row_list: list[int],
+        col: int,
+        is_opening: bool,
+        values: pd.Series,
+        dates: pd.Series,
+        cell_tooltips: np.ndarray,
+        wide_tooltips: np.ndarray,
+        series_start: datetime | None,
+        series_end: datetime | None,
     ) -> None:
         type_col = raw_data.columns.get_loc(ColumnName.TYPE.value)
         dossier_ref_col = raw_data.columns.get_loc(ColumnName.DOSSIER_REF.value)

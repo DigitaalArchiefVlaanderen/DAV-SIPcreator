@@ -2,14 +2,12 @@ from PySide6 import QtCore
 
 from src.utils.base_object import BaseObject
 from src.utils.data_objects.sip import SIP
-
 from src.window.base_window import Window
 from src.window.configuration_window import ConfigurationWindow
-from src.window.sip_creator_window import SipCreatorWindow
-
 from src.window.digital.folder_mapping_window import FolderMappingWindow
 from src.window.digital.sip_detail_window import SipDetailWindow
 from src.window.grid_window import GridWindow
+from src.window.sip_creator_window import SipCreatorWindow
 
 
 class WindowController(BaseObject):
@@ -63,9 +61,7 @@ class WindowController(BaseObject):
         window = window_type(*window_args, **window_kwargs)
         windows_dict[window_type] = window
 
-        window.window_about_to_close_signal.connect(
-            lambda: self._untrack_window(sip, window_type)
-        )
+        window.window_about_to_close_signal.connect(lambda: self._untrack_window(sip, window_type))
 
         window.show()
         return window
@@ -85,20 +81,10 @@ class WindowController(BaseObject):
 
     # Digital
     def open_folder_mapping_window(self, sip: SIP) -> FolderMappingWindow:
-        return self.__open_from_trackable(
-            sip=sip,
-            window_type=FolderMappingWindow
-        )
+        return self.__open_from_trackable(sip=sip, window_type=FolderMappingWindow)
 
     def open_sip_detail_window(self, sip: SIP) -> SipDetailWindow:
-        return self.__open_from_trackable(
-            sip=sip,
-            window_type=SipDetailWindow
-        )
+        return self.__open_from_trackable(sip=sip, window_type=SipDetailWindow)
 
     def open_grid_window(self, sip: SIP) -> GridWindow:
-        return self.__open_from_trackable(
-            sip=sip,
-            window_type=GridWindow
-        )
-
+        return self.__open_from_trackable(sip=sip, window_type=GridWindow)

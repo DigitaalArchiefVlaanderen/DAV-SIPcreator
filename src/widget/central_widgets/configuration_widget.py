@@ -1,13 +1,11 @@
 from copy import deepcopy
 from functools import partial
 
-from PySide6 import QtWidgets, QtCore, QtGui
+from PySide6 import QtCore, QtGui, QtWidgets
 
-from src.utils.constants import UI_TEXT_ELEMENTS, TI_ENVIRONMENT_NAME, PROD_ENVIRONMENT_NAME
-from src.utils.data_objects.configuration import Configuration, Environment, Misc
-
+from src.utils.constants import PROD_ENVIRONMENT_NAME, TI_ENVIRONMENT_NAME, UI_TEXT_ELEMENTS
+from src.utils.data_objects.configuration import Environment, Misc
 from src.widget.base_widget import BaseWidget
-
 
 UI_TEXT = UI_TEXT_ELEMENTS["configuration"]
 
@@ -48,8 +46,13 @@ class ConfigurationWidget(BaseWidget):
 
         type_changed = original_configuration.active_type != new_configuration.active_type
         role_changed = original_configuration.active_role != new_configuration.active_role
-        environment_changed = original_configuration.active_environment_name != new_configuration.active_environment_name
-        bestandscontrole_changed = original_configuration.misc.bestandscontrole_lijst_location != new_configuration.misc.bestandscontrole_lijst_location
+        environment_changed = (
+            original_configuration.active_environment_name != new_configuration.active_environment_name
+        )
+        bestandscontrole_changed = (
+            original_configuration.misc.bestandscontrole_lijst_location
+            != new_configuration.misc.bestandscontrole_lijst_location
+        )
 
         for env_name in (e.name for e in original_configuration.environments):
             original_env = original_configuration.get_environment(env_name)
@@ -154,7 +157,9 @@ class MiscTab(BaseWidget):
         self.save_location_button.clicked.connect(self.save_location_button_clicked_handler)
         self.bestandscontrole_button.clicked.connect(self.bestandscontrole_button_clicked_handler)
 
-    def add_to_button_group(self, button_group: QtWidgets.QButtonGroup, title: str, activity_dict: dict[str, bool], row: int, col: int) -> None:
+    def add_to_button_group(
+        self, button_group: QtWidgets.QButtonGroup, title: str, activity_dict: dict[str, bool], row: int, col: int
+    ) -> None:
         title_font = QtGui.QFont()
         title_font.setBold(True)
         title_font.setPointSize(20)
@@ -170,15 +175,13 @@ class MiscTab(BaseWidget):
             radio_button = QtWidgets.QRadioButton(text=button_label)
             radio_button.setChecked(is_selected)
 
-            radio_button.toggled.connect(
-                partial(self._radio_button_toggled_handler, activity_dict, button_label)
-            )
+            radio_button.toggled.connect(partial(self._radio_button_toggled_handler, activity_dict, button_label))
 
             button_group.addButton(radio_button)
             button_layout.addWidget(radio_button)
 
         self.grid_layout.addWidget(title_widget, row, col)
-        self.grid_layout.addWidget(button_widget, row+1, col)
+        self.grid_layout.addWidget(button_widget, row + 1, col)
 
     def _radio_button_toggled_handler(self, activity_dict: dict[str, bool], key: str, checked: bool) -> None:
         activity_dict[key] = checked
@@ -224,10 +227,7 @@ class EnvironmentTab(BaseWidget):
         self.ftps_title = QtWidgets.QLabel(text="FTPS")
         self.ftps_title.setFont(title_font)
 
-        self.field_mapping: dict[str, dict[str, QtWidgets.QTextEdit]] = dict(
-            api=dict(),
-            ftps=dict()
-        )
+        self.field_mapping: dict[str, dict[str, QtWidgets.QTextEdit]] = dict(api=dict(), ftps=dict())
 
         self.grid_layout.addWidget(self.api_title, 0, 0, 1, 2)
         self.grid_layout.addWidget(self.ftps_title, 0, 3, 1, 2)

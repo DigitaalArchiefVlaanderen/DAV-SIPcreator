@@ -17,7 +17,7 @@ class SIPStatus(enum.Enum):
     @property
     def status_label(self):
         from src.utils.constants import UI_TEXT_ELEMENTS
-    
+
         return UI_TEXT_ELEMENTS["sip"]["status"][self.name.lower()]["text"]
 
     @property

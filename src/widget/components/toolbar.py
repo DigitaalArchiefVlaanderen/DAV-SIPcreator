@@ -1,9 +1,12 @@
 """
 Toolbar containing one single action, the configuration.
 """
+
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
-from PySide6 import QtWidgets, QtGui, QtCore
+
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from src.utils.constants import UI_TEXT_ELEMENTS
 

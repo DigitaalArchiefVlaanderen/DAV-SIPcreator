@@ -10,6 +10,7 @@ class CellRange:
     col_start: int
     col_end: int
 
+
 # NOTE: row, col, value, cell_tooltip, wide_tooltip
 BulkResult = tuple[int, int, str, str | None, str | None]
 

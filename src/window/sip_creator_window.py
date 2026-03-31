@@ -1,12 +1,10 @@
 from PySide6 import QtWidgets
 
 from src.utils.constants import UI_TEXT_ELEMENTS
-
+from src.widget.central_widgets.analog.analog_widget import AnalogWidget
 from src.widget.central_widgets.central_widget import CentralWidget
 from src.widget.central_widgets.digital.digital_widget import DigitalWidget
-from src.widget.central_widgets.analog.analog_widget import AnalogWidget
 from src.widget.central_widgets.migration.migration_widget import MigrationWidget
-
 from src.window.base_window import MainWindow
 
 
@@ -44,30 +42,21 @@ class SipCreatorWindow(MainWindow):
             case "migratie" | "onroerend_erfgoed":
                 central_widget = self.migration_widget
                 worker_description = UI_TEXT_ELEMENTS["toolbar_info"]["migration"]["startup_loading_items_text"]
-                self.setWindowTitle(UI_TEXT_ELEMENTS["window_titles"]["main"].get(
-                    self.application.configuration.active_type,
-                    UI_TEXT_ELEMENTS["window_titles"]["main"]["migration"]
-                ))
+                self.setWindowTitle(
+                    UI_TEXT_ELEMENTS["window_titles"]["main"].get(
+                        self.application.configuration.active_type,
+                        UI_TEXT_ELEMENTS["window_titles"]["main"]["migration"],
+                    )
+                )
             case "analoog":
                 central_widget = self.analog_widget
                 worker_description = UI_TEXT_ELEMENTS["toolbar_info"]["analog"]["startup_loading_items_text"]
-                self.setWindowTitle(UI_TEXT_ELEMENTS["window_titles"]["main"].get(
-                    "analog",
-                    "SIP Creator - Analoog"
-                ))
+                self.setWindowTitle(UI_TEXT_ELEMENTS["window_titles"]["main"].get("analog", "SIP Creator - Analoog"))
             case t:
-                raise ValueError(
-                    UI_TEXT_ELEMENTS["errors"]["unexpected_application_type"].format(
-                        application_type=t
-                    )
-                )
+                raise ValueError(UI_TEXT_ELEMENTS["errors"]["unexpected_application_type"].format(application_type=t))
 
         self.stacked_widget.setCurrentWidget(central_widget)
 
         self.application.start_task(
-            window=self,
-            description=worker_description,
-            function=central_widget.load_items,
-            is_generator=True
+            window=self, description=worker_description, function=central_widget.load_items, is_generator=True
         )
-

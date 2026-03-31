@@ -6,7 +6,6 @@ from src.utils.grid.checks.digital.empty_row_check import mark_empty_rows
 from src.utils.grid.checks.migration import LocationGroupCheck, PathInSipCheck
 from src.utils.grid.table.common import CommonDataVerificationTable
 
-
 DISABLED_COLUMNS = [
     ColumnName.TYPE.value,
     ColumnName.DOSSIER_REF.value,
@@ -19,9 +18,7 @@ class MigrationDataVerificationTable(CommonDataVerificationTable):
         super().__init__(sip, editable)
 
         location_check = LocationGroupCheck()
-        path_in_sip_check = PathInSipCheck(
-            type_provider=lambda: self.application.configuration.active_type
-        )
+        path_in_sip_check = PathInSipCheck(type_provider=lambda: self.application.configuration.active_type)
         self.COLUMN_VALIDATORS = {
             **self.COLUMN_VALIDATORS,
             ColumnName.ORIGINEEL_DOOSNUMMER: location_check,

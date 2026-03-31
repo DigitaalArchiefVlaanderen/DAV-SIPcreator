@@ -1,7 +1,6 @@
 from PySide6 import QtWidgets
 
-
-from src.utils.constants import get_logo, UI_TEXT_ELEMENTS
+from src.utils.constants import UI_TEXT_ELEMENTS, get_logo
 
 
 class YesNoDialog(QtWidgets.QDialog):

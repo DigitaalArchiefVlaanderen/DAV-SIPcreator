@@ -1,7 +1,7 @@
 import csv
 import io
 
-from PySide6 import QtWidgets, QtCore, QtGui
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from src.utils.base_object import ApplicationMixin
 from src.utils.constants import UI_TEXT_ELEMENTS
@@ -55,10 +55,13 @@ class GridTableView(QtWidgets.QTableView, ApplicationMixin):
             rows.setdefault(index.row(), []).append(index.column())
 
         # NOTE: Excel uses tab-separated columns, newline-separated rows, with a trailing newline
-        copy_text = "\n".join(
-            "\t".join(self._quote_cell(self.model(proxy=True).index(row, col).data()) for col in columns)
-            for row, columns in rows.items()
-        ) + "\n"
+        copy_text = (
+            "\n".join(
+                "\t".join(self._quote_cell(self.model(proxy=True).index(row, col).data()) for col in columns)
+                for row, columns in rows.items()
+            )
+            + "\n"
+        )
 
         QtWidgets.QApplication.clipboard().setText(copy_text)
 
@@ -92,11 +95,7 @@ class GridTableView(QtWidgets.QTableView, ApplicationMixin):
 
         QtWidgets.QApplication.clipboard().setText("\n".join(cut_rows) + "\n")
 
-        changes = [
-            (index, "")
-            for index in indexes
-            if self._is_cell_editable(index)
-        ]
+        changes = [(index, "") for index in indexes if self._is_cell_editable(index)]
 
         self._apply_bulk_changes(changes)
 
@@ -113,11 +112,7 @@ class GridTableView(QtWidgets.QTableView, ApplicationMixin):
             self._paste_value(self._unquote_cell(clipboard_text), indexes)
 
     def _paste_value(self, value: str, indexes: list[QtCore.QModelIndex]) -> None:
-        changes = [
-            (index, value)
-            for index in indexes
-            if self._is_cell_editable(index)
-        ]
+        changes = [(index, value) for index in indexes if self._is_cell_editable(index)]
 
         self._apply_bulk_changes(changes)
 
@@ -142,7 +137,7 @@ class GridTableView(QtWidgets.QTableView, ApplicationMixin):
         if init_index.column() + len(parsed_rows[0]) > proxy.columnCount():
             return
 
-        usable_rows = visible_rows[init_visible_row:init_visible_row + len(parsed_rows)]
+        usable_rows = visible_rows[init_visible_row : init_visible_row + len(parsed_rows)]
         can_expand = hasattr(source_model, "set_bulk_data")
         extra_rows_needed = len(parsed_rows) - len(usable_rows)
 
@@ -185,11 +180,7 @@ class GridTableView(QtWidgets.QTableView, ApplicationMixin):
         self.setUpdatesEnabled(True)
 
     def delete_content(self, indexes: list[QtCore.QModelIndex]) -> None:
-        changes = [
-            (index, "")
-            for index in indexes
-            if self._is_cell_editable(index)
-        ]
+        changes = [(index, "") for index in indexes if self._is_cell_editable(index)]
 
         self._apply_bulk_changes(changes)
 
@@ -201,10 +192,7 @@ class GridTableView(QtWidgets.QTableView, ApplicationMixin):
         proxy = self.model(proxy=True)
 
         if isinstance(proxy, QtCore.QSortFilterProxyModel):
-            changes = [
-                (proxy.mapToSource(index), value)
-                for index, value in changes
-            ]
+            changes = [(proxy.mapToSource(index), value) for index, value in changes]
 
         self._apply_bulk_changes_direct(changes)
 

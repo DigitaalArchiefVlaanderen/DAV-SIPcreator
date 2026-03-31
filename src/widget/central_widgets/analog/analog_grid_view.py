@@ -4,21 +4,20 @@ import re
 import zipfile
 
 from openpyxl import load_workbook
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtCore, QtWidgets
 
 from src.controller.api_controller import APIController
-from src.controller.excel_controller import ExcelController
-from src.utils.constants import ColumnName, UI_TEXT_ELEMENTS, BusinessRules
+from src.utils.constants import UI_TEXT_ELEMENTS, BusinessRules
 from src.utils.data_objects.analog.sip import AnalogSIP
 from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.grid.table.analog_data_verification_table import (
-    AnalogDataVerificationTable, NON_DUPLICATABLE_COLUMNS,
+    NON_DUPLICATABLE_COLUMNS,
+    AnalogDataVerificationTable,
 )
 from src.utils.grid.table.common.grid_table_view import GridTableView
 from src.utils.grid.table.common.proxy_model import SortFilterProxyModel, TableFilter
-from src.utils.pyside_helper import set_widget_warning_style, clear_widget_warning_style
+from src.utils.pyside_helper import clear_widget_warning_style, set_widget_warning_style
 from src.utils.workers.worker import Worker
-
 from src.widget.base_widget import BaseWidget
 
 UI_TEXT = UI_TEXT_ELEMENTS["analog"]["grid"]
@@ -136,9 +135,7 @@ class AnalogGridView(BaseWidget):
 
     def _update_create_sip_button(self) -> None:
         self.create_sip_button.setEnabled(
-            self.table_model.is_data_valid()
-            and self.sip.series is not None
-            and not self.table_model.is_validating
+            self.table_model.is_data_valid() and self.sip.series is not None and not self.table_model.is_validating
         )
 
     def _update_row_count_label(self, count: int) -> None:
@@ -194,8 +191,7 @@ class AnalogGridView(BaseWidget):
             self.application.notify_user_signal.emit(
                 UI_TEXT["too_many_rows_error"]["title"],
                 UI_TEXT["too_many_rows_error"]["text"].format(
-                    max_rows=BusinessRules.MAX_ROWS_PER_SERIES,
-                    found_rows=len(non_empty_df)
+                    max_rows=BusinessRules.MAX_ROWS_PER_SERIES, found_rows=len(non_empty_df)
                 ),
             )
 
@@ -209,10 +205,7 @@ class AnalogGridView(BaseWidget):
             series_id=self.sip.series._id,
         )
 
-        temp_loc = os.path.join(
-            self.application.configuration.grid_location,
-            f"temp_{self.sip.series._id}.xlsx"
-        )
+        temp_loc = os.path.join(self.application.configuration.grid_location, f"temp_{self.sip.series._id}.xlsx")
 
         wb = load_workbook(import_template_loc)
 
@@ -230,24 +223,14 @@ class AnalogGridView(BaseWidget):
 
             for row_index in range(len(non_empty_df)):
                 for col_index in range(len(non_empty_df.columns)):
-                    ws.cell(
-                        row=row_index + 2,
-                        column=col_index + 1,
-                        value=str(non_empty_df.iat[row_index, col_index])
-                    )
+                    ws.cell(row=row_index + 2, column=col_index + 1, value=str(non_empty_df.iat[row_index, col_index]))
 
             wb.save(temp_loc)
         finally:
             wb.close()
 
-        sip_location = os.path.join(
-            self.application.configuration.sips_location,
-            self.sip.file_name
-        )
-        md5_location = os.path.join(
-            self.application.configuration.sips_location,
-            self.sip.sidecar_file_name
-        )
+        sip_location = os.path.join(self.application.configuration.sips_location, self.sip.file_name)
+        md5_location = os.path.join(self.application.configuration.sips_location, self.sip.sidecar_file_name)
 
         with zipfile.ZipFile(sip_location, "w", compression=zipfile.ZIP_DEFLATED) as zfile:
             zfile.write(temp_loc, "Metadata.xlsx")

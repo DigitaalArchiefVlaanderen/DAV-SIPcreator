@@ -1,13 +1,11 @@
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtCore, QtWidgets
 
-from src.utils.constants import UI_TEXT_ELEMENTS, KLANT_ROLE
+from src.utils.constants import KLANT_ROLE, UI_TEXT_ELEMENTS
 from src.utils.data_objects.migration.sip import MigrationSIP
-from src.utils.grid.table.common.data_table import DataTable, CellColor, MarkingSource
+from src.utils.grid.table.common.data_table import DataTable, MarkingSource
 from src.utils.grid.table.common.grid_table_view import GridTableView
 from src.utils.grid.table.common.proxy_model import SortFilterProxyModel, TableFilter
-
 from src.widget.base_widget import BaseWidget
-
 
 UI_TEXT = UI_TEXT_ELEMENTS["migration"]["main_tab"]
 
@@ -100,10 +98,7 @@ class MigrationMainTabView(BaseWidget):
         env_name = self.application.configuration.active_environment_name
         series_list = self.application.sneaky_series().get(env_name, [])
         base_uri = self.sip.environment.get_serie_register_uri()
-        known_uris = {
-            f"{base_uri}/{s._id}"
-            for s in series_list
-        }
+        known_uris = {f"{base_uri}/{s._id}" for s in series_list}
 
         uri_col = df.columns.get_loc(URI_SERIEREGISTER_COLUMN)
         name_col = df.columns.get_loc(SERIES_NAME_COLUMN)
@@ -119,25 +114,31 @@ class MigrationMainTabView(BaseWidget):
 
             if uri == "" or uri == "nan":
                 self.table_model.mark_cell(
-                    uri_index, source=MarkingSource.CELL,
+                    uri_index,
+                    source=MarkingSource.CELL,
                     tooltip=UI_TEXT["series_not_linked_tooltip"],
                 )
                 self.table_model.mark_cell(
-                    name_index, source=MarkingSource.CELL,
+                    name_index,
+                    source=MarkingSource.CELL,
                     tooltip=UI_TEXT["series_not_linked_tooltip"],
                 )
             elif uri not in known_uris:
                 self.table_model.mark_cell(
-                    uri_index, source=MarkingSource.CELL, warning=True,
+                    uri_index,
+                    source=MarkingSource.CELL,
+                    warning=True,
                     tooltip=UI_TEXT["series_uri_unknown_tooltip"],
                 )
                 self.table_model.mark_cell(
-                    name_index, source=MarkingSource.CELL,
+                    name_index,
+                    source=MarkingSource.CELL,
                     tooltip=UI_TEXT["series_not_linked_tooltip"],
                 )
             elif series_name == "" or series_name == "nan":
                 self.table_model.mark_cell(
-                    name_index, source=MarkingSource.CELL,
+                    name_index,
+                    source=MarkingSource.CELL,
                     tooltip=UI_TEXT["series_name_missing_tooltip"],
                 )
 
@@ -172,10 +173,7 @@ class MigrationMainTabView(BaseWidget):
 
             return
 
-        source_rows = [
-            self.proxy_model.mapToSource(idx).row()
-            for idx in selected_indexes
-        ]
+        source_rows = [self.proxy_model.mapToSource(idx).row() for idx in selected_indexes]
 
         self.assign_to_series_signal.emit(source_rows, series._id, series.get_full_name())
 
@@ -188,9 +186,7 @@ class MigrationMainTabView(BaseWidget):
         self.create_sip_button.setHidden(is_klant)
 
     def _save_button_clicked(self) -> None:
-        self.application.migration_sip_db_controller.save_main_data(
-            self.sip, self.table_model.raw_data
-        )
+        self.application.migration_sip_db_controller.save_main_data(self.sip, self.table_model.raw_data)
 
         self.application.notify_user_signal.emit(
             UI_TEXT["save_success"]["title"],

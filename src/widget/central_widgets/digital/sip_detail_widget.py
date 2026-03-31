@@ -1,16 +1,15 @@
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
-from PySide6 import QtWidgets, QtGui, QtCore
+from PySide6 import QtCore, QtGui, QtWidgets
 
-from src.utils.constants import BusinessRules, UI_TEXT_ELEMENTS
-from src.utils.data_objects.series import SeriesStatus
+from src.utils.constants import UI_TEXT_ELEMENTS, BusinessRules
 from src.utils.data_objects.digital.sip import SIP
-
-from src.widget.base_widget import BaseWidget, ComponentWidget, ApplicationMixin
+from src.utils.data_objects.series import SeriesStatus
+from src.widget.base_widget import ApplicationMixin, BaseWidget, ComponentWidget
 from src.widget.central_widgets.central_widget import CentralWidget
 from src.widget.components.digital.mapping_widget import TagMappingWidget
-
 from src.window.base_window import Window
 
 if TYPE_CHECKING:
@@ -34,7 +33,6 @@ class SipDetailWidget(CentralWidget):
         self.vertical_layout = QtWidgets.QVBoxLayout()
         self.setLayout(self.vertical_layout)
 
-
         self.sip_name_edit = SipNameEditAndStatusWidget(parent_window=self.parent_window, sip=self.sip)
         self.series_type_selector = SeriesTypeSelectorWidget(parent_window=self.parent_window, sip=self.sip)
         self.series_retrieval = SeriesRetrievalWidget(sip=self.sip)
@@ -48,7 +46,6 @@ class SipDetailWidget(CentralWidget):
         self.open_grid_button = OpenGridButton()
         self.open_grid_button.setEnabled(False)
 
-
         self.vertical_layout.addWidget(self.sip_name_edit)
         self.vertical_layout.addWidget(self.series_type_selector)
         self.vertical_layout.addWidget(self.series_retrieval)
@@ -60,8 +57,12 @@ class SipDetailWidget(CentralWidget):
     def setup_signals(self) -> None:
         self.open_grid_button.clicked.connect(self.open_grid_handler)
         self.folder_structure_button.clicked.connect(self.open_folder_structure_handler)
-        self.series_type_selector.selection_changed_signal.connect(self.series_retrieval.series_dropdown.set_series_type)
-        self.series_retrieval.import_template_retrieval_requested_signal.connect(self.import_template_retrieval_requested_handler)
+        self.series_type_selector.selection_changed_signal.connect(
+            self.series_retrieval.series_dropdown.set_series_type
+        )
+        self.series_retrieval.import_template_retrieval_requested_signal.connect(
+            self.import_template_retrieval_requested_handler
+        )
         self.series_retrieval.import_template_retrieved_signal.connect(self.import_template_downloaded_handler)
 
         self.metadata_file_selector.metadata_path_selected_signal.connect(self.metadata_file_selected_handler)
@@ -99,9 +100,7 @@ class SipDetailWidget(CentralWidget):
 
     def import_template_retrieval_requested_handler(self) -> None:
         self.parent_window.start_retrieve_import_template_task()
-        self.parent_window.worker.result_ready_signal.connect(
-            self.series_retrieval.import_template_downloaded_handler
-        )
+        self.parent_window.worker.result_ready_signal.connect(self.series_retrieval.import_template_downloaded_handler)
 
     def import_template_downloaded_handler(self) -> None:
         from src.controller.excel_controller import ExcelReadError
@@ -138,13 +137,7 @@ class SipDetailWidget(CentralWidget):
         if metadata_df is None:
             return
 
-        columns_without_empty_fields = [
-            c
-            for c, all_empty in dict(
-                metadata_df.eq("").all()
-            ).items()
-            if not all_empty
-        ]
+        columns_without_empty_fields = [c for c, all_empty in dict(metadata_df.eq("").all()).items() if not all_empty]
 
         self.tag_mapping_widget.add_to_metadata(columns_without_empty_fields)
         self.folder_structure_button.setEnabled(True)
@@ -170,7 +163,7 @@ class SipNameEditAndStatusWidget(ComponentWidget):
         self.title_edit = QtWidgets.QLineEdit(text=self.sip.name)
         self.title_edit.setFont(title_font)
         self.title_edit.setMaxLength(BusinessRules.SIP_TITLE_MAX_LENGTH)
-        
+
         self.status_label = QtWidgets.QLabel(text=self.sip.status.status_label)
         self.status_label.setStyleSheet(self.sip.status.value)
 
@@ -178,12 +171,9 @@ class SipNameEditAndStatusWidget(ComponentWidget):
         self.horizontal_layout.addWidget(self.status_label)
 
     def setup_signals(self) -> None:
-        self.title_edit.editingFinished.connect(
-            lambda: self.sip.set_name(self.title_edit.text())
-        )
-        self.sip.name_changed_signal.connect(
-            lambda: self.title_edit.setText(self.sip.name)
-        )
+        self.title_edit.editingFinished.connect(lambda: self.sip.set_name(self.title_edit.text()))
+        self.sip.name_changed_signal.connect(lambda: self.title_edit.setText(self.sip.name))
+
 
 class SeriesTypeSelectorWidget(ComponentWidget):
     selection_changed_signal = QtCore.Signal(SeriesStatus)
@@ -202,19 +192,17 @@ class SeriesTypeSelectorWidget(ComponentWidget):
         self.horizontal_layout = QtWidgets.QHBoxLayout()
         self.setLayout(self.horizontal_layout)
 
-
         self.series_amount_label = QtWidgets.QLabel(text=self._get_series_text())
 
         self.published_radiobutton = QtWidgets.QRadioButton(text=UI_TEXT["published_series_text"])
         self.published_radiobutton.setChecked(True)
 
         self.submitted_radiobutton = QtWidgets.QRadioButton(text=UI_TEXT["submitted_series_text"])
-        
 
         self.horizontal_layout.addWidget(self.series_amount_label)
         self.horizontal_layout.addWidget(self.published_radiobutton)
         self.horizontal_layout.addWidget(self.submitted_radiobutton)
-        
+
     def setup_signals(self) -> None:
         self.application.series_updated_signal.connect(self.series_updated_handler)
 
@@ -234,6 +222,7 @@ class SeriesTypeSelectorWidget(ComponentWidget):
 
         self.selection_changed_signal.emit(self.SELECTED_TYPE)
 
+
 class SeriesDropdownWidget(QtWidgets.QComboBox, ApplicationMixin):
     def __init__(self, sip: SIP):
         super().__init__()
@@ -242,19 +231,15 @@ class SeriesDropdownWidget(QtWidgets.QComboBox, ApplicationMixin):
 
         self.setEditable(True)
         self.setInsertPolicy(QtWidgets.QComboBox.NoInsert)
-        self.completer().setCompletionMode(
-            QtWidgets.QCompleter.PopupCompletion
-        )
-        self.completer().setFilterMode(
-            QtCore.Qt.MatchFlag.MatchContains
-        )
+        self.completer().setCompletionMode(QtWidgets.QCompleter.PopupCompletion)
+        self.completer().setFilterMode(QtCore.Qt.MatchFlag.MatchContains)
         self.setMaximumWidth(900)
 
         self.series_type: SeriesStatus = SeriesStatus.PUBLISHED
 
         self.setup_signals()
         self.set_series()
-        
+
     def setup_signals(self) -> None:
         self.application.series_updated_signal.connect(self.series_updated_handler)
         self.editTextChanged.connect(lambda: self.sip.set_series(self.currentData()))
@@ -271,20 +256,17 @@ class SeriesDropdownWidget(QtWidgets.QComboBox, ApplicationMixin):
 
     def set_series(self) -> None:
         series = [
-            s for s in self.application.sneaky_series()[self.sip.environment.name]
-            if s.status == self.series_type
+            s for s in self.application.sneaky_series()[self.sip.environment.name] if s.status == self.series_type
         ]
 
         for serie in series:
-            self.addItem(
-                serie.get_full_name(),
-                userData=serie
-            )
+            self.addItem(serie.get_full_name(), userData=serie)
 
     # Handler
     def series_updated_handler(self) -> None:
         self.clear_series()
         self.set_series()
+
 
 class SeriesRetrievalWidget(BaseWidget):
     import_template_retrieval_requested_signal = QtCore.Signal()
@@ -303,15 +285,15 @@ class SeriesRetrievalWidget(BaseWidget):
         self.setLayout(self.horizontal_layout)
 
         self.series_dropdown = SeriesDropdownWidget(sip=self.sip)
-        self.import_template_retrieval_button = QtWidgets.QPushButton(text=UI_TEXT["import_template_retrieval_button_text"])
+        self.import_template_retrieval_button = QtWidgets.QPushButton(
+            text=UI_TEXT["import_template_retrieval_button_text"]
+        )
 
         self.horizontal_layout.addWidget(self.series_dropdown, stretch=5)
         self.horizontal_layout.addWidget(self.import_template_retrieval_button)
 
     def setup_signals(self) -> None:
-        self.import_template_retrieval_button.clicked.connect(
-            self.import_template_retrieval_requested_signal.emit
-        )
+        self.import_template_retrieval_button.clicked.connect(self.import_template_retrieval_requested_signal.emit)
 
     def import_template_downloaded_handler(self, path: str) -> None:
         self.sip.set_import_template_path(path)
@@ -333,7 +315,6 @@ class MetadataFileSelectorWidget(ComponentWidget):
         self.horizontal_layout = QtWidgets.QHBoxLayout()
         self.setLayout(self.horizontal_layout)
 
-
         self.metadata_file_button = QtWidgets.QPushButton(text=UI_TEXT["metadata_file_button_text"])
 
         self.metadata_path_scrollarea = QtWidgets.QScrollArea()
@@ -341,10 +322,9 @@ class MetadataFileSelectorWidget(ComponentWidget):
         self.metadata_path_scrollarea.setWidget(self.metadata_path_label)
         self.metadata_path_scrollarea.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
 
-
         self.horizontal_layout.addWidget(self.metadata_file_button, stretch=5)
         self.horizontal_layout.addWidget(self.metadata_path_scrollarea)
-        
+
     def setup_signals(self) -> None:
         self.metadata_file_button.clicked.connect(self.metadata_file_button_clicked_handler)
 
@@ -359,11 +339,13 @@ class MetadataFileSelectorWidget(ComponentWidget):
         self.metadata_path_label.setText(metadata_path)
         self.metadata_path_selected_signal.emit(metadata_path)
 
+
 class FolderStructureButton(QtWidgets.QPushButton):
     def __init__(self):
         super().__init__()
 
         self.setText(UI_TEXT["folder_structure_button_text"])
+
 
 class OpenGridButton(QtWidgets.QPushButton, ApplicationMixin):
     def __init__(self):

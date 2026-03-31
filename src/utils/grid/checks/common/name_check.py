@@ -1,7 +1,7 @@
 import numpy as np
 from pandas import DataFrame
 
-from src.utils.constants import ColumnName, UI_TEXT_ELEMENTS
+from src.utils.constants import UI_TEXT_ELEMENTS, ColumnName
 from src.utils.grid.checks.base_check import BaseCheck, BulkResult, CellRange
 
 UI_TEXT = UI_TEXT_ELEMENTS["grid_checks"]["common"]
@@ -47,7 +47,4 @@ class NameCheck(BaseCheck):
                 if duplicates > 1:
                     wide_tooltips[i] = UI_TEXT["name_duplicate_error"]
 
-        return [
-            (row, col, values.iloc[i], cell_tooltips[i], wide_tooltips[i])
-            for i, row in enumerate(rows)
-        ]
+        return [(row, col, values.iloc[i], cell_tooltips[i], wide_tooltips[i]) for i, row in enumerate(rows)]

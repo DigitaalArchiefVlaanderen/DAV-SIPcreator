@@ -1,11 +1,8 @@
 from src.controller.api_controller import APIController
-
 from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.data_objects.digital.sip import SIP
 from src.utils.workers.worker import Worker
-
 from src.widget.central_widgets.digital.sip_detail_widget import SipDetailWidget
-
 from src.window.base_window import Window
 
 
@@ -22,7 +19,7 @@ class SipDetailWindow(Window):
 
     def setup_ui(self) -> None:
         self.setWindowTitle(self.sip.name)
-        
+
         self.sip_detail_widget = SipDetailWidget(parent_window=self, sip=self.sip)
         self.setCentralWidget(self.sip_detail_widget)
 
@@ -37,7 +34,7 @@ class SipDetailWindow(Window):
             function=lambda: APIController.get_import_template(
                 configuration=self.application.configuration,
                 environment=self.sip.environment,
-                series_id=self.sip.series._id
+                series_id=self.sip.series._id,
             ),
-            is_generator=False
+            is_generator=False,
         )

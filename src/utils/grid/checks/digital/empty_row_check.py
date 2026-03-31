@@ -1,4 +1,4 @@
-from src.utils.constants import ColumnName, RowType, UI_TEXT_ELEMENTS
+from src.utils.constants import UI_TEXT_ELEMENTS, ColumnName, RowType
 from src.utils.grid.table.common.data_table import DataTable
 
 UI_TEXT = UI_TEXT_ELEMENTS["grid_checks"]["digital"]

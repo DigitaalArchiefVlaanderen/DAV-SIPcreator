@@ -23,7 +23,7 @@ class SIP(BaseObject):
         self.__name: str = "No name set"
         self.__status: SIPStatus = SIPStatus.IN_PROGRESS
         self.__series: Series = None
-        
+
         self.environment: Environment = self.application.configuration.active_environment
 
         self.edepot_sip_id: str = None
@@ -78,7 +78,7 @@ class SIP(BaseObject):
         self.__status = new_status
 
         self.status_changed_signal.emit()
-    
+
     @property
     def series(self) -> Series | None:
         return self.__series
@@ -94,7 +94,7 @@ class SIP(BaseObject):
     @property
     def file_name(self) -> str:
         return f"{self.series._id}-{self.name}-SIPC.zip"
-    
+
     @property
     def sidecar_file_name(self) -> str:
         return f"{self.series._id}-{self.name}-SIPC.xml"

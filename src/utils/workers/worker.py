@@ -1,7 +1,8 @@
 """
 Base class of a background worker
 """
-from typing import Callable
+
+from collections.abc import Callable
 
 from PySide6 import QtCore
 

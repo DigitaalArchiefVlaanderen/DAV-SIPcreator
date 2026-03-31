@@ -1,9 +1,8 @@
-from PySide6 import QtWidgets, QtCore, QtGui
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from src.utils.base_object import ApplicationMixin
 from src.utils.constants import UI_TEXT_ELEMENTS, BusinessRules
 from src.utils.data_objects.series import SeriesStatus
-
 
 UI_TEXT = UI_TEXT_ELEMENTS["analog"]["grid_creation"]
 
@@ -37,12 +36,8 @@ class AnalogGridCreationDialog(QtWidgets.QWidget, ApplicationMixin):
         self.series_combobox = QtWidgets.QComboBox()
         self.series_combobox.setEditable(True)
         self.series_combobox.setInsertPolicy(QtWidgets.QComboBox.InsertPolicy.NoInsert)
-        self.series_combobox.completer().setCompletionMode(
-            QtWidgets.QCompleter.CompletionMode.PopupCompletion
-        )
-        self.series_combobox.completer().setFilterMode(
-            QtCore.Qt.MatchFlag.MatchContains
-        )
+        self.series_combobox.completer().setCompletionMode(QtWidgets.QCompleter.CompletionMode.PopupCompletion)
+        self.series_combobox.completer().setFilterMode(QtCore.Qt.MatchFlag.MatchContains)
         self.series_combobox.setMaximumWidth(900)
         self._populate_series()
 
@@ -52,7 +47,8 @@ class AnalogGridCreationDialog(QtWidgets.QWidget, ApplicationMixin):
         layout.addWidget(self.series_combobox, 1, 0)
         layout.addItem(
             QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding),
-            2, 0
+            2,
+            0,
         )
         layout.addWidget(self.open_grid_button, 3, 0)
         layout.setSpacing(20)

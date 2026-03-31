@@ -4,14 +4,15 @@ Each window has a title, nav-bar to navigate to configuration, and an informatio
 
 The window is to be used as the baseline, with a widget set as the central_widget.
 """
+
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
-from PySide6 import QtWidgets, QtCore, QtGui
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from src.utils.constants import get_logo
 from src.utils.workers.worker import Worker
-
 from src.widget.components.statusbar import Statusbar
 from src.widget.components.toolbar import Toolbar
 

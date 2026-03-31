@@ -1,21 +1,19 @@
 import re
 
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtCore, QtWidgets
 
-from src.controller.migration.bestandscontrole_controller import BestandsControleController, VALUE_TO_COLUMN
-from src.utils.constants import ColumnName, UI_TEXT_ELEMENTS, KLANT_ROLE, MIGRATION_MAIN_ID_COLUMN
-from src.utils.data_objects.migration.sip import MigrationSIP
-from src.utils.pyside_helper import set_widget_warning_style, clear_widget_warning_style
+from src.controller.migration.bestandscontrole_controller import VALUE_TO_COLUMN
+from src.utils.constants import KLANT_ROLE, MIGRATION_MAIN_ID_COLUMN, UI_TEXT_ELEMENTS, ColumnName
 from src.utils.data_objects.grid_data import GridData
+from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.series import Series
 from src.utils.grid.checks.common.date_check import DateCheck
 from src.utils.grid.checks.migration.location_group_check import LOCATION_COLUMNS, _get_location_groups
 from src.utils.grid.table.common.grid_table_view import GridTableView
 from src.utils.grid.table.common.proxy_model import SortFilterProxyModel, TableFilter
 from src.utils.grid.table.migration_data_verification_table import MigrationDataVerificationTable
-
+from src.utils.pyside_helper import clear_widget_warning_style, set_widget_warning_style
 from src.widget.base_widget import BaseWidget
-
 
 UI_TEXT = UI_TEXT_ELEMENTS["migration"]["grid"]
 COMMON_GRID_TEXT = UI_TEXT_ELEMENTS["grid_checks"]["common"]
@@ -195,9 +193,7 @@ class MigrationGridView(BaseWidget):
 
     def _update_create_sip_button(self) -> None:
         self.create_sip_button.setEnabled(
-            not self.table_model.has_bad_rows
-            and self.series is not None
-            and not self.table_model.is_validating
+            not self.table_model.has_bad_rows and self.series is not None and not self.table_model.is_validating
         )
 
     def _data_changed(self) -> None:
@@ -256,7 +252,7 @@ class MigrationGridView(BaseWidget):
         is_klant = self.application.configuration.active_role == KLANT_ROLE
 
         self.duplicate_location_button.setHidden(is_klant)
-        
+
         if is_klant:
             self.duplication_layout.insertStretch(0, 1)
         else:

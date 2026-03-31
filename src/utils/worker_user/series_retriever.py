@@ -2,22 +2,21 @@
 This class uses workers to retrieve series in the background.
 It contains handlers and the main call to start the worker.
 """
+
 from PySide6 import QtCore
 
 from src.controller.api_controller import APIController
 from src.controller.worker_controller import WorkerController
-
 from src.utils.constants import PROD_ENVIRONMENT_NAME, TI_ENVIRONMENT_NAME
 from src.utils.data_objects.series import Series
 from src.utils.worker_user.worker_user import WorkerUser
 from src.utils.workers.worker import Worker
 
 
-
 class SeriesRetriever(WorkerUser):
     RETRIEVAL_DONE = {
-        TI_ENVIRONMENT_NAME : False,
-        PROD_ENVIRONMENT_NAME : False,
+        TI_ENVIRONMENT_NAME: False,
+        PROD_ENVIRONMENT_NAME: False,
     }
     finished_signal = QtCore.Signal()
     error_occurred_signal = QtCore.Signal(Exception)
@@ -32,8 +31,8 @@ class SeriesRetriever(WorkerUser):
 
     def run(self, worker_controller: WorkerController) -> None:
         self.RETRIEVAL_DONE = {
-            TI_ENVIRONMENT_NAME : False,
-            PROD_ENVIRONMENT_NAME : False,
+            TI_ENVIRONMENT_NAME: False,
+            PROD_ENVIRONMENT_NAME: False,
         }
         self.application.series_retrieval_busy = True
 
@@ -56,17 +55,20 @@ class SeriesRetriever(WorkerUser):
         # TODO: proper error
         if not environment.has_api_credentials():
             return
-        
+
         worker = worker_controller.run_thread(
-            thread_function=lambda: APIController.get_series(environment=environment),
-            thread_is_generator=True
+            thread_function=lambda: APIController.get_series(environment=environment), thread_is_generator=True
         )
 
         if worker is None:
             return
 
-        worker.result_ready_signal.connect(lambda series: self.new_series_ready_handler(series=series, environment_name=environment_name))
-        worker.about_to_finish_signal.connect(lambda: self.series_retrieval_done_handler(environment_name=environment_name))
+        worker.result_ready_signal.connect(
+            lambda series: self.new_series_ready_handler(series=series, environment_name=environment_name)
+        )
+        worker.about_to_finish_signal.connect(
+            lambda: self.series_retrieval_done_handler(environment_name=environment_name)
+        )
         worker.error_encountered_signal.connect(self.error_occurred_signal.emit)
 
         return worker
@@ -90,7 +92,7 @@ class SeriesRetriever(WorkerUser):
                 worker = self.ti_worker
             case e if e == PROD_ENVIRONMENT_NAME:
                 worker = self.prod_worker
-        
+
         if worker is not None:
             self.RETRIEVAL_DONE[environment_name] = True
             worker.force_stop = True

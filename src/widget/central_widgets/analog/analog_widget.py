@@ -1,22 +1,20 @@
 import os
-from typing import Iterable
+from collections.abc import Iterable
 
 import pandas as pd
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtWidgets
 
 from src.controller.api_controller import APIController
 from src.controller.excel_controller import ExcelController
-from src.utils.constants import UI_TEXT_ELEMENTS, DB_FILE_EXTENSION
+from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.data_objects.analog.sip import AnalogSIP
 from src.utils.data_objects.grid_data import GridData
 from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.workers.worker import Worker
-
-from src.widget.central_widgets.central_widget import CentralWidget
 from src.widget.central_widgets.analog.analog_grid_creation_dialog import AnalogGridCreationDialog
+from src.widget.central_widgets.central_widget import CentralWidget
 from src.widget.components.migration.migration_listitem_widget import MigrationSipListitemWidget
 from src.widget.components.searchable_list_widget import SearchableListWidgetWithDropdown
-
 from src.window.analog.analog_grid_window import AnalogGridWindow
 from src.window.base_window import Window
 
@@ -34,21 +32,14 @@ class AnalogWidget(CentralWidget):
         self.grid_layout = QtWidgets.QGridLayout()
         self.setLayout(self.grid_layout)
 
-        self.start_sip_button = QtWidgets.QPushButton(
-            UI_TEXT["controls"]["start_sip_button_text"]
-        )
+        self.start_sip_button = QtWidgets.QPushButton(UI_TEXT["controls"]["start_sip_button_text"])
 
         common_controls = UI_TEXT_ELEMENTS["common"]["controls"]
-        self.sip_zips_locatie_button = QtWidgets.QPushButton(
-            common_controls["sip_zips_locatie_button_text"]
-        )
-        self.sip_databases_locatie_button = QtWidgets.QPushButton(
-            common_controls["sip_databases_locatie_button_text"]
-        )
+        self.sip_zips_locatie_button = QtWidgets.QPushButton(common_controls["sip_zips_locatie_button_text"])
+        self.sip_databases_locatie_button = QtWidgets.QPushButton(common_controls["sip_databases_locatie_button_text"])
 
         self.sip_list_widget = SearchableListWidgetWithDropdown(
-            search_field="sip.name",
-            dropdown_search_field="sip.status.status_label"
+            search_field="sip.name", dropdown_search_field="sip.status.status_label"
         )
         self.sip_list_widget.setup_ui(
             dropdown_options=[
@@ -73,9 +64,7 @@ class AnalogWidget(CentralWidget):
         self.application.application_environment_changed_signal.connect(self.environment_changed_handler)
 
         self.start_sip_button.clicked.connect(self._start_sip_clicked)
-        self.sip_zips_locatie_button.clicked.connect(
-            lambda: os.startfile(self.application.configuration.sips_location)
-        )
+        self.sip_zips_locatie_button.clicked.connect(lambda: os.startfile(self.application.configuration.sips_location))
         self.sip_databases_locatie_button.clicked.connect(
             lambda: os.startfile(self.application.configuration.analoog_location)
         )

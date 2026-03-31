@@ -1,6 +1,6 @@
+import hashlib
 import os
 import re
-import hashlib
 import shutil
 import zipfile
 
@@ -9,7 +9,7 @@ from openpyxl import load_workbook
 
 from src.controller.api_controller import APIController
 from src.utils.base_object import BaseObject
-from src.utils.constants import ColumnName, RowType, UI_TEXT_ELEMENTS
+from src.utils.constants import UI_TEXT_ELEMENTS, ColumnName, RowType
 from src.utils.data_objects.digital.sip import SIP
 
 UI_TEXT = UI_TEXT_ELEMENTS["errors"]["sip"]
@@ -50,7 +50,7 @@ class FileController(BaseObject):
 
         for row_index, row_info in df.iterrows():
             for col_index, value in enumerate(row_info.values):
-                ws[f"{FileController._col_index_to_xlsx_col(col_index)}{row_index+2}"] = value
+                ws[f"{FileController._col_index_to_xlsx_col(col_index)}{row_index + 2}"] = value
 
         wb.save(path)
         wb.close()
@@ -81,7 +81,9 @@ class FileController(BaseObject):
             if row[ColumnName.PATH_IN_SIP.value] not in folder_paths:
                 self.application.notify_user_signal.emit(
                     UI_TEXT["folder_structure_missing_path_error"]["title"],
-                    UI_TEXT["folder_structure_missing_path_error"]["text"].format(path_in_sip=row[ColumnName.PATH_IN_SIP.value]),
+                    UI_TEXT["folder_structure_missing_path_error"]["text"].format(
+                        path_in_sip=row[ColumnName.PATH_IN_SIP.value]
+                    ),
                 )
                 return False
 
@@ -103,10 +105,7 @@ class FileController(BaseObject):
         configuration = self.application.configuration
 
         storage_location = configuration.sips_location
-        import_template_location = os.path.join(
-            configuration.import_templates_location,
-            f"{sip.series._id}.xlsx"
-        )
+        import_template_location = os.path.join(configuration.import_templates_location, f"{sip.series._id}.xlsx")
 
         os.makedirs(storage_location, exist_ok=True)
 
@@ -118,16 +117,12 @@ class FileController(BaseObject):
 
         sip_folder_structure = sip._get_folder_structure()
         filtered_folder_structure = {
-            k: v for k, v in sip_folder_structure.items()
-            if v[ColumnName.TYPE.value] != RowType.GEEN
+            k: v for k, v in sip_folder_structure.items() if v[ColumnName.TYPE.value] != RowType.GEEN
         }
 
         df = FileController._filter_df(sip.grid_data.data_as_df, strip_name_extensions)
 
-        if not self._is_sip_folder_structure_valid(
-            sip_folder_structure=filtered_folder_structure,
-            df=df
-        ):
+        if not self._is_sip_folder_structure_valid(sip_folder_structure=filtered_folder_structure, df=df):
             return False
 
         # Validate all files still exist before zipping
@@ -140,14 +135,8 @@ class FileController(BaseObject):
                 )
                 return False
 
-        temp_excel_location = os.path.join(
-            configuration.import_templates_location,
-            "temp.xlsx"
-        )
-        shutil.copy(
-            src=import_template_location,
-            dst=temp_excel_location
-        )
+        temp_excel_location = os.path.join(configuration.import_templates_location, "temp.xlsx")
+        shutil.copy(src=import_template_location, dst=temp_excel_location)
 
         FileController._fill_import_template(df, temp_excel_location)
 
@@ -168,6 +157,7 @@ class FileController(BaseObject):
                 f.write(SIDECAR_TEMPLATE.format(md5=md5))
         except OSError as e:
             from src.utils.constants import UI_TEXT_ELEMENTS
+
             self.application.notify_user_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["file_system"]["disk_error"]["title"],
                 UI_TEXT_ELEMENTS["errors"]["file_system"]["disk_error"]["text"].format(error=e),

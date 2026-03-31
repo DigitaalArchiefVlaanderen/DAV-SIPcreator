@@ -1,17 +1,15 @@
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtCore, QtWidgets
 
 from src.controller.file_controller import FileController
-from src.utils.constants import ColumnName, UI_TEXT_ELEMENTS
-from src.utils.workers.worker import Worker
-from src.utils.pyside_helper import set_widget_warning_style, clear_widget_warning_style
+from src.utils.constants import UI_TEXT_ELEMENTS, ColumnName
 from src.utils.data_objects.digital.sip import SIP
 from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.grid.table.common.grid_table_view import GridTableView
 from src.utils.grid.table.common.proxy_model import SortFilterProxyModel, TableFilter
 from src.utils.grid.table.digital_data_verification_table import DigitalDataVerificationTable
-
+from src.utils.pyside_helper import clear_widget_warning_style, set_widget_warning_style
+from src.utils.workers.worker import Worker
 from src.widget.base_widget import BaseWidget
-
 
 UI_TEXT = UI_TEXT_ELEMENTS["digital"]["grid"]
 COMMON_GRID_TEXT = UI_TEXT_ELEMENTS["grid_checks"]["common"]
@@ -44,18 +42,12 @@ class DigitalGridView(BaseWidget):
         self.series_label = QtWidgets.QLabel()
         self.default_sorting_button = QtWidgets.QPushButton(text=UI_TEXT["default_sorting_button_text"])
 
-        self.name_extension_checkbox = QtWidgets.QCheckBox(
-            text=UI_TEXT["name_extension_checkbox_text"]
-        )
+        self.name_extension_checkbox = QtWidgets.QCheckBox(text=UI_TEXT["name_extension_checkbox_text"])
         self.name_extension_checkbox.setChecked(False)
 
-        self.show_bad_rows_checkbox = QtWidgets.QCheckBox(
-            text=UI_TEXT["bad_rows_checkbox_text"]
-        )
+        self.show_bad_rows_checkbox = QtWidgets.QCheckBox(text=UI_TEXT["bad_rows_checkbox_text"])
 
-        self.show_dossiers_only_checkbox = QtWidgets.QCheckBox(
-            text=UI_TEXT["dossiers_only_checkbox_text"]
-        )
+        self.show_dossiers_only_checkbox = QtWidgets.QCheckBox(text=UI_TEXT["dossiers_only_checkbox_text"])
 
         self.column_dropdown = QtWidgets.QComboBox()
         self.column_dropdown.setEditable(True)
@@ -139,9 +131,7 @@ class DigitalGridView(BaseWidget):
 
     def _update_create_sip_button(self) -> None:
         self.create_sip_button.setEnabled(
-            not self.table_model.has_bad_rows
-            and self.sip.series is not None
-            and not self.table_model.is_validating
+            not self.table_model.has_bad_rows and self.sip.series is not None and not self.table_model.is_validating
         )
 
     def _data_changed(self) -> None:
@@ -149,9 +139,7 @@ class DigitalGridView(BaseWidget):
         self._update_create_sip_button()
 
     def _name_extension_clicked(self, state: int) -> None:
-        self.table_model.filter_name_column(
-            active=state == QtCore.Qt.CheckState.Checked.value
-        )
+        self.table_model.filter_name_column(active=state == QtCore.Qt.CheckState.Checked.value)
 
     def _bad_rows_clicked(self, state: int) -> None:
         self.proxy_model.toggle_filter(TableFilter.BAD_ROWS)

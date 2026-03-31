@@ -1,15 +1,19 @@
 import json
 import os
-from typing import Iterator
+import sqlite3 as sql
+from collections.abc import Iterator
 
 import pandas as pd
-import sqlite3 as sql
 
 from src.utils.base_object import BaseObject
 from src.utils.constants import (
-    SIP_CREATOR_VERSION, UNKNOWN_TRANSFORMED,
-    DBTableName, DBColumnName, DB_FILE_EXTENSION,
-    TI_ENVIRONMENT_NAME, PROD_ENVIRONMENT_NAME,
+    DB_FILE_EXTENSION,
+    PROD_ENVIRONMENT_NAME,
+    SIP_CREATOR_VERSION,
+    TI_ENVIRONMENT_NAME,
+    UNKNOWN_TRANSFORMED,
+    DBColumnName,
+    DBTableName,
 )
 from src.utils.data_objects.analog.sip import AnalogSIP
 from src.utils.data_objects.sip_status import SIPStatus
@@ -20,12 +24,7 @@ class AnalogSIPDBController(BaseObject):
         super().__init__()
 
     def conn(self, db_file_name: str) -> sql.Connection:
-        return sql.connect(
-            os.path.join(
-                self.application.configuration.analoog_location,
-                db_file_name
-            )
-        )
+        return sql.connect(os.path.join(self.application.configuration.analoog_location, db_file_name))
 
     def _execute_with_conn(self, db_file_name: str, func):
         conn = self.conn(db_file_name)
@@ -42,7 +41,9 @@ class AnalogSIPDBController(BaseObject):
         finally:
             conn.close()
 
-    def create_sip_db(self, sip: AnalogSIP, columns: list[str], series_id: str, series_name: str, transformed: str = "") -> bool:
+    def create_sip_db(
+        self, sip: AnalogSIP, columns: list[str], series_id: str, series_name: str, transformed: str = ""
+    ) -> bool:
         db_path = os.path.join(self.application.configuration.analoog_location, sip.db_name)
 
         if os.path.exists(db_path):
@@ -67,21 +68,24 @@ class AnalogSIPDBController(BaseObject):
                     {DBColumnName.UPLOADED.value} integer default 0
                 )
             """)
-            conn.execute(f"""
+            conn.execute(
+                f"""
                 INSERT INTO {DBTableName.SIP.value}
                 ({DBColumnName.NAME.value}, {DBColumnName.STATUS.value}, {DBColumnName.ENVIRONMENT_NAME.value},
                  {DBColumnName.SERIES_ID.value}, {DBColumnName.SERIES_NAME.value},
                  {DBColumnName.EDEPOT_SIP_ID.value}, {DBColumnName.UPLOADED.value})
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                sip.name,
-                sip.status.name,
-                sip.environment.name,
-                series_id,
-                series_name,
-                sip.edepot_sip_id or "",
-                int(sip.uploaded),
-            ))
+            """,
+                (
+                    sip.name,
+                    sip.status.name,
+                    sip.environment.name,
+                    series_id,
+                    series_name,
+                    sip.edepot_sip_id or "",
+                    int(sip.uploaded),
+                ),
+            )
 
             conn.execute(f"""
                 CREATE TABLE {DBTableName.SIP_CREATOR.value} (
@@ -92,7 +96,7 @@ class AnalogSIPDBController(BaseObject):
             """)
             conn.execute(
                 f"INSERT INTO {DBTableName.SIP_CREATOR.value} ({DBColumnName.VERSION.value}, {DBColumnName.TRANSFORMED.value}, {DBColumnName.LAST_OPENED.value}) VALUES (?, ?, ?)",
-                (SIP_CREATOR_VERSION, transformed, SIP_CREATOR_VERSION)
+                (SIP_CREATOR_VERSION, transformed, SIP_CREATOR_VERSION),
             )
 
             df = pd.DataFrame(columns=columns)
@@ -128,13 +132,15 @@ class AnalogSIPDBController(BaseObject):
         return self._execute_with_conn(db_file_name, _read)
 
     def read_data(self, db_file_name: str) -> pd.DataFrame:
-        return self._execute_with_conn(db_file_name, lambda conn:
-            pd.read_sql(f"SELECT * FROM {DBTableName.DATA.value}", conn, dtype=str).fillna("")
+        return self._execute_with_conn(
+            db_file_name,
+            lambda conn: pd.read_sql(f"SELECT * FROM {DBTableName.DATA.value}", conn, dtype=str).fillna(""),
         )
 
     def save_data(self, sip: AnalogSIP, df: pd.DataFrame) -> None:
-        self._execute_with_conn(sip.db_name, lambda conn:
-            df.to_sql(DBTableName.DATA.value, conn, if_exists="replace", index=False, dtype="text")
+        self._execute_with_conn(
+            sip.db_name,
+            lambda conn: df.to_sql(DBTableName.DATA.value, conn, if_exists="replace", index=False, dtype="text"),
         )
 
     def persist_sip(self, sip: AnalogSIP) -> None:
@@ -148,12 +154,12 @@ class AnalogSIPDBController(BaseObject):
                 f"UPDATE {DBTableName.SIP.value} SET {DBColumnName.STATUS.value} = ?, "
                 f"{DBColumnName.SERIES_NAME.value} = ?, {DBColumnName.EDEPOT_SIP_ID.value} = ?, "
                 f"{DBColumnName.UPLOADED.value} = ?",
-                (sip.status.name, series_name, sip.edepot_sip_id or "", int(sip.uploaded))
+                (sip.status.name, series_name, sip.edepot_sip_id or "", int(sip.uploaded)),
             )
 
             conn.execute(
                 f"UPDATE {DBTableName.SIP_CREATOR.value} SET {DBColumnName.LAST_OPENED.value} = ?",
-                (SIP_CREATOR_VERSION,)
+                (SIP_CREATOR_VERSION,),
             )
 
         self._execute_with_conn(sip.db_name, _persist)
@@ -184,9 +190,7 @@ class AnalogSIPDBController(BaseObject):
             yield self.read_sip_db(file)
 
     def db_exists(self, db_file_name: str) -> bool:
-        return os.path.exists(
-            os.path.join(self.application.configuration.analoog_location, db_file_name)
-        )
+        return os.path.exists(os.path.join(self.application.configuration.analoog_location, db_file_name))
 
     def is_valid_db(self, db_file_name: str) -> bool:
         if not self.db_exists(db_file_name):
@@ -194,10 +198,7 @@ class AnalogSIPDBController(BaseObject):
 
         try:
             conn = self.conn(db_file_name)
-            tables = [
-                r for r, *_ in
-                conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
-            ]
+            tables = [r for r, *_ in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
             conn.close()
         except Exception:
             return False

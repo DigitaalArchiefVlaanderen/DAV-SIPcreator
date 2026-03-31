@@ -1,7 +1,8 @@
 """
 Statusbar to display some status messages to the user
 """
-from PySide6 import QtWidgets, QtCore
+
+from PySide6 import QtCore, QtWidgets
 
 
 class Statusbar(QtWidgets.QStatusBar):
@@ -63,6 +64,6 @@ class Statusbar(QtWidgets.QStatusBar):
     @property
     def right_text(self) -> str:
         return self.label_right.text()
-    
+
     def set_right_text(self, text: str) -> None:
         self.label_right.setText(text)

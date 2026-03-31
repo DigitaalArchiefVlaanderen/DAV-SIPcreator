@@ -1,4 +1,4 @@
-from typing import Iterator
+from collections.abc import Iterator
 
 from PySide6 import QtCore
 
@@ -19,8 +19,7 @@ class DigitalSIPRetriever(WorkerUser):
 
     def run(self) -> None:
         self.worker = self.application.worker_controller.run_thread(
-            thread_function=self._load_digital_sips,
-            thread_is_generator=True
+            thread_function=self._load_digital_sips, thread_is_generator=True
         )
 
         if self.worker is None:
@@ -40,7 +39,5 @@ class DigitalSIPRetriever(WorkerUser):
         Helper().wait_for_series_loaded(warn=False)
 
         for sip, env_name, series_id, series_name in pending_series_info:
-            series = self.application.get_series_by_id_or_name(
-                env_name, series_id, series_name, warn=False
-            )
+            series = self.application.get_series_by_id_or_name(env_name, series_id, series_name, warn=False)
             sip.set_series(series)

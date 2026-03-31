@@ -20,11 +20,15 @@ class RRNCheck(BaseCheck):
         # NOTE: Transform loose format to strict
         loose_mask = non_empty & values.str.match(RRN_LOOSE_PATTERN.pattern)
         values[loose_mask] = (
-            values[loose_mask].str[:2] + "." +
-            values[loose_mask].str[2:4] + "." +
-            values[loose_mask].str[4:6] + "-" +
-            values[loose_mask].str[6:9] + "." +
-            values[loose_mask].str[9:]
+            values[loose_mask].str[:2]
+            + "."
+            + values[loose_mask].str[2:4]
+            + "."
+            + values[loose_mask].str[4:6]
+            + "-"
+            + values[loose_mask].str[6:9]
+            + "."
+            + values[loose_mask].str[9:]
         )
 
         # NOTE: Check strict format (only non-empty)
@@ -37,9 +41,7 @@ class RRNCheck(BaseCheck):
 
         if valid_format.any():
             digits_series = (
-                values[valid_format].str[:-2]
-                .str.replace(".", "", regex=False)
-                .str.replace("-", "", regex=False)
+                values[valid_format].str[:-2].str.replace(".", "", regex=False).str.replace("-", "", regex=False)
             )
             control = values[valid_format].str[-2:].astype(int)
 
@@ -52,7 +54,4 @@ class RRNCheck(BaseCheck):
             invalid_mask[valid_format] = ~valid
             cell_tooltips[invalid_mask.values] = UI_TEXT["rrn_invalid_error"]
 
-        return [
-            (row, col, values.iloc[i], cell_tooltips[i], None)
-            for i, row in enumerate(rows)
-        ]
+        return [(row, col, values.iloc[i], cell_tooltips[i], None) for i, row in enumerate(rows)]

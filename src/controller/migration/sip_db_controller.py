@@ -1,19 +1,24 @@
-import json
 import os
-from typing import Iterator
+import sqlite3 as sql
+from collections.abc import Iterator
 
 import pandas as pd
-import sqlite3 as sql
 
 from src.utils.base_object import BaseObject
 from src.utils.constants import (
-    UI_TEXT_ELEMENTS, SIP_CREATOR_VERSION, UNKNOWN_TRANSFORMED,
-    TI_ENVIRONMENT_NAME, PROD_ENVIRONMENT_NAME,
-    DBTableName, DBColumnName, DB_FILE_EXTENSION, MIGRATION_MAIN_ID_COLUMN,
+    DB_FILE_EXTENSION,
+    MIGRATION_MAIN_ID_COLUMN,
+    PROD_ENVIRONMENT_NAME,
+    SIP_CREATOR_VERSION,
+    TI_ENVIRONMENT_NAME,
+    UI_TEXT_ELEMENTS,
+    UNKNOWN_TRANSFORMED,
+    DBColumnName,
+    DBTableName,
 )
+from src.utils.data_objects.grid_data import GridData
 from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.sip_status import SIPStatus
-from src.utils.data_objects.grid_data import GridData
 
 
 class MigrationSIPDBController(BaseObject):
@@ -23,12 +28,7 @@ class MigrationSIPDBController(BaseObject):
         self.old_sip_db_controller = OldMigrationSIPDBController()
 
     def conn(self, sip_db_file_name: str) -> sql.Connection:
-        return sql.connect(
-            os.path.join(
-                self.application.configuration.overdrachtslijsten_location,
-                sip_db_file_name
-            )
-        )
+        return sql.connect(os.path.join(self.application.configuration.overdrachtslijsten_location, sip_db_file_name))
 
     def _execute_with_conn(self, sip_db_file_name: str, func):
         conn = self.conn(sip_db_file_name)
@@ -72,16 +72,19 @@ class MigrationSIPDBController(BaseObject):
                     overdrachtslijst_name text
                 )
             """)
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO sip (name, status, environment_name, edepot_sip_id, overdrachtslijst_name)
                 VALUES (?, ?, ?, ?, ?)
-            """, (
-                sip.name,
-                sip.status.name,
-                sip.environment.name,
-                sip.edepot_sip_id or "",
-                sip.overdrachtslijst_name,
-            ))
+            """,
+                (
+                    sip.name,
+                    sip.status.name,
+                    sip.environment.name,
+                    sip.edepot_sip_id or "",
+                    sip.overdrachtslijst_name,
+                ),
+            )
 
             conn.execute(f"""
                 CREATE TABLE {DBTableName.SIP_CREATOR.value} (
@@ -92,7 +95,7 @@ class MigrationSIPDBController(BaseObject):
             """)
             conn.execute(
                 f"INSERT INTO {DBTableName.SIP_CREATOR.value} (version, transformed, last_opened) VALUES (?, ?, ?)",
-                (SIP_CREATOR_VERSION, transformed, SIP_CREATOR_VERSION)
+                (SIP_CREATOR_VERSION, transformed, SIP_CREATOR_VERSION),
             )
 
             sip.main_grid_data.data_as_df.to_sql(DBTableName.OVERDRACHTSLIJST.value, conn, index=False, dtype="text")
@@ -128,25 +131,29 @@ class MigrationSIPDBController(BaseObject):
         return self._execute_with_conn(sip_db_file_name, _read)
 
     def read_main_data(self, sip_db_file_name: str) -> pd.DataFrame:
-        return self._execute_with_conn(sip_db_file_name, lambda conn:
-            pd.read_sql(f"SELECT * FROM {DBTableName.OVERDRACHTSLIJST.value}", conn, dtype=str).fillna("")
+        return self._execute_with_conn(
+            sip_db_file_name,
+            lambda conn: pd.read_sql(f"SELECT * FROM {DBTableName.OVERDRACHTSLIJST.value}", conn, dtype=str).fillna(""),
         )
 
     def read_tables(self, sip_db_file_name: str) -> list[tuple[str, str, str, str]]:
-        return self._execute_with_conn(sip_db_file_name, lambda conn:
-            conn.execute('SELECT table_name, "URI Serieregister", edepot_id, status FROM tables').fetchall()
+        return self._execute_with_conn(
+            sip_db_file_name,
+            lambda conn: conn.execute(
+                'SELECT table_name, "URI Serieregister", edepot_id, status FROM tables'
+            ).fetchall(),
         )
 
     def read_series_data(self, sip_db_file_name: str, table_name: str) -> pd.DataFrame:
-        return self._execute_with_conn(sip_db_file_name, lambda conn:
-            pd.read_sql(f"SELECT * FROM [{table_name}]", conn, dtype=str).fillna("")
+        return self._execute_with_conn(
+            sip_db_file_name, lambda conn: pd.read_sql(f"SELECT * FROM [{table_name}]", conn, dtype=str).fillna("")
         )
 
     def create_series_table(self, sip: MigrationSIP, uri_serieregister: str, table_name: str, df: pd.DataFrame) -> None:
         def _create(conn: sql.Connection) -> None:
             conn.execute(
                 'INSERT INTO tables (table_name, "URI Serieregister", edepot_id, status) VALUES (?, ?, ?, ?)',
-                (table_name, uri_serieregister, "", SIPStatus.IN_PROGRESS.name)
+                (table_name, uri_serieregister, "", SIPStatus.IN_PROGRESS.name),
             )
 
             df.to_sql(table_name, conn, index=False, dtype="text")
@@ -156,23 +163,22 @@ class MigrationSIPDBController(BaseObject):
     def update_series_status(self, sip: MigrationSIP, table_name: str, status: SIPStatus, edepot_id: str = "") -> None:
         def _update(conn: sql.Connection) -> None:
             conn.execute(
-                'UPDATE tables SET status = ?, edepot_id = ? WHERE table_name = ?',
-                (status.name, edepot_id, table_name)
+                "UPDATE tables SET status = ?, edepot_id = ? WHERE table_name = ?", (status.name, edepot_id, table_name)
             )
 
         self._execute_with_conn(sip.db_name, _update)
 
     def read_series_statuses(self, sip_db_file_name: str) -> dict[str, tuple[str, str]]:
         def _read(conn: sql.Connection) -> dict[str, tuple[str, str]]:
-            rows = conn.execute('SELECT table_name, status, edepot_id FROM tables').fetchall()
+            rows = conn.execute("SELECT table_name, status, edepot_id FROM tables").fetchall()
 
             return {name: (status, edepot_id) for name, status, edepot_id in rows}
 
         return self._execute_with_conn(sip_db_file_name, _read)
 
     def save_series_data(self, sip: MigrationSIP, table_name: str, df: pd.DataFrame) -> None:
-        self._execute_with_conn(sip.db_name, lambda conn:
-            df.to_sql(table_name, conn, if_exists="replace", index=False, dtype="text")
+        self._execute_with_conn(
+            sip.db_name, lambda conn: df.to_sql(table_name, conn, if_exists="replace", index=False, dtype="text")
         )
 
     def delete_series_table(self, sip: MigrationSIP, table_name: str) -> None:
@@ -183,11 +189,16 @@ class MigrationSIPDBController(BaseObject):
         self._execute_with_conn(sip.db_name, _delete)
 
     def save_main_data(self, sip: MigrationSIP, df: pd.DataFrame) -> None:
-        self._execute_with_conn(sip.db_name, lambda conn:
-            df.to_sql(DBTableName.OVERDRACHTSLIJST.value, conn, if_exists="replace", index=False, dtype="text")
+        self._execute_with_conn(
+            sip.db_name,
+            lambda conn: df.to_sql(
+                DBTableName.OVERDRACHTSLIJST.value, conn, if_exists="replace", index=False, dtype="text"
+            ),
         )
 
-    def add_columns_to_series_table(self, sip: MigrationSIP, table_name: str, columns: list[str], after_column: str) -> None:
+    def add_columns_to_series_table(
+        self, sip: MigrationSIP, table_name: str, columns: list[str], after_column: str
+    ) -> None:
         def _add_columns(conn: sql.Connection) -> None:
             df = pd.read_sql(f"SELECT * FROM [{table_name}]", conn, dtype=str).fillna("")
 
@@ -209,19 +220,13 @@ class MigrationSIPDBController(BaseObject):
         def _persist(conn: sql.Connection) -> None:
             conn.execute(
                 f"UPDATE {DBTableName.SIP.value} SET status = ?, edepot_sip_id = ?",
-                (sip.status.name, sip.edepot_sip_id or "")
+                (sip.status.name, sip.edepot_sip_id or ""),
             )
 
-            conn.execute(
-                f"UPDATE {DBTableName.SIP_CREATOR.value} SET last_opened = ?",
-                (SIP_CREATOR_VERSION,)
-            )
+            conn.execute(f"UPDATE {DBTableName.SIP_CREATOR.value} SET last_opened = ?", (SIP_CREATOR_VERSION,))
 
             for series_name, series_status in sip.series_statuses.items():
-                conn.execute(
-                    'UPDATE tables SET status = ? WHERE table_name = ?',
-                    (series_status.name, series_name)
-                )
+                conn.execute("UPDATE tables SET status = ? WHERE table_name = ?", (series_status.name, series_name))
 
         self._execute_with_conn(sip.db_name, _persist)
 
@@ -301,10 +306,7 @@ class MigrationSIPDBController(BaseObject):
 
     @staticmethod
     def _migrate_tables_uploaded_to_status(conn: sql.Connection) -> None:
-        tables_columns = {
-            col_name
-            for _, col_name, *_ in conn.execute("PRAGMA table_info(tables);").fetchall()
-        }
+        tables_columns = {col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(tables);").fetchall()}
 
         if "uploaded" in tables_columns and "status" not in tables_columns:
             conn.execute("ALTER TABLE tables ADD COLUMN status text default 'IN_PROGRESS'")
@@ -332,8 +334,14 @@ class MigrationSIPDBController(BaseObject):
         def _validate(conn: sql.Connection) -> bool | str:
             db_tables = [r for r, *_ in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
 
-            has_old_format = DBTableName.TABLES.value in db_tables and self.old_sip_db_controller.is_valid_db(sip_db_file_name)
-            has_current_format = DBTableName.SIP.value in db_tables and DBTableName.OVERDRACHTSLIJST.value in db_tables and DBTableName.TABLES.value in db_tables
+            has_old_format = DBTableName.TABLES.value in db_tables and self.old_sip_db_controller.is_valid_db(
+                sip_db_file_name
+            )
+            has_current_format = (
+                DBTableName.SIP.value in db_tables
+                and DBTableName.OVERDRACHTSLIJST.value in db_tables
+                and DBTableName.TABLES.value in db_tables
+            )
             has_intermediate_format = DBTableName.SIP.value in db_tables and "main_data" in db_tables
 
             if has_old_format and not has_current_format:
@@ -347,8 +355,7 @@ class MigrationSIPDBController(BaseObject):
 
             columns = {
                 column_name: data_type.lower()
-                for _, column_name, data_type, *_ in
-                conn.execute("PRAGMA table_info(sip);").fetchall()
+                for _, column_name, data_type, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()
             }
 
             expected_columns = {
@@ -416,7 +423,7 @@ class MigrationSIPDBController(BaseObject):
                         continue
 
                     try:
-                        df = pd.read_sql(f'SELECT * FROM [{clean_name}]', old_conn, dtype=str).fillna("")
+                        df = pd.read_sql(f"SELECT * FROM [{clean_name}]", old_conn, dtype=str).fillna("")
                     except Exception:
                         continue
 
@@ -426,12 +433,7 @@ class MigrationSIPDBController(BaseObject):
                     if MIGRATION_MAIN_ID_COLUMN in df.columns:
                         df = df.drop(columns=[MIGRATION_MAIN_ID_COLUMN])
 
-                    self.create_series_table(
-                        sip=sip,
-                        uri_serieregister=uri or "",
-                        table_name=clean_name,
-                        df=df
-                    )
+                    self.create_series_table(sip=sip, uri_serieregister=uri or "", table_name=clean_name, df=df)
             finally:
                 old_conn.close()
 
@@ -439,7 +441,7 @@ class MigrationSIPDBController(BaseObject):
 
     def transition_intermediate_db(self, sip_db_file_name: str) -> None:
         def _transition(conn: sql.Connection) -> None:
-            conn.execute('ALTER TABLE main_data RENAME TO Overdrachtslijst')
+            conn.execute("ALTER TABLE main_data RENAME TO Overdrachtslijst")
 
             has_series_tables = "series_tables" in [
                 r for r, *_ in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
@@ -448,7 +450,7 @@ class MigrationSIPDBController(BaseObject):
             if has_series_tables:
                 rows = conn.execute("SELECT series_id, series_name, table_name FROM series_tables").fetchall()
 
-                conn.execute('DROP TABLE series_tables')
+                conn.execute("DROP TABLE series_tables")
 
                 conn.execute("""
                     CREATE TABLE tables (
@@ -463,10 +465,10 @@ class MigrationSIPDBController(BaseObject):
                 for series_id, series_name, table_name in rows:
                     conn.execute(
                         'INSERT INTO tables (table_name, "URI Serieregister", edepot_id, status) VALUES (?, ?, ?, ?)',
-                        (series_name, "", "", SIPStatus.IN_PROGRESS.name)
+                        (series_name, "", "", SIPStatus.IN_PROGRESS.name),
                     )
 
-                    conn.execute(f'ALTER TABLE [{table_name}] RENAME TO [{series_name}]')
+                    conn.execute(f"ALTER TABLE [{table_name}] RENAME TO [{series_name}]")
             else:
                 conn.execute("""
                     CREATE TABLE tables (
@@ -478,9 +480,7 @@ class MigrationSIPDBController(BaseObject):
                     )
                 """)
 
-            sip_columns = [
-                col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()
-            ]
+            sip_columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()]
 
             if "file_location_path" in sip_columns:
                 conn.execute("ALTER TABLE sip DROP COLUMN file_location_path")
@@ -493,12 +493,7 @@ class OldMigrationSIPDBController(BaseObject):
         super().__init__()
 
     def conn(self, sip_db_file_name: str) -> sql.Connection:
-        return sql.connect(
-            os.path.join(
-                self.application.configuration.overdrachtslijsten_location,
-                sip_db_file_name
-            )
-        )
+        return sql.connect(os.path.join(self.application.configuration.overdrachtslijsten_location, sip_db_file_name))
 
     def _execute_with_conn(self, sip_db_file_name: str, func):
         conn = self.conn(sip_db_file_name)
@@ -536,7 +531,9 @@ class OldMigrationSIPDBController(BaseObject):
             return False
 
     def _infer_environment_name(self, conn: sql.Connection) -> str:
-        uris = conn.execute('SELECT "URI Serieregister" FROM tables WHERE "URI Serieregister" IS NOT NULL AND "URI Serieregister" != ""').fetchall()
+        uris = conn.execute(
+            'SELECT "URI Serieregister" FROM tables WHERE "URI Serieregister" IS NOT NULL AND "URI Serieregister" != ""'
+        ).fetchall()
 
         for uri, *_ in uris:
             if "-ti." in uri:
@@ -568,7 +565,7 @@ class OldMigrationSIPDBController(BaseObject):
             sip.environment = self.application.configuration.get_environment(environment_name)
 
             if main_table_name:
-                main_df = pd.read_sql(f'SELECT * FROM [{main_table_name}]', conn, dtype=str).fillna("")
+                main_df = pd.read_sql(f"SELECT * FROM [{main_table_name}]", conn, dtype=str).fillna("")
 
                 if "id" in main_df.columns:
                     main_df = main_df.drop(columns=["id"])
@@ -579,7 +576,7 @@ class OldMigrationSIPDBController(BaseObject):
 
             series_entries = conn.execute(
                 'SELECT table_name, "URI Serieregister", edepot_id FROM tables WHERE table_name != ?',
-                (f'"{main_table_name}"' if main_table_name else "",)
+                (f'"{main_table_name}"' if main_table_name else "",),
             ).fetchall()
 
             return sip, series_entries

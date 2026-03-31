@@ -9,20 +9,18 @@ is so that we can still easily use them in a lambda format
 
 eg: lambda: sip.set_name(<new name>)
 """
+
 import os
-from datetime import datetime
 import re
+from datetime import datetime
 
 import pandas as pd
 
 from src.controller.excel_controller import ExcelController
-
-from src.utils.constants import ColumnName, FILE_REGEXES_TO_IGNORE, RowType
-from src.utils.pyside_helper import Helper
-
-from src.widget.components.digital.dossier_widget import DossierWidget
-
+from src.utils.constants import FILE_REGEXES_TO_IGNORE, ColumnName, RowType
 from src.utils.data_objects.sip import SIP as CommonSIP
+from src.utils.pyside_helper import Helper
+from src.widget.components.digital.dossier_widget import DossierWidget
 
 
 class SIP(CommonSIP):
@@ -50,27 +48,27 @@ class SIP(CommonSIP):
         print("setting import template path", import_template_path)
         self.import_template_path = import_template_path
 
-    def read_import_template(self) -> pd.DataFrame|None:
+    def read_import_template(self) -> pd.DataFrame | None:
         if self.import_template_path is None:
             return
-        
+
         return ExcelController.read_excel(self.import_template_path)
 
-    def read_metadata(self) -> pd.DataFrame|None:
+    def read_metadata(self) -> pd.DataFrame | None:
         if self.metadata_path is None:
             return
-        
+
         return ExcelController.read_excel(self.metadata_path)
 
     # TODO clean this mess up?
     def _map_file_location_to_sip_location(self, location: str) -> str:
         """
-            Since we have some mappings, we may need to map a real location
-            to a fake one in the sip
+        Since we have some mappings, we may need to map a real location
+        to a fake one in the sip
         """
         if self.folder_mapping is None:
             return location
-        
+
         return self.folder_mapping.get(location, location)
 
     def _get_dossier_structure(self, dossier: DossierWidget) -> dict[str, str]:
@@ -78,7 +76,6 @@ class SIP(CommonSIP):
         return {
             (path_in_sip := self._map_file_location_to_sip_location(dossier_name)): {
                 "path": dossier.path,
-
                 ColumnName.PATH_IN_SIP.value: path_in_sip,
                 ColumnName.TYPE.value: RowType.DOSSIER,
                 ColumnName.NAAM.value: os.path.basename(path_in_sip),
@@ -90,13 +87,13 @@ class SIP(CommonSIP):
 
     def _get_dossier_folder_structure(self, base_path: str, dossier_path: str) -> dict[str, str]:
         """
-            Returns a dict mapping file/folder names to their relative paths from base_path.
+        Returns a dict mapping file/folder names to their relative paths from base_path.
 
-            {
-                <file_name_1>: <root>/<file_name_1>,
-                <file_name_2>: <root>/<subfolder>/<file_name_2>,
-                ...
-            }
+        {
+            <file_name_1>: <root>/<file_name_1>,
+            <file_name_2>: <root>/<subfolder>/<file_name_2>,
+            ...
+        }
         """
         structure = {}
 
@@ -115,37 +112,30 @@ class SIP(CommonSIP):
     def _get_file_structure(self, dossier: DossierWidget) -> dict[str, str]:
         dossier_name = os.path.basename(dossier.path)
         return {
-                (path_in_sip := self._map_file_location_to_sip_location(f'{dossier_name}/{relative_location}')): {
-                    "path": (real_path := os.path.join(dossier.path, relative_location)),
-
-                    ColumnName.PATH_IN_SIP.value: path_in_sip,
-                    ColumnName.TYPE.value: (
-                        RowType.GEEN
-                        if not os.path.isfile(real_path)
-                        or os.path.getsize(real_path) == 0
-                        or any(re.match(p, file_name) is not None for p in FILE_REGEXES_TO_IGNORE)
-                        else RowType.STUK
-                    ),
-                    ColumnName.NAAM.value: os.path.basename(path_in_sip),
-                    ColumnName.DOSSIER_REF.value: path_in_sip.split("/")[0],
-                    # Openingsdatum will be the creation dates of the file
-                    # There is no cross-platform way of doing this sadly
-                    # nt is Windows
-                    ColumnName.OPENINGSDATUM.value: (
-                        os.path.getctime(real_path)
-                        if os.name == "nt"
-                        else os.stat(real_path).st_birthtime
-                    ),
-                    # Sluitingsdatum will be the last edited time of the file
-                    # This works as a cross-platform way of getting modification time
-                    ColumnName.SLUITINGSDATUM.value: os.path.getmtime(
-                        real_path
-                    ),
-                }
-                for file_name, relative_location in self._get_dossier_folder_structure(
-                    dossier.path, dossier.path
-                ).items()
+            (path_in_sip := self._map_file_location_to_sip_location(f"{dossier_name}/{relative_location}")): {
+                "path": (real_path := os.path.join(dossier.path, relative_location)),
+                ColumnName.PATH_IN_SIP.value: path_in_sip,
+                ColumnName.TYPE.value: (
+                    RowType.GEEN
+                    if not os.path.isfile(real_path)
+                    or os.path.getsize(real_path) == 0
+                    or any(re.match(p, file_name) is not None for p in FILE_REGEXES_TO_IGNORE)
+                    else RowType.STUK
+                ),
+                ColumnName.NAAM.value: os.path.basename(path_in_sip),
+                ColumnName.DOSSIER_REF.value: path_in_sip.split("/")[0],
+                # Openingsdatum will be the creation dates of the file
+                # There is no cross-platform way of doing this sadly
+                # nt is Windows
+                ColumnName.OPENINGSDATUM.value: (
+                    os.path.getctime(real_path) if os.name == "nt" else os.stat(real_path).st_birthtime
+                ),
+                # Sluitingsdatum will be the last edited time of the file
+                # This works as a cross-platform way of getting modification time
+                ColumnName.SLUITINGSDATUM.value: os.path.getmtime(real_path),
             }
+            for file_name, relative_location in self._get_dossier_folder_structure(dossier.path, dossier.path).items()
+        }
 
     def _get_folder_structure(self) -> dict[str, str]:
         folder_structure = dict()
@@ -168,9 +158,7 @@ class SIP(CommonSIP):
         return folder_structure
 
     def set_data_from_dossiers(self) -> None:
-        df = pd.DataFrame(
-            columns=self.read_import_template().columns
-        )
+        df = pd.DataFrame(columns=self.read_import_template().columns)
 
         folder_structure = self._get_folder_structure()
 
@@ -184,10 +172,8 @@ class SIP(CommonSIP):
         )
 
         for column in main_columns:
-            df[column] = [
-                s[column] for s in folder_structure.values()
-            ]
-        
+            df[column] = [s[column] for s in folder_structure.values()]
+
         type_col = ColumnName.TYPE.value
         dossier_ref_col = ColumnName.DOSSIER_REF.value
         opening_col = ColumnName.OPENINGSDATUM.value
@@ -241,9 +227,7 @@ class SIP(CommonSIP):
         temp_df = metadata_df.copy(deep=True)
 
         if self.folder_mapping and path_metadata_col in temp_df.columns:
-            temp_df[path_metadata_col] = temp_df[path_metadata_col].replace(
-                self.folder_mapping
-            )
+            temp_df[path_metadata_col] = temp_df[path_metadata_col].replace(self.folder_mapping)
 
         lookup_df = temp_df.set_index(path_metadata_col, drop=False)
         df = self.grid_data.data_as_df

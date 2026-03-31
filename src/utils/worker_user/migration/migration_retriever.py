@@ -1,4 +1,4 @@
-from typing import Iterator
+from collections.abc import Iterator
 
 from PySide6 import QtCore
 
@@ -19,8 +19,7 @@ class MigrationRetriever(WorkerUser):
 
     def run(self) -> None:
         self.worker = self.application.worker_controller.run_thread(
-            thread_function=self.background_load_migration_sips,
-            thread_is_generator=True
+            thread_function=self.background_load_migration_sips, thread_is_generator=True
         )
 
         if self.worker is None:

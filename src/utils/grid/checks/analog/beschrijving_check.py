@@ -31,7 +31,4 @@ class BeschrijvingCheck(BaseCheck):
             if duplicates > 1:
                 cell_tooltips[i] = UI_TEXT["beschrijving_duplicate_error"]
 
-        return [
-            (row, col, values.iloc[i], cell_tooltips[i], None)
-            for i, row in enumerate(rows)
-        ]
+        return [(row, col, values.iloc[i], cell_tooltips[i], None) for i, row in enumerate(rows)]

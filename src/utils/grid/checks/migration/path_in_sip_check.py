@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 from pandas import DataFrame
 
@@ -24,12 +24,14 @@ class PathInSipCheck(BaseCheck):
             value = str(raw_data.iat[row, col])
 
             if "/" in value:
-                results.append((
-                    row,
-                    col,
-                    value,
-                    UI_TEXT["path_in_sip_slash_error"],
-                    None,
-                ))
+                results.append(
+                    (
+                        row,
+                        col,
+                        value,
+                        UI_TEXT["path_in_sip_slash_error"],
+                        None,
+                    )
+                )
 
         return results

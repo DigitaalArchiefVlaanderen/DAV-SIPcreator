@@ -1,6 +1,6 @@
+import errno
 import os
 import sys
-import errno
 
 # Sadly, Python fails to provide the following magic number for us.
 ERROR_INVALID_NAME = 123
@@ -26,11 +26,7 @@ def is_pathname_valid(pathname: str) -> bool:
         # Directory guaranteed to exist. If the current OS is Windows, this is
         # the drive to which Windows was installed (e.g., the "%HOMEDRIVE%"
         # environment variable); else, the typical root directory.
-        root_dirname = (
-            os.environ.get("HOMEDRIVE", "C:")
-            if sys.platform == "win32"
-            else os.path.sep
-        )
+        root_dirname = os.environ.get("HOMEDRIVE", "C:") if sys.platform == "win32" else os.path.sep
         assert os.path.isdir(root_dirname)  # ...Murphy and her ironclad Law
 
         # Append a path separator to this directory if needed.
@@ -100,9 +96,7 @@ def is_path_exists_or_creatable(pathname: str) -> bool:
     try:
         # To prevent "os" module calls from raising undesirable exceptions on
         # invalid pathnames, is_pathname_valid() is explicitly called first.
-        return is_pathname_valid(pathname) and (
-            os.path.exists(pathname) or is_path_creatable(pathname)
-        )
+        return is_pathname_valid(pathname) and (os.path.exists(pathname) or is_path_creatable(pathname))
     # Report failure on non-fatal filesystem complaints (e.g., connection
     # timeouts, permissions issues) implying this path to be inaccessible. All
     # other exceptions are unrelated fatal issues and should not be caught here.

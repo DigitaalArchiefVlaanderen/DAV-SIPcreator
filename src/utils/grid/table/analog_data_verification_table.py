@@ -3,13 +3,12 @@ from functools import partial
 import pandas as pd
 from PySide6 import QtCore
 
-from src.utils.constants import ColumnName, ANALOOG_DEFAULT_VALUE, RowType, BusinessRules
+from src.utils.constants import ANALOOG_DEFAULT_VALUE, ColumnName, RowType
 from src.utils.data_objects.sip import SIP
 from src.utils.grid.checks.analog import AnalogPathInSipCheck, BeschrijvingCheck, VerpakkingCheck
 from src.utils.grid.checks.base_check import CellRange
-from src.utils.grid.table.common import CommonDataVerificationTable, CellColor, MarkingSource
+from src.utils.grid.table.common import CellColor, CommonDataVerificationTable, MarkingSource
 from src.utils.workers.worker import Worker
-
 
 DISABLED_COLUMNS = [
     ColumnName.TYPE.value,
@@ -50,11 +49,7 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
                 self.disable_column(col)
 
     def _get_empty_rows(self, cell_range: CellRange) -> set[int]:
-        return {
-            row
-            for row in range(cell_range.row_start, cell_range.row_end + 1)
-            if self._is_row_empty(row)
-        }
+        return {row for row in range(cell_range.row_start, cell_range.row_end + 1) if self._is_row_empty(row)}
 
     def _is_row_empty(self, row: int) -> bool:
         for col in range(self.raw_data.shape[1]):
@@ -98,11 +93,7 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
 
         new_df = pd.DataFrame(new_rows, columns=self.raw_data.columns)
 
-        self.beginInsertRows(
-            QtCore.QModelIndex(),
-            self.raw_data.shape[0],
-            self.raw_data.shape[0] + count - 1
-        )
+        self.beginInsertRows(QtCore.QModelIndex(), self.raw_data.shape[0], self.raw_data.shape[0] + count - 1)
 
         self.raw_data = pd.concat([self.raw_data, new_df], ignore_index=True)
         self.sip.grid_data.data_as_df = self.raw_data
@@ -144,18 +135,11 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
             extra = max_row_needed - self.raw_data.shape[0] + 2
             self._insert_empty_rows(extra)
 
-        raw_changes = [
-            (index.row(), index.column(), self._sanitize_value(value))
-            for index, value in changes
-        ]
+        raw_changes = [(index.row(), index.column(), self._sanitize_value(value)) for index, value in changes]
 
         df_copy = self.raw_data.copy()
         columns = list(df_copy.columns)
-        disabled_col_indices = [
-            df_copy.columns.get_loc(col)
-            for col in DISABLED_COLUMNS
-            if col in df_copy.columns
-        ]
+        disabled_col_indices = [df_copy.columns.get_loc(col) for col in DISABLED_COLUMNS if col in df_copy.columns]
 
         def background_apply():
             auto_fill_rows: list[tuple[int, str]] = []

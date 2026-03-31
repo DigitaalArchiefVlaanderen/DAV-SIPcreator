@@ -1,8 +1,7 @@
-from PySide6 import QtWidgets, QtGui
+from PySide6 import QtGui, QtWidgets
 
-from src.utils.constants import get_logo, UI_TEXT_ELEMENTS
+from src.utils.constants import UI_TEXT_ELEMENTS, get_logo
 from src.utils.data_objects.sip_status import SIPStatus
-
 
 UI_TEXT = UI_TEXT_ELEMENTS["migration"]["tab_status_dialog"]
 

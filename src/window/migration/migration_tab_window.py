@@ -11,22 +11,25 @@ from src.controller.api_controller import APIController
 from src.controller.excel_controller import ExcelController
 from src.controller.file_controller import SIDECAR_TEMPLATE
 from src.utils.constants import (
-    ColumnName, UI_TEXT_ELEMENTS, OverdrachtslijstColumnName, RowType, BusinessRules,
-    ANALOOG_DEFAULT_VALUE, MIGRATION_MAIN_ID_COLUMN, SERIES_NAME_COLUMN,
+    ANALOOG_DEFAULT_VALUE,
+    MIGRATION_MAIN_ID_COLUMN,
+    SERIES_NAME_COLUMN,
+    UI_TEXT_ELEMENTS,
+    BusinessRules,
+    ColumnName,
     DBColumnName,
+    OverdrachtslijstColumnName,
+    RowType,
 )
 from src.utils.data_objects.grid_data import GridData
 from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.sip_status import SIPStatus
-from src.utils.pyside_helper import set_widget_warning_style, clear_widget_warning_style
+from src.utils.pyside_helper import clear_widget_warning_style, set_widget_warning_style
 from src.utils.workers.worker import Worker
-
 from src.widget.central_widgets.migration.migration_grid_view import MigrationGridView
 from src.widget.central_widgets.migration.migration_main_tab_view import MigrationMainTabView
 from src.widget.dialog.yes_no_dialog import YesNoDialog
-
 from src.window.base_window import Window
-
 
 UI_TEXT = UI_TEXT_ELEMENTS["migration"]["tab_window"]
 
@@ -153,7 +156,7 @@ class MigrationTabWindow(Window):
             suffix = f" ({UI_TEXT['tab_loading_text']})"
 
             if current_text.endswith(suffix):
-                self.tab_widget.setTabText(tab_index, current_text[:-len(suffix)])
+                self.tab_widget.setTabText(tab_index, current_text[: -len(suffix)])
 
     def _create_missing_series_tabs(self, existing_table_names: set[str]) -> None:
         main_df = self.sip.main_grid_data.data_as_df
@@ -334,9 +337,7 @@ class MigrationTabWindow(Window):
             grid_view.table_model.re_mark_disabled_columns()
             grid_view.table_model.validate_all()
 
-            self.application.migration_sip_db_controller.save_series_data(
-                self.sip, table_name, combined_df
-            )
+            self.application.migration_sip_db_controller.save_series_data(self.sip, table_name, combined_df)
         else:
             grid_data = GridData()
             grid_data.data_as_df = series_df
@@ -378,7 +379,9 @@ class MigrationTabWindow(Window):
             old_df = grid_view.table_model.raw_data
             main_id_set = set(main_ids)
 
-            remaining_df = old_df[~old_df[MIGRATION_MAIN_ID_COLUMN].astype(str).isin(main_id_set)].reset_index(drop=True)
+            remaining_df = old_df[~old_df[MIGRATION_MAIN_ID_COLUMN].astype(str).isin(main_id_set)].reset_index(
+                drop=True
+            )
 
             if remaining_df.empty:
                 tab_index = self.tab_widget.indexOf(grid_view)
@@ -396,11 +399,11 @@ class MigrationTabWindow(Window):
                 grid_view.table_model.raw_data = remaining_df
                 grid_view.table_model.endResetModel()
 
-                self.application.migration_sip_db_controller.save_series_data(
-                    self.sip, old_series_name, remaining_df
-                )
+                self.application.migration_sip_db_controller.save_series_data(self.sip, old_series_name, remaining_df)
 
-    def _map_main_to_series(self, selected_data: pd.DataFrame, template_columns: list[str] | None = None) -> pd.DataFrame:
+    def _map_main_to_series(
+        self, selected_data: pd.DataFrame, template_columns: list[str] | None = None
+    ) -> pd.DataFrame:
         mapped_data: dict[str, list] = {}
         row_count = len(selected_data)
 
@@ -488,9 +491,7 @@ class MigrationTabWindow(Window):
         all_valid = (
             self.series_tabs
             and all(
-                not gv.table_model.has_bad_rows
-                and gv.series is not None
-                and not gv.table_model.is_validating
+                not gv.table_model.has_bad_rows and gv.series is not None and not gv.table_model.is_validating
                 for gv in self.series_tabs.values()
             )
             and not self.main_tab_view.table_model.has_bad_rows
@@ -549,10 +550,7 @@ class MigrationTabWindow(Window):
                     series_id=series_id,
                 )
 
-                temp_loc = os.path.join(
-                    configuration.grid_location,
-                    f"temp_{series_id}.xlsx"
-                )
+                temp_loc = os.path.join(configuration.grid_location, f"temp_{series_id}.xlsx")
 
                 wb = load_workbook(import_template_loc)
 
@@ -570,11 +568,7 @@ class MigrationTabWindow(Window):
 
                     for row_index in range(len(df)):
                         for col_index in range(len(df.columns)):
-                            ws.cell(
-                                row=row_index + 2,
-                                column=col_index + 1,
-                                value=str(df.iat[row_index, col_index])
-                            )
+                            ws.cell(row=row_index + 2, column=col_index + 1, value=str(df.iat[row_index, col_index]))
 
                     wb.save(temp_loc)
                 finally:
@@ -626,10 +620,7 @@ class MigrationTabWindow(Window):
         )
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
-        has_unsaved = any(
-            grid_view.has_unsaved_changes
-            for grid_view in self.series_tabs.values()
-        )
+        has_unsaved = any(grid_view.has_unsaved_changes for grid_view in self.series_tabs.values())
 
         if has_unsaved:
             dialog = YesNoDialog(

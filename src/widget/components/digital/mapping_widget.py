@@ -1,4 +1,4 @@
-from PySide6 import QtWidgets, QtCore, QtGui
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from src.utils.constants import ColumnName
 
@@ -101,7 +101,11 @@ class TagMappingWidget(QtWidgets.QFrame):
     def add_to_import_template(self, tags: list):
         self.import_mapping.clear_tags()
         self.import_mapping.add_tags(
-            [t for t in tags if t not in (ColumnName.TYPE.value, ColumnName.DOSSIER_REF.value, ColumnName.ANALOOG.value)]
+            [
+                t
+                for t in tags
+                if t not in (ColumnName.TYPE.value, ColumnName.DOSSIER_REF.value, ColumnName.ANALOOG.value)
+            ]
         )
 
     def add_to_mapping(self, tags: list):
@@ -114,9 +118,7 @@ class TagMappingWidget(QtWidgets.QFrame):
         if selected_metadata_tag is None or selected_importsjabloon_tag is None:
             return
 
-        self.output_mapping.add_tag(
-            f"{selected_metadata_tag.text()} -> {selected_importsjabloon_tag.text()}"
-        )
+        self.output_mapping.add_tag(f"{selected_metadata_tag.text()} -> {selected_importsjabloon_tag.text()}")
 
         self.import_mapping.remove_selected_tag()
 
@@ -134,8 +136,7 @@ class TagMappingWidget(QtWidgets.QFrame):
 
     def get_mapping(self) -> list[tuple[str, str]]:
         return [
-            (b.text().split(" -> ")[0], b.text().split(" -> ")[1])
-            for b in self.output_mapping.button_group.buttons()
+            (b.text().split(" -> ")[0], b.text().split(" -> ")[1]) for b in self.output_mapping.button_group.buttons()
         ]
 
 

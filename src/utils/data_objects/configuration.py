@@ -1,10 +1,9 @@
-from dataclasses import dataclass
-from enum import Enum
 import json
 import os
-from typing import List
+from dataclasses import dataclass
+from enum import Enum
 
-from src.utils.constants import SaveLocations, ConfigKey
+from src.utils.constants import ConfigKey, SaveLocations
 
 
 class ConfigurationVersion(Enum):
@@ -13,6 +12,7 @@ class ConfigurationVersion(Enum):
     V3 = 3
     V4 = 4
     V5 = 5
+
 
 @dataclass
 class Environment:
@@ -56,17 +56,15 @@ class Environment:
     def get_default(name: str) -> "Environment":
         return Environment(
             name=name,
-
             api_url="",
             api_username="",
             api_password="",
             api_client_id="",
             api_client_secret="",
-
             ftps_url="",
             ftps_username="",
             ftps_password="",
-            ftps_port="21"
+            ftps_port="21",
         )
 
     def get_api_info(self) -> dict:
@@ -77,7 +75,7 @@ class Environment:
             client_id=self.api_client_id,
             client_secret=self.api_client_secret,
         )
-    
+
     def get_ftps_info(self) -> dict:
         return dict(
             url=self.ftps_url,
@@ -87,13 +85,11 @@ class Environment:
         )
 
     def to_json(self) -> dict:
-        return {
-            ConfigKey.API.value: self.get_api_info(),
-            ConfigKey.FTPS.value: self.get_ftps_info()
-        }
+        return {ConfigKey.API.value: self.get_api_info(), ConfigKey.FTPS.value: self.get_ftps_info()}
 
     def get_serie_register_uri(self) -> str:
         return self.api_url.replace("digitaalarchief", "serieregister") + "/id/serie"
+
 
 @dataclass
 class Misc:
@@ -121,7 +117,7 @@ class Misc:
                 analoog=False,
             ),
             save_location=os.path.join(root_path, SaveLocations.DEFAULT_BASE_SAVE_LOCATION.value),
-            bestandscontrole_lijst_location=""
+            bestandscontrole_lijst_location="",
         )
 
     def to_json(self) -> dict:
@@ -130,12 +126,13 @@ class Misc:
             "Rollen": self.role_activity,
             "Type SIPs": self.type_activity,
             "SIP Creator opslag locatie": self.save_location,
-            "Bestandscontrole lijst locatie": self.bestandscontrole_lijst_location
+            "Bestandscontrole lijst locatie": self.bestandscontrole_lijst_location,
         }
+
 
 @dataclass
 class Configuration:
-    environments: List[Environment]
+    environments: list[Environment]
     misc: Misc
     root_path: str
 
@@ -171,13 +168,7 @@ class Configuration:
         )
 
     def to_json(self) -> dict:
-        return {
-            "misc": self.misc.to_json(),
-            **{
-                env.name: env.to_json()
-                for env in self.environments
-            }
-        }
+        return {"misc": self.misc.to_json(), **{env.name: env.to_json() for env in self.environments}}
 
     @staticmethod
     def from_json(json: dict, root_path: str, version: ConfigurationVersion) -> "Configuration":
@@ -292,15 +283,15 @@ class Configuration:
     @property
     def import_templates_location(self) -> str:
         return os.path.join(self.misc.save_location, SaveLocations.IMPORT_TEMPLATES_FOLDER.value)
-    
+
     @property
     def overdrachtslijsten_location(self) -> str:
         return os.path.join(self.misc.save_location, SaveLocations.OVERDRACHTSLIJSTEN_FOLDER.value)
-    
+
     @property
     def analoog_location(self) -> str:
         return os.path.join(self.misc.save_location, SaveLocations.ANALOOG_FOLDER.value)
-    
+
     @property
     def grid_location(self) -> str:
         return os.path.join(self.misc.save_location, SaveLocations.GRID_FOLDER.value)
@@ -308,8 +299,7 @@ class Configuration:
     @property
     def sips_location(self) -> str:
         return os.path.join(self.misc.save_location, SaveLocations.SIPS_FOLDER.value)
-        
+
     @property
     def sip_db_location(self) -> str:
         return os.path.join(self.misc.save_location, SaveLocations.SIP_DB_FOLDER.value)
-

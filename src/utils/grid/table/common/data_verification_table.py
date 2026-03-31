@@ -2,8 +2,8 @@ from PySide6 import QtCore
 
 from src.utils.constants import ColumnName, RowType
 from src.utils.data_objects.sip import SIP
-from src.utils.grid.checks import BaseCheck, CellRange, BulkResult, RRNCheck, NameCheck, DateCheck
-from src.utils.grid.checks.common.date_check import parse_date, _check_format, _check_series_range
+from src.utils.grid.checks import BaseCheck, BulkResult, CellRange, DateCheck, NameCheck, RRNCheck
+from src.utils.grid.checks.common.date_check import _check_format, _check_series_range, parse_date
 from src.utils.grid.table.common.data_table import CellColor, DataTable, MarkingSource
 from src.utils.workers.worker import Worker
 
@@ -59,10 +59,7 @@ class CommonDataVerificationTable(DataTable):
                 continue
 
             col = self.raw_data.columns.get_loc(column_name.value)
-            results.extend(
-                r for r in check.check_bulk(self.raw_data, col, cell_range)
-                if r[0] not in empty_rows
-            )
+            results.extend(r for r in check.check_bulk(self.raw_data, col, cell_range) if r[0] not in empty_rows)
 
         return results, empty_rows
 
@@ -112,8 +109,10 @@ class CommonDataVerificationTable(DataTable):
         valid_row_indices = {self.raw_data.index[row] for row in row_range}
 
         keys_to_remove = [
-            key for key in self.markings
-            if key[0] in valid_row_indices and (
+            key
+            for key in self.markings
+            if key[0] in valid_row_indices
+            and (
                 (key[2] == MarkingSource.WIDE)
                 or (key[2] == MarkingSource.CELL and self.markings[key][0] != CellColor.GREY)
             )
@@ -126,12 +125,14 @@ class CommonDataVerificationTable(DataTable):
         if not self.raw_data.shape[0]:
             return
 
-        self.validate_range(CellRange(
-            row_start=0,
-            row_end=self.raw_data.shape[0] - 1,
-            col_start=0,
-            col_end=self.raw_data.shape[1] - 1,
-        ))
+        self.validate_range(
+            CellRange(
+                row_start=0,
+                row_end=self.raw_data.shape[0] - 1,
+                col_start=0,
+                col_end=self.raw_data.shape[1] - 1,
+            )
+        )
 
     def validate_range(self, cell_range: CellRange) -> None:
         self.validation_started_signal.emit()
@@ -148,12 +149,14 @@ class CommonDataVerificationTable(DataTable):
             self.validation_finished_signal.emit()
 
     def _validate_single_row(self, row: int) -> None:
-        self.validate_range(CellRange(
-            row_start=row,
-            row_end=row,
-            col_start=0,
-            col_end=self.raw_data.shape[1] - 1,
-        ))
+        self.validate_range(
+            CellRange(
+                row_start=row,
+                row_end=row,
+                col_start=0,
+                col_end=self.raw_data.shape[1] - 1,
+            )
+        )
 
     def setData(self, index, value: str, role=QtCore.Qt.ItemDataRole.EditRole) -> bool:
         if not index.isValid():
@@ -180,10 +183,7 @@ class CommonDataVerificationTable(DataTable):
         if not changes:
             return
 
-        raw_changes = [
-            (index.row(), index.column(), self._sanitize_value(value))
-            for index, value in changes
-        ]
+        raw_changes = [(index.row(), index.column(), self._sanitize_value(value)) for index, value in changes]
 
         df_copy = self.raw_data.copy()
 
@@ -282,9 +282,8 @@ class CommonDataVerificationTable(DataTable):
 
             processed_refs.add(dossier_ref)
 
-            dossier_mask = (
-                (self.raw_data.iloc[:, type_col] == RowType.DOSSIER)
-                & (self.raw_data.iloc[:, dossier_ref_col] == dossier_ref)
+            dossier_mask = (self.raw_data.iloc[:, type_col] == RowType.DOSSIER) & (
+                self.raw_data.iloc[:, dossier_ref_col] == dossier_ref
             )
             dossier_rows = self.raw_data.index[dossier_mask]
 
@@ -293,17 +292,18 @@ class CommonDataVerificationTable(DataTable):
 
             dossier_row_pos = self.raw_data.index.get_loc(dossier_rows[0])
 
-            stuk_mask = (
-                (self.raw_data.iloc[:, type_col] == RowType.STUK)
-                & (self.raw_data.iloc[:, dossier_ref_col] == dossier_ref)
+            stuk_mask = (self.raw_data.iloc[:, type_col] == RowType.STUK) & (
+                self.raw_data.iloc[:, dossier_ref_col] == dossier_ref
             )
 
             stuk_openings = [
-                d for v in self.raw_data.loc[stuk_mask, ColumnName.OPENINGSDATUM.value]
+                d
+                for v in self.raw_data.loc[stuk_mask, ColumnName.OPENINGSDATUM.value]
                 if is_valid(s := str(v)) and (d := parse_date(s)) is not None
             ]
             stuk_closings = [
-                d for v in self.raw_data.loc[stuk_mask, ColumnName.SLUITINGSDATUM.value]
+                d
+                for v in self.raw_data.loc[stuk_mask, ColumnName.SLUITINGSDATUM.value]
                 if is_valid(s := str(v)) and (d := parse_date(s)) is not None
             ]
 
@@ -344,9 +344,8 @@ class CommonDataVerificationTable(DataTable):
         opening_col = self.raw_data.columns.get_loc(ColumnName.OPENINGSDATUM.value)
         closing_col = self.raw_data.columns.get_loc(ColumnName.SLUITINGSDATUM.value)
 
-        dossier_mask = (
-            (self.raw_data.iloc[:, type_col] == RowType.DOSSIER)
-            & (self.raw_data.iloc[:, dossier_ref_col] == dossier_ref)
+        dossier_mask = (self.raw_data.iloc[:, type_col] == RowType.DOSSIER) & (
+            self.raw_data.iloc[:, dossier_ref_col] == dossier_ref
         )
         dossier_rows = self.raw_data.index[dossier_mask]
 
@@ -355,9 +354,8 @@ class CommonDataVerificationTable(DataTable):
 
         dossier_row_pos = self.raw_data.index.get_loc(dossier_rows[0])
 
-        stuk_mask = (
-            (self.raw_data.iloc[:, type_col] == RowType.STUK)
-            & (self.raw_data.iloc[:, dossier_ref_col] == dossier_ref)
+        stuk_mask = (self.raw_data.iloc[:, type_col] == RowType.STUK) & (
+            self.raw_data.iloc[:, dossier_ref_col] == dossier_ref
         )
 
         series = self.sip.series
@@ -371,11 +369,13 @@ class CommonDataVerificationTable(DataTable):
         )
 
         stuk_openings = [
-            d for v in self.raw_data.loc[stuk_mask, ColumnName.OPENINGSDATUM.value]
+            d
+            for v in self.raw_data.loc[stuk_mask, ColumnName.OPENINGSDATUM.value]
             if is_valid(s := str(v)) and (d := parse_date(s)) is not None
         ]
         stuk_closings = [
-            d for v in self.raw_data.loc[stuk_mask, ColumnName.SLUITINGSDATUM.value]
+            d
+            for v in self.raw_data.loc[stuk_mask, ColumnName.SLUITINGSDATUM.value]
             if is_valid(s := str(v)) and (d := parse_date(s)) is not None
         ]
 

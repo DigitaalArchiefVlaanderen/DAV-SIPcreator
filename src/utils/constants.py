@@ -1,15 +1,15 @@
+import json
 import os
 import re
 import sys
-import json
 from enum import Enum
 
 from PySide6 import QtGui
 
 from src.utils.data_objects.sip_status import SIPStatus
 
-
 SIP_CREATOR_VERSION = "3.0.0.2"
+
 
 class SaveLocations(Enum):
     CONFIGURATION_FILE = "configuration.json"
@@ -22,8 +22,9 @@ class SaveLocations(Enum):
     SIP_DB_FOLDER = "SIP_dbs"
 
     OVERDRACHTSLIJSTEN_FOLDER = "overdrachtslijsten"
-    
+
     ANALOOG_FOLDER = "analoog"
+
 
 class ColumnName(Enum):
     PATH_IN_SIP = "Path in SIP"
@@ -40,6 +41,7 @@ class ColumnName(Enum):
     LEGACY_LOCATIE_ID = "Legacy locatie ID"
     LEGACY_RANGE = "Legacy range"
     VERPAKKINGSTYPE = "Verpakkingstype"
+
 
 class OverdrachtslijstColumnName(Enum):
     BESCHRIJVING = "Beschrijving"
@@ -121,15 +123,17 @@ DB_FILE_EXTENSION = ".db"
 
 
 def resource_path(relative_path):
-    if hasattr(sys, '_MEIPASS'):
+    if hasattr(sys, "_MEIPASS"):
         return os.path.join(sys._MEIPASS, relative_path)
 
     return os.path.abspath(relative_path)
 
+
 def get_logo() -> QtGui.QIcon:
     return QtGui.QIcon(resource_path("logo.ico"))
 
-with open(resource_path("src/utils/ui_text_elements.json"), "r") as f:
+
+with open(resource_path("src/utils/ui_text_elements.json")) as f:
     UI_TEXT_ELEMENTS = json.load(f)
 
 CONFIGURATION_FILE_NAME = "configuration.json"
@@ -151,7 +155,7 @@ def _can_write_to(directory: str) -> bool:
 
 
 def determine_root_path() -> str | None:
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         exe_dir = os.path.dirname(sys.executable)
     else:
         exe_dir = os.getcwd()
@@ -176,6 +180,7 @@ def determine_root_path() -> str | None:
 
     return None
 
+
 TI_ENVIRONMENT_NAME = "ti"
 PROD_ENVIRONMENT_NAME = "prod"
 ENVIRONMENT_NAMES = (TI_ENVIRONMENT_NAME, PROD_ENVIRONMENT_NAME)
@@ -189,7 +194,7 @@ FILE_REGEXES_TO_IGNORE = [
     r"^\._.+$",
     r"^\.Spotlight-V100$",
     r"^\.Trashes$",
-    r"^\.fseventsd$"
+    r"^\.fseventsd$",
 ]
 
 MAIN_DB_NAME = "sip_creator.db"

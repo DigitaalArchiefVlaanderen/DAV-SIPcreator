@@ -1,7 +1,6 @@
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtWidgets
 
-from src.utils.constants import get_logo, UI_TEXT_ELEMENTS
-
+from src.utils.constants import UI_TEXT_ELEMENTS, get_logo
 
 UI_TEXT = UI_TEXT_ELEMENTS["migration"]["upload_dialog"]
 
@@ -44,9 +43,7 @@ class MigrationUploadDialog(QtWidgets.QDialog):
         layout.addLayout(button_layout)
 
     def _upload_clicked(self) -> None:
-        self.selected_series = [
-            name for name, cb in self.checkboxes.items() if cb.isChecked()
-        ]
+        self.selected_series = [name for name, cb in self.checkboxes.items() if cb.isChecked()]
 
         if not self.selected_series:
             return

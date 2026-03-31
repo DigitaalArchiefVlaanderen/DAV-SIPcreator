@@ -1,12 +1,9 @@
 from PySide6 import QtGui
 
 from src.utils.constants import UI_TEXT_ELEMENTS
-
 from src.widget.central_widgets.configuration_widget import ConfigurationWidget
 from src.widget.dialog.yes_no_dialog import YesNoDialog
-
 from src.window.base_window import BaseWindow
-
 
 UI_TEXT = UI_TEXT_ELEMENTS["configuration"]
 

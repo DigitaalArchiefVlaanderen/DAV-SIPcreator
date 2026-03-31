@@ -37,7 +37,9 @@ class MigrationSIP(CommonSIP):
             self.set_status(SIPStatus.UPLOADING)
         elif all(s in (SIPStatus.UPLOADED, SIPStatus.PROCESSING, SIPStatus.ACCEPTED) for s in statuses):
             self.set_status(SIPStatus.UPLOADED)
-        elif any(s in (SIPStatus.UPLOADED, SIPStatus.PROCESSING, SIPStatus.ACCEPTED, SIPStatus.REJECTED) for s in statuses):
+        elif any(
+            s in (SIPStatus.UPLOADED, SIPStatus.PROCESSING, SIPStatus.ACCEPTED, SIPStatus.REJECTED) for s in statuses
+        ):
             self.set_status(SIPStatus.PARTIALLY_UPLOADED)
         elif all(s == SIPStatus.SIP_CREATED for s in statuses):
             self.set_status(SIPStatus.SIP_CREATED)

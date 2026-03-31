@@ -38,7 +38,7 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
 
     def columnCount(self, parent=None) -> int:
         return self.raw_data.shape[1]
-    
+
     # Getting of data or cell formatting based on index and role
     def data(self, index, role=QtCore.Qt.ItemDataRole.DisplayRole) -> str | QtGui.QBrush | None:
         if not index.isValid():
@@ -103,15 +103,10 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
 
         return base_flags | QtCore.Qt.ItemFlag.ItemIsEditable
 
-    def disable_column(self, column_name: str, tooltip: str="") -> "DataTable":
+    def disable_column(self, column_name: str, tooltip: str = "") -> "DataTable":
         col = self.raw_data.columns.get_loc(column_name)
 
-        self.markings.update(
-            {
-                (row, col, MarkingSource.CELL): (CellColor.GREY, tooltip)
-                for row in self.raw_data.index
-            }
-        )
+        self.markings.update({(row, col, MarkingSource.CELL): (CellColor.GREY, tooltip) for row in self.raw_data.index})
 
         return self
 
@@ -122,7 +117,9 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
         if key in self.markings:
             del self.markings[key]
 
-    def mark_cell(self, index, source: MarkingSource = MarkingSource.CELL, warning: bool=False, tooltip: str="") -> None:
+    def mark_cell(
+        self, index, source: MarkingSource = MarkingSource.CELL, warning: bool = False, tooltip: str = ""
+    ) -> None:
         row, col = self.data_index(index)
         color = CellColor.YELLOW if warning else CellColor.RED
         self.markings[(row, col, source)] = (color, tooltip)
@@ -142,18 +139,8 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
 
     @property
     def has_bad_rows(self) -> bool:
-        return any(
-            marking[0] == CellColor.RED
-            for marking in self.markings.values()
-        )
+        return any(marking[0] == CellColor.RED for marking in self.markings.values())
 
     @property
     def bad_rows(self) -> list[int]:
-        return list(
-            set(
-                row
-                for (row, _, __), marking in self.markings.items()
-                if marking[0] == CellColor.RED
-            )
-        )
-
+        return list(set(row for (row, _, __), marking in self.markings.items() if marking[0] == CellColor.RED))

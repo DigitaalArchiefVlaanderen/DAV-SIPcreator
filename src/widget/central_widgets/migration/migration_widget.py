@@ -1,19 +1,16 @@
 import os
-from typing import Iterable
+from collections.abc import Iterable
 
-import pandas as pd
 from PySide6 import QtWidgets
 
 from src.controller.excel_controller import ExcelController
-from src.utils.constants import UI_TEXT_ELEMENTS, KLANT_ROLE
+from src.utils.constants import KLANT_ROLE, UI_TEXT_ELEMENTS
 from src.utils.data_objects.grid_data import GridData
 from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.sip_status import SIPStatus
-
 from src.widget.central_widgets.central_widget import CentralWidget
 from src.widget.components.migration.migration_listitem_widget import MigrationSipListitemWidget
 from src.widget.components.searchable_list_widget import SearchableListWidgetWithDropdown
-
 from src.window.base_window import Window
 from src.window.migration.migration_tab_window import MigrationTabWindow
 
@@ -37,16 +34,11 @@ class MigrationWidget(CentralWidget):
         )
 
         common_controls = UI_TEXT_ELEMENTS["common"]["controls"]
-        self.sip_zips_locatie_button = QtWidgets.QPushButton(
-            common_controls["sip_zips_locatie_button_text"]
-        )
-        self.sip_databases_locatie_button = QtWidgets.QPushButton(
-            common_controls["sip_databases_locatie_button_text"]
-        )
+        self.sip_zips_locatie_button = QtWidgets.QPushButton(common_controls["sip_zips_locatie_button_text"])
+        self.sip_databases_locatie_button = QtWidgets.QPushButton(common_controls["sip_databases_locatie_button_text"])
 
         self.sip_list_widget = SearchableListWidgetWithDropdown(
-            search_field="sip.name",
-            dropdown_search_field="sip.status.status_label"
+            search_field="sip.name", dropdown_search_field="sip.status.status_label"
         )
         self.sip_list_widget.setup_ui(
             dropdown_options=[
@@ -72,9 +64,7 @@ class MigrationWidget(CentralWidget):
         self.application.application_role_changed_signal.connect(self._update_role_visibility)
 
         self.import_overdrachtslijst_button.clicked.connect(self._import_overdrachtslijst_clicked)
-        self.sip_zips_locatie_button.clicked.connect(
-            lambda: os.startfile(self.application.configuration.sips_location)
-        )
+        self.sip_zips_locatie_button.clicked.connect(lambda: os.startfile(self.application.configuration.sips_location))
         self.sip_databases_locatie_button.clicked.connect(
             lambda: os.startfile(self.application.configuration.overdrachtslijsten_location)
         )

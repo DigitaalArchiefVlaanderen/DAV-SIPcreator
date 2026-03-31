@@ -1,18 +1,16 @@
 import os
 from contextlib import suppress
 
-from PySide6 import QtWidgets, QtCore, QtGui
+from PySide6 import QtCore, QtGui, QtWidgets
 
-from src.utils.constants import UI_TEXT_ELEMENTS, KLANT_ROLE
+from src.utils.constants import KLANT_ROLE, UI_TEXT_ELEMENTS
 from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.workers.worker import Worker
-
 from src.widget.base_widget import BaseWidget
 from src.widget.dialog.migration_tab_status_dialog import MigrationTabStatusDialog
 from src.widget.dialog.migration_upload_dialog import MigrationUploadDialog
 from src.widget.dialog.yes_no_dialog import YesNoDialog
-
 
 UI_TEXT = UI_TEXT_ELEMENTS["sip"]["controls"]
 
@@ -162,10 +160,7 @@ class MigrationControlsWidget(BaseWidget):
         self.open_overdrachtslijst_signal.emit(self.sip)
 
     def upload_button_clicked_handler(self) -> None:
-        uploadable = [
-            name for name, status in self.sip.series_statuses.items()
-            if status == SIPStatus.SIP_CREATED
-        ]
+        uploadable = [name for name, status in self.sip.series_statuses.items() if status == SIPStatus.SIP_CREATED]
 
         if not uploadable:
             return

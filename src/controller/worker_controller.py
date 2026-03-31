@@ -1,7 +1,8 @@
 """
 Controller of background workers
 """
-from typing import Callable
+
+from collections.abc import Callable
 
 from src.utils.base_object import BaseObject
 from src.utils.workers.worker import Worker

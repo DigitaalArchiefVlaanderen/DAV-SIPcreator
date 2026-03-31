@@ -1,15 +1,16 @@
-from contextlib import suppress
-from typing import Iterable
-import os
 import json
+import os
+import uuid
+from collections.abc import Iterable
+from contextlib import suppress
 
 import requests
 
 from src.utils.constants import APIResponseKey
+from src.utils.data_objects.configuration import Configuration, Environment
 from src.utils.data_objects.series import Series, SeriesStatus
 from src.utils.data_objects.sip import SIP
 from src.utils.data_objects.sip_status import SIPStatus
-from src.utils.data_objects.configuration import Configuration, Environment
 
 SIP_STATUS_MAPPING = {
     "Uploaded": SIPStatus.UPLOADED,
@@ -33,9 +34,7 @@ class APIController:
         params: dict = None,
         timeout=10,
     ) -> requests.Response:
-        response = request_type(
-            url, headers=headers, data=data, params=params, timeout=timeout
-        )
+        response = request_type(url, headers=headers, data=data, params=params, timeout=timeout)
         response.raise_for_status()
 
         return response
@@ -103,14 +102,10 @@ class APIController:
         return response[APIResponseKey.ORGANISATION.value][APIResponseKey.ID.value]
 
     @staticmethod
-    def get_series(environment: Environment, search: str=None) -> Iterable[list[Series]]:
-        access_token = APIController._get_access_token(
-            environment
-        )
+    def get_series(environment: Environment, search: str = None) -> Iterable[list[Series]]:
+        access_token = APIController._get_access_token(environment)
 
-        organisation_id = APIController._get_organisation_id(
-            access_token, environment
-        )
+        organisation_id = APIController._get_organisation_id(access_token, environment)
 
         base_url = environment.api_url
         endpoint = "series-register/api/v1/series"
@@ -124,7 +119,7 @@ class APIController:
             "size": 100,
             "page": 0,
             "status": SeriesStatus.PUBLISHED.value,
-            "q": f"+OrganisationId:{organisation_id}"
+            "q": f"+OrganisationId:{organisation_id}",
         }
 
         if search is not None:
@@ -176,7 +171,6 @@ class APIController:
 
         # Write to a unique temp file, then rename — avoids corruption
         # if multiple threads download the same template concurrently
-        import uuid
         temp_location = file_location + f".{uuid.uuid4().hex}.tmp"
         with open(temp_location, "wb") as f:
             f.write(response.content)
@@ -266,7 +260,7 @@ class APIController:
             params["page"] = params["page"] + 1
 
     @staticmethod
-    def get_sip_status(sip: SIP) -> tuple[SIPStatus, str|None]:
+    def get_sip_status(sip: SIP) -> tuple[SIPStatus, str | None]:
         environment = sip.environment
         access_token = APIController._get_access_token(environment)
 

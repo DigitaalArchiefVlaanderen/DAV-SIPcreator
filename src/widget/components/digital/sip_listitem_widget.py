@@ -1,26 +1,24 @@
 """
 Implementation of the listitem for a SIP
 """
+
 import os
 from contextlib import suppress
 
-from PySide6 import QtWidgets, QtCore, QtGui
+from PySide6 import QtCore, QtGui, QtWidgets
 
+from src.controller.upload_controller import UploadController
 from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.data_objects.digital.sip import SIP
 from src.utils.data_objects.sip_status import SIPStatus
-from src.utils.pyside_helper import set_widget_warning_style, clear_widget_warning_style
-
-from src.controller.upload_controller import UploadController
-
+from src.utils.pyside_helper import clear_widget_warning_style, set_widget_warning_style
 from src.widget.base_widget import BaseWidget
 from src.widget.dialog.yes_no_dialog import YesNoDialog
-
 from src.window.base_window import Window
 from src.window.digital.sip_detail_window import SipDetailWindow
 
-
 UI_TEXT = UI_TEXT_ELEMENTS["digital"]["main"]["sip_list"]
+
 
 class SipListitemWidget(QtWidgets.QFrame):
     removed_signal = QtCore.Signal(object)
@@ -83,6 +81,7 @@ class SipNameAndStatusWidget(QtWidgets.QFrame):
         self.sip.status_changed_signal.connect(lambda: self.status_label.setText(self.sip.status.status_label))
         self.sip.status_changed_signal.connect(lambda: self.status_label.setStyleSheet(self.sip.status.value))
 
+
 class DossiersWidget(QtWidgets.QFrame):
     def __init__(self, sip: SIP):
         super().__init__()
@@ -127,6 +126,7 @@ class DossiersWidget(QtWidgets.QFrame):
         self.vertical_layout.addWidget(self.dossiers_title)
         self.vertical_layout.addWidget(self.dossiers_scrollarea)
 
+
 class ControlsWidget(BaseWidget):
     UI_TEXT = UI_TEXT_ELEMENTS["sip"]["controls"]
 
@@ -145,7 +145,6 @@ class ControlsWidget(BaseWidget):
         self.vertical_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
         self.setLayout(self.vertical_layout)
 
-
         self.open_button = QtWidgets.QPushButton(text=self.UI_TEXT["open_button_text"])
 
         self.upload_button = QtWidgets.QPushButton(text=self.UI_TEXT["upload_button_text"])
@@ -155,7 +154,6 @@ class ControlsWidget(BaseWidget):
         self.edepot_button.setEnabled(False)
 
         self.remove_button = QtWidgets.QPushButton(text=self.UI_TEXT["remove_button_text"])
-
 
         self.vertical_layout.addWidget(self.open_button)
         self.vertical_layout.addWidget(self.upload_button)
@@ -177,8 +175,10 @@ class ControlsWidget(BaseWidget):
 
     # Handlers
     def open_button_clicked_handler(self) -> None:
-        if self.application.digital_sip_db_controller.is_valid_db(self.sip.db_name) \
-                and self.application.digital_sip_db_controller.read_sip_data(self.sip.db_name) is not None:
+        if (
+            self.application.digital_sip_db_controller.is_valid_db(self.sip.db_name)
+            and self.application.digital_sip_db_controller.read_sip_data(self.sip.db_name) is not None
+        ):
             self.application.window_controller.open_digital_grid_signal.emit(self.sip)
             return
 

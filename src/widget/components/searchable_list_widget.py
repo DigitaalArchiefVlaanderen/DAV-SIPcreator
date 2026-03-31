@@ -7,16 +7,16 @@ A search bar will be provided to look for the elements based on a field given dy
 Note that the field must be a property, not a callable.
 You are allowed to use dotnotation for deeper properties (eg: child.label.text)
 """
+
 from typing import Any
 
+import shiboken6
 from natsort import natsorted
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtCore, QtWidgets
 
 from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.helper import get_attr_deep
-
 from src.widget.base_widget import BaseWidget
-
 
 
 class SearchableListWidget(BaseWidget):
@@ -44,7 +44,9 @@ class SearchableListWidget(BaseWidget):
 
         # Count label
         self.count_label = QtWidgets.QLabel(text="0/0")
-        self.amount_changed_signal.connect(lambda: self.count_label.setText(f"{len(self.filtered_widgets)}/{len(self.widgets)}"))
+        self.amount_changed_signal.connect(
+            lambda: self.count_label.setText(f"{len(self.filtered_widgets)}/{len(self.widgets)}")
+        )
 
         # Scroll area
         self.scroll_area = QtWidgets.QScrollArea()
@@ -55,7 +57,6 @@ class SearchableListWidget(BaseWidget):
         self.scroll_area.setWidget(self.central_widget)
         self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
         self.scroll_area.setWidgetResizable(True)
-
 
         self.grid_layout.addWidget(self.searchbar, 0, 0)
         self.grid_layout.addWidget(self.count_label, 0, 1)
@@ -72,9 +73,7 @@ class SearchableListWidget(BaseWidget):
             return
 
         self.filtered_widgets = [
-            widget
-            for widget in self.widgets
-            if search_text in get_attr_deep(widget, self.search_field)
+            widget for widget in self.widgets if search_text in get_attr_deep(widget, self.search_field)
         ]
 
     def clear_widgets(self, delete: bool = False) -> None:
@@ -93,15 +92,13 @@ class SearchableListWidget(BaseWidget):
 
             self.amount_changed_signal.emit()
 
-    def reload_shown_widgets(self, sort: bool=False) -> None:
+    def reload_shown_widgets(self, sort: bool = False) -> None:
         self.hide()
         self._remove_deleted_widgets()
         self.search_for_widgets()
 
         if sort:
-            self.widgets = natsorted(
-                self.widgets, key=lambda w: get_attr_deep(w, self.search_field)
-            )
+            self.widgets = natsorted(self.widgets, key=lambda w: get_attr_deep(w, self.search_field))
 
             self.clear_widgets()
 
@@ -122,8 +119,6 @@ class SearchableListWidget(BaseWidget):
         self.widgets_reloaded_signal.emit()
 
     def _remove_deleted_widgets(self) -> None:
-        import shiboken6
-
         self.widgets = [w for w in self.widgets if shiboken6.isValid(w)]
         self.filtered_widgets = [w for w in self.filtered_widgets if shiboken6.isValid(w)]
 
@@ -158,6 +153,7 @@ class SearchableListWidgetWithSelection(BaseWidget):
     Acts as a wrapper around the "parent" class
     Allowing us to add extra UI elements cleanly
     """
+
     selection_changed_signal = QtCore.Signal()
 
     class CheckBoxWidget(QtWidgets.QFrame):
@@ -199,9 +195,8 @@ class SearchableListWidgetWithSelection(BaseWidget):
         def __eq__(self, other: "SearchableListWidgetWithSelection.CheckBoxWidget") -> bool:
             if not isinstance(other, SearchableListWidgetWithSelection.CheckBoxWidget):
                 return False
-            
-            return self.base_widget == other.base_widget
 
+            return self.base_widget == other.base_widget
 
     def __init__(self, search_field: str):
         super().__init__()
@@ -228,8 +223,10 @@ class SearchableListWidgetWithSelection(BaseWidget):
         self.grid_layout.addWidget(self.searchable_list_widget, 1, 0)
         self.grid_layout.addWidget(self.remove_selected_items_button, 2, 0)
 
-    def add_widgets(self, widgets: list[BaseWidget], select: bool=True) -> None:
-        widgets: list[SearchableListWidgetWithSelection.CheckBoxWidget] = [SearchableListWidgetWithSelection.CheckBoxWidget(widget) for widget in widgets]
+    def add_widgets(self, widgets: list[BaseWidget], select: bool = True) -> None:
+        widgets: list[SearchableListWidgetWithSelection.CheckBoxWidget] = [
+            SearchableListWidgetWithSelection.CheckBoxWidget(widget) for widget in widgets
+        ]
 
         # NOTE: we also need to set some signals here
         for widget in widgets:
@@ -251,26 +248,17 @@ class SearchableListWidgetWithSelection(BaseWidget):
     # Handlers
     def selection_changed_handler(self) -> None:
         # NOTE: enable or disable remove button based on if we have anything selected currently
-        self.remove_selected_items_button.setEnabled(
-            any(
-                widget.is_checked
-                for widget in self.filtered_widgets
-            )
-        )
+        self.remove_selected_items_button.setEnabled(any(widget.is_checked for widget in self.filtered_widgets))
 
         self.select_all_checkbox.blockSignals(True)
         self.select_all_checkbox.setChecked(
-            len(self.filtered_widgets) > 0
-            and all(
-                widget.is_checked
-                for widget in self.filtered_widgets
-            )
+            len(self.filtered_widgets) > 0 and all(widget.is_checked for widget in self.filtered_widgets)
         )
         self.select_all_checkbox.blockSignals(False)
 
     def select_all_handler(self, check_state: QtCore.Qt.CheckState) -> None:
         should_be_checked = False
-        
+
         if check_state == QtCore.Qt.CheckState.Checked.value:
             should_be_checked = True
 
@@ -282,7 +270,9 @@ class SearchableListWidgetWithSelection(BaseWidget):
         self.selection_changed_signal.emit()
 
     def remove_selected_handler(self) -> None:
-        selected_widgets: list[SearchableListWidgetWithSelection.CheckBoxWidget] = [widget for widget in self.widgets if widget.is_checked]
+        selected_widgets: list[SearchableListWidgetWithSelection.CheckBoxWidget] = [
+            widget for widget in self.widgets if widget.is_checked
+        ]
 
         self.searchable_list_widget.remove_widgets(selected_widgets)
         self.application.main_db_controller.delete_dossier_paths([w.base_widget.path for w in selected_widgets])
@@ -290,13 +280,14 @@ class SearchableListWidgetWithSelection(BaseWidget):
     # NOTE: any methods or attributes we have not overwritten, direct them to the "parent"
     def __getattr__(self, name: str):
         return getattr(self.searchable_list_widget, name)
-    
+
 
 class SearchableListWidgetWithDropdown(BaseWidget):
     """
     Acts as a wrapper around the "parent" class
     Allowing us to add extra UI elements cleanly
     """
+
     SHOW_ALL_TEXT = UI_TEXT_ELEMENTS["digital"]["main"]["sip_list"]["show_all"]
 
     def __init__(self, search_field: str, dropdown_search_field: str):
@@ -332,9 +323,7 @@ class SearchableListWidgetWithDropdown(BaseWidget):
             self.searchable_list_widget.filtered_widgets = self.widgets
         else:
             self.searchable_list_widget.filtered_widgets = [
-                widget
-                for widget in self.widgets
-                if search_text in get_attr_deep(widget, self.search_field)
+                widget for widget in self.widgets if search_text in get_attr_deep(widget, self.search_field)
             ]
 
         # Search based on dropdown (refine the previous search)
@@ -348,12 +337,10 @@ class SearchableListWidgetWithDropdown(BaseWidget):
             if current_text == get_attr_deep(widget, self.dropdown_search_field)
         ]
 
-
     # Handlers
     def dropdown_text_changed_handler(self) -> None:
         self.searchable_list_widget.reload_shown_widgets()
 
-        
     # NOTE: any methods or attributes we have not overwritten, direct them to the "parent"
     def __getattr__(self, name: str):
         return getattr(self.searchable_list_widget, name)

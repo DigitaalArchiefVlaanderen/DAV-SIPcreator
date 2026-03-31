@@ -1,9 +1,6 @@
-import re
-
-import numpy as np
 from pandas import DataFrame
 
-from src.utils.constants import ColumnName, UI_TEXT_ELEMENTS
+from src.utils.constants import UI_TEXT_ELEMENTS, ColumnName
 from src.utils.grid.checks.base_check import BaseCheck, BulkResult, CellRange
 
 LOCATION_COLUMNS = (
@@ -60,12 +57,14 @@ class LocationGroupCheck(BaseCheck):
                 if has_any and not has_all:
                     for i, c in enumerate(group_col_indices):
                         if not values[i].strip():
-                            results.append((
-                                row,
-                                c,
-                                values[i],
-                                UI_TEXT["location_group_incomplete"],
-                                None,
-                            ))
+                            results.append(
+                                (
+                                    row,
+                                    c,
+                                    values[i],
+                                    UI_TEXT["location_group_incomplete"],
+                                    None,
+                                )
+                            )
 
         return results

@@ -1,11 +1,10 @@
 import time
-from typing import Iterator
+from collections.abc import Iterator
 
 from PySide6 import QtCore
 
 from src.controller.api_controller import APIController
 from src.controller.worker_controller import WorkerController
-
 from src.utils.constants import CHECKABLE_SIP_STATUSES, POLL_INTERVAL_SECONDS
 from src.utils.data_objects.sip import SIP
 from src.utils.data_objects.sip_status import SIPStatus
@@ -26,8 +25,7 @@ class SIPStatusChecker(WorkerUser):
 
     def run(self, worker_controller: WorkerController) -> None:
         self.worker = worker_controller.run_thread(
-            thread_function=self.background_check_all_sips,
-            thread_is_generator=True
+            thread_function=self.background_check_all_sips, thread_is_generator=True
         )
 
         if self.worker is None:
@@ -54,20 +52,20 @@ class SIPStatusChecker(WorkerUser):
 
                             yield "edepot_resolved", sip, edepot_id
                         else:
-                            yield None,
+                            yield (None,)
 
                         continue
 
                     result = APIController.get_sip_status(sip)
 
                     if result is None:
-                        yield None,
+                        yield (None,)
                         continue
 
                     new_status, fail_reason = result
 
                     if new_status is None or new_status == sip.status:
-                        yield None,
+                        yield (None,)
                         continue
 
                     sip.set_status(new_status)
@@ -82,7 +80,7 @@ class SIPStatusChecker(WorkerUser):
 
             time.sleep(POLL_INTERVAL_SECONDS)
 
-            yield None,
+            yield (None,)
 
     def _collect_checkable_sips(self) -> list[SIP]:
         result = []

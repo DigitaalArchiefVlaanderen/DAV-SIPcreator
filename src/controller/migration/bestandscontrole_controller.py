@@ -7,7 +7,6 @@ from openpyxl import load_workbook
 from src.utils.base_object import ApplicationMixin
 from src.utils.constants import ColumnName
 
-
 LIST_SHEET_NAME = "Lijst"
 DOOS_SHEET_NAME = "Doostypes"
 
@@ -173,24 +172,38 @@ class BestandsControleController(ApplicationMixin):
 
         list_data_header_row = [i for i, r in enumerate(list_data) if all(c in r for c in LIST_COLUMN_NAMES)][0]
         list_data_columns = [i for i, c in enumerate(list_data[list_data_header_row]) if c in LIST_COLUMN_NAMES]
-        list_data = [[c for i, c in enumerate(r) if i in list_data_columns] for r in list_data[list_data_header_row + 1:]]
+        list_data = [
+            [c for i, c in enumerate(r) if i in list_data_columns] for r in list_data[list_data_header_row + 1 :]
+        ]
 
-        list_df = pd.DataFrame(
-            [r for r in list_data if not all(c is None for c in r)],
-            columns=LIST_COLUMN_NAMES,
-        ).fillna("").astype(str).convert_dtypes()
+        list_df = (
+            pd.DataFrame(
+                [r for r in list_data if not all(c is None for c in r)],
+                columns=LIST_COLUMN_NAMES,
+            )
+            .fillna("")
+            .astype(str)
+            .convert_dtypes()
+        )
 
         ws_doos = wb[DOOS_SHEET_NAME]
         doos_data = list(ws_doos.values)
 
         doos_data_header_row = [i for i, r in enumerate(doos_data) if all(c in r for c in DOOS_COLUMN_NAMES)][0]
         doos_data_columns = [i for i, c in enumerate(doos_data[doos_data_header_row]) if c in DOOS_COLUMN_NAMES]
-        doos_data = [[c for i, c in enumerate(r) if i in doos_data_columns] for r in doos_data[doos_data_header_row + 1:]]
+        doos_data = [
+            [c for i, c in enumerate(r) if i in doos_data_columns] for r in doos_data[doos_data_header_row + 1 :]
+        ]
 
-        doos_df = pd.DataFrame(
-            [r for r in doos_data if not all(c is None for c in r)],
-            columns=DOOS_COLUMN_NAMES,
-        ).fillna("").astype(str).convert_dtypes()
+        doos_df = (
+            pd.DataFrame(
+                [r for r in doos_data if not all(c is None for c in r)],
+                columns=DOOS_COLUMN_NAMES,
+            )
+            .fillna("")
+            .astype(str)
+            .convert_dtypes()
+        )
 
         merged_df = list_df.merge(doos_df, left_on=LIST_TYPE_COLUMN, right_on=DOOS_NUMBER_COLUMN, how="left")
         merged_df[DOOS_TYPE_COLUMN] = merged_df[DOOS_TYPE_COLUMN].fillna(merged_df[LIST_TYPE_COLUMN])
