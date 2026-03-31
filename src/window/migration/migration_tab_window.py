@@ -84,8 +84,7 @@ class MigrationTabWindow(Window):
             changed = True
 
         if URI_SERIEREGISTER_COLUMN not in df.columns:
-            insert_pos = 1 if SERIES_NAME_COLUMN in df.columns else 0
-            df.insert(insert_pos, URI_SERIEREGISTER_COLUMN, "")
+            df[URI_SERIEREGISTER_COLUMN] = ""
             changed = True
 
         if changed:
