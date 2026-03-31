@@ -1,3 +1,4 @@
+from contextlib import suppress
 from typing import Iterable
 import os
 import json
@@ -171,14 +172,23 @@ class APIController:
         folder_location = os.path.join(storage_location, "import_templates")
         file_location = os.path.join(folder_location, f"{series_id}.xlsx")
 
-        if not os.path.exists(folder_location):
-            print(1)
-            os.makedirs(folder_location)
+        os.makedirs(folder_location, exist_ok=True)
 
-        with open(file_location, "wb") as f:
+        # Write to a unique temp file, then rename — avoids corruption
+        # if multiple threads download the same template concurrently
+        import uuid
+        temp_location = file_location + f".{uuid.uuid4().hex}.tmp"
+        with open(temp_location, "wb") as f:
             f.write(response.content)
 
-            return file_location
+        try:
+            os.replace(temp_location, file_location)
+        except PermissionError:
+            # Another thread may have the target file open — clean up temp
+            with suppress(OSError):
+                os.remove(temp_location)
+
+        return file_location
 
     # TODO: do in background
     @staticmethod
