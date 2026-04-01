@@ -28,11 +28,12 @@ class UploadController(BaseObject):
             return False
 
         try:
-            ftplib.FTP_TLS(
+            with ftplib.FTP_TLS(
                 sip.environment.ftps_url,
                 sip.environment.ftps_username,
                 sip.environment.ftps_password,
-            )
+            ):
+                pass
         except ftplib.error_perm:
             self.application.notify_user_signal.emit(
                 UI_TEXT["ftps_login_error"]["title"],

@@ -14,15 +14,13 @@ from src.utils.workers.worker import Worker
 
 
 class SeriesRetriever(WorkerUser):
-    RETRIEVAL_DONE = {
-        TI_ENVIRONMENT_NAME: False,
-        PROD_ENVIRONMENT_NAME: False,
-    }
     finished_signal = QtCore.Signal()
     error_occurred_signal = QtCore.Signal(Exception)
 
     def __init__(self):
         super().__init__()
+
+        self._retrieval_done: dict[str, bool] = {}
 
         self.application.force_stop_series_retrieval_signal.connect(self.force_stop_handler)
 
@@ -30,7 +28,7 @@ class SeriesRetriever(WorkerUser):
         self.prod_worker: Worker = None
 
     def run(self, worker_controller: WorkerController) -> None:
-        self.RETRIEVAL_DONE = {
+        self._retrieval_done = {
             TI_ENVIRONMENT_NAME: False,
             PROD_ENVIRONMENT_NAME: False,
         }
@@ -78,9 +76,9 @@ class SeriesRetriever(WorkerUser):
         self.application.add_series(environment_name=environment_name, series=series)
 
     def series_retrieval_done_handler(self, environment_name: str) -> None:
-        self.RETRIEVAL_DONE[environment_name] = True
+        self._retrieval_done[environment_name] = True
 
-        if all(self.RETRIEVAL_DONE.values()):
+        if all(self._retrieval_done.values()):
             self.application.series_retrieval_busy = False
             self.finished_signal.emit()
 
@@ -94,5 +92,5 @@ class SeriesRetriever(WorkerUser):
                 worker = self.prod_worker
 
         if worker is not None:
-            self.RETRIEVAL_DONE[environment_name] = True
+            self._retrieval_done[environment_name] = True
             worker.force_stop = True

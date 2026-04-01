@@ -135,7 +135,7 @@ class MainDBController(BaseObject):
         def _read(conn: sql.Connection) -> list[str]:
             result = conn.execute(f"SELECT * FROM {self.TABLES['dossier']};").fetchall()
 
-            return [r for r, *_ in result]
+            return [os.path.normpath(r) for r, *_ in result]
 
         return self._execute_with_conn(_read)
 

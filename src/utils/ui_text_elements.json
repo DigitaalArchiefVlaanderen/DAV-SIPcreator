@@ -419,6 +419,10 @@
             "empty_name_error": {
                 "title": "Ongeldige SIP naam",
                 "text": "De SIP naam mag niet leeg zijn."
+            },
+            "invalid_characters_error": {
+                "title": "Ongeldige SIP naam",
+                "text": "De SIP naam bevat ongeldige tekens: {characters}"
             }
         },
         "series": {

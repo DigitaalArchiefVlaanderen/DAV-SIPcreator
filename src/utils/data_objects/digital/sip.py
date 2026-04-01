@@ -45,7 +45,6 @@ class SIP(CommonSIP):
         self.__dossiers = new_dossiers
 
     def set_import_template_path(self, import_template_path: str) -> None:
-        print("setting import template path", import_template_path)
         self.import_template_path = import_template_path
 
     def read_import_template(self) -> pd.DataFrame | None:

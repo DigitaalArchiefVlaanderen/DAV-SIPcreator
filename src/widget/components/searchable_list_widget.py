@@ -138,7 +138,6 @@ class SearchableListWidget(BaseWidget):
                 return
 
             if widget not in self.widgets:
-                print(self.widgets)
                 return
 
             self.widgets.remove(widget)

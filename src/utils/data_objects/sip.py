@@ -35,6 +35,8 @@ class SIP(BaseObject):
     def name(self) -> str:
         return self.__name
 
+    INVALID_NAME_CHARACTERS = set('<>:"/\\|?*')
+
     def set_name(self, new_name: str) -> bool:
         new_name = new_name.strip()
 
@@ -45,6 +47,18 @@ class SIP(BaseObject):
             self.application.notify_user_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["sip_name"]["empty_name_error"]["title"],
                 UI_TEXT_ELEMENTS["errors"]["sip_name"]["empty_name_error"]["text"],
+            )
+            self.name_changed_signal.emit()
+
+            return False
+
+        invalid_chars = self.INVALID_NAME_CHARACTERS & set(new_name)
+        if invalid_chars:
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["sip_name"]["invalid_characters_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["sip_name"]["invalid_characters_error"]["text"].format(
+                    characters=" ".join(sorted(invalid_chars))
+                ),
             )
             self.name_changed_signal.emit()
 

@@ -67,7 +67,6 @@ class BestandsControleController(ApplicationMixin):
                 "Bestandscontrole niet gevonden",
                 f"Bestandscontrole niet gevonden op locatie '{self.controle_list_path}'.",
             )
-
             return False
 
         wb = load_workbook(
@@ -78,13 +77,17 @@ class BestandsControleController(ApplicationMixin):
             rich_text=False,
         )
 
+        try:
+            return self._validate_workbook(wb)
+        finally:
+            wb.close()
+
+    def _validate_workbook(self, wb) -> bool:
         if LIST_SHEET_NAME not in wb.sheetnames:
             self._notify(
                 "Tab niet gevonden in bestandscontrole",
                 f"Tab '{LIST_SHEET_NAME}' niet gevonden in bestandscontrole.",
             )
-            wb.close()
-
             return False
 
         if DOOS_SHEET_NAME not in wb.sheetnames:
@@ -92,62 +95,37 @@ class BestandsControleController(ApplicationMixin):
                 "Tab niet gevonden in bestandscontrole",
                 f"Tab '{DOOS_SHEET_NAME}' niet gevonden in bestandscontrole.",
             )
-            wb.close()
-
             return False
 
-        ws_list = wb[LIST_SHEET_NAME]
-        ws_doos = wb[DOOS_SHEET_NAME]
-        list_data = ws_list.values
-        doos_data = ws_doos.values
+        if not self._validate_sheet_headers(wb[LIST_SHEET_NAME], "Datum", LIST_COLUMN_NAMES, LIST_SHEET_NAME):
+            return False
+
+        if not self._validate_sheet_headers(wb[DOOS_SHEET_NAME], "Doosnummer", DOOS_COLUMN_NAMES, DOOS_SHEET_NAME):
+            return False
+
+        return True
+
+    def _validate_sheet_headers(self, sheet, marker: str, required_columns: tuple, sheet_name: str) -> bool:
+        data = sheet.values
 
         try:
-            while "Datum" not in (headers := next(list_data)):
+            while marker not in (headers := next(data)):
                 pass
         except StopIteration:
             self._notify(
                 "Verwachte hoofdingen niet gevonden",
-                f"De verwachte hoofdingen waren niet gevonden in de bestandscontrole in tab '{LIST_SHEET_NAME}'.",
+                f"De verwachte hoofdingen waren niet gevonden in de bestandscontrole in tab '{sheet_name}'.",
             )
-            wb.close()
-
             return False
 
         headers = [h for h in headers if h is not None]
 
-        if any(h not in headers for h in LIST_COLUMN_NAMES):
+        if any(h not in headers for h in required_columns):
             self._notify(
                 "Verwachte hoofdingen niet gevonden",
-                f"De verwachte hoofdingen waren niet gevonden in de bestandscontrole in tab '{LIST_SHEET_NAME}'.",
+                f"De verwachte hoofdingen waren niet gevonden in de bestandscontrole in tab '{sheet_name}'.",
             )
-            wb.close()
-
             return False
-
-        try:
-            while "Doosnummer" not in (headers := next(doos_data)):
-                pass
-        except StopIteration:
-            self._notify(
-                "Verwachte hoofdingen niet gevonden",
-                f"De verwachte hoofdingen waren niet gevonden in de bestandscontrole in tab '{DOOS_SHEET_NAME}'.",
-            )
-            wb.close()
-
-            return False
-
-        headers = [h for h in headers if h is not None]
-
-        if any(h not in headers for h in DOOS_COLUMN_NAMES):
-            self._notify(
-                "Verwachte hoofdingen niet gevonden",
-                f"De verwachte hoofdingen waren niet gevonden in de bestandscontrole in tab '{DOOS_SHEET_NAME}'.",
-            )
-            wb.close()
-
-            return False
-
-        wb.close()
 
         return True
 
