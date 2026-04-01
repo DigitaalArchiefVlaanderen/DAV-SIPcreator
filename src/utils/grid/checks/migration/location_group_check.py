@@ -61,7 +61,7 @@ class LocationGroupCheck(BaseCheck):
                                 (
                                     row,
                                     c,
-                                    values[i],
+                                    None,
                                     UI_TEXT["location_group_incomplete"],
                                     None,
                                 )

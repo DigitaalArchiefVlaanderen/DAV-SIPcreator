@@ -183,7 +183,7 @@ class DateCheck(BaseCheck):
                 series_end,
             )
 
-        return [(row, col, values.iloc[i], cell_tooltips[i], wide_tooltips[i]) for i, row in enumerate(rows)]
+        return [(row, col, None, cell_tooltips[i], wide_tooltips[i]) for i, row in enumerate(rows)]
 
     def _check_hierarchy_bulk(
         self,

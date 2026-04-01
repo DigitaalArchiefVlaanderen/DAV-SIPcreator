@@ -11,8 +11,13 @@ class CellRange:
     col_end: int
 
 
-# NOTE: row, col, value, cell_tooltip, wide_tooltip
-BulkResult = tuple[int, int, str, str | None, str | None]
+# (row, col, value, cell_tooltip, wide_tooltip)
+# - row, col: cell position in the DataFrame
+# - value: transformed cell value, or None if the check did not change it.
+#          Only non-None values get written back to raw_data.
+# - cell_tooltip: error message for this specific cell, or None
+# - wide_tooltip: error message spanning related cells (e.g. duplicates), or None
+BulkResult = tuple[int, int, str | None, str | None, str | None]
 
 
 class BaseCheck:

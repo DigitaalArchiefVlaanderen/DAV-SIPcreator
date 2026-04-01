@@ -129,6 +129,11 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
         if not changes:
             return
 
+        # Mark all active workers as stale and stop them — their results are based on old data
+        for worker, _ in self._active_workers:
+            worker.stale = True
+            worker.forcibly_stop_signal.emit()
+
         max_row_needed = max(index.row() for index, _ in changes)
 
         if max_row_needed >= self.raw_data.shape[0]:

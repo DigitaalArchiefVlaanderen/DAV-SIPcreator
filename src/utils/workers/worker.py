@@ -27,6 +27,7 @@ class Worker(QtCore.QObject):
         self.is_generator = is_generator
 
         self.force_stop = False
+        self.stale = False
 
         self.forcibly_stop_signal.connect(self.set_force_stop)
 
@@ -70,6 +71,8 @@ class Worker(QtCore.QObject):
         if on_finished is not None:
             worker.finished_signal.connect(on_finished)
 
+        worker._thread = thread
+
         thread.start()
 
         return worker
@@ -95,7 +98,8 @@ class Worker(QtCore.QObject):
                     self.stopped_forcibly_signal.emit()
                     return
 
-                self.result_ready_signal.emit(result)
+                if not self.stale:
+                    self.result_ready_signal.emit(result)
         except Exception as e:
             self.error_encountered_signal.emit(e)
 

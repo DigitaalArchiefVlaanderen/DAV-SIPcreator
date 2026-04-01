@@ -47,9 +47,14 @@ class Helper(BaseObject):
                 db_names = {os.path.splitext(f)[0] for f in files}
                 break
 
+        from src.utils.data_objects.sip_status import SIPStatus
+
         if sip_type is not None:
             memory_names = {
-                sip.name for sip_list in self.application.sips.get(sip_type, {}).values() for sip in sip_list
+                sip.name
+                for sip_list in self.application.sips.get(sip_type, {}).values()
+                for sip in sip_list
+                if sip.status != SIPStatus.DELETED
             }
         else:
             memory_names = {
@@ -57,6 +62,7 @@ class Helper(BaseObject):
                 for sip_type_dict in self.application.sips.values()
                 for sip_list in sip_type_dict.values()
                 for sip in sip_list
+                if sip.status != SIPStatus.DELETED
             }
 
         return db_names | memory_names

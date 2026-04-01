@@ -28,7 +28,7 @@ class PathInSipCheck(BaseCheck):
                     (
                         row,
                         col,
-                        value,
+                        None,
                         UI_TEXT["path_in_sip_slash_error"],
                         None,
                     )

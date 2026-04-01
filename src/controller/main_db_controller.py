@@ -127,7 +127,7 @@ class MainDBController(BaseObject):
                 INSERT INTO {self.TABLES["dossier"]}(path)
                 VALUES(?)
             """,
-                [(p,) for p in paths],
+                [(os.path.normpath(p),) for p in paths],
             )
         )
 
@@ -146,6 +146,6 @@ class MainDBController(BaseObject):
                 DELETE FROM {self.TABLES["dossier"]}
                 WHERE path = ?
             """,
-                [(p,) for p in paths],
+                [(os.path.normpath(p),) for p in paths],
             )
         )

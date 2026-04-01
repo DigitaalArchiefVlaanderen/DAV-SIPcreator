@@ -10,7 +10,7 @@ UI_TEXT = UI_TEXT_ELEMENTS["grid_checks"]["common"]
 class RRNCheck(BaseCheck):
     def check_bulk(self, raw_data: DataFrame, col: int, changed_range: CellRange) -> list[BulkResult]:
         rows = range(changed_range.row_start, changed_range.row_end + 1)
-        rrn_series = raw_data.iloc[list(rows), col].astype(str)
+        rrn_series = raw_data.iloc[list(rows), col].astype(str).reset_index(drop=True)
 
         values = rrn_series.copy()
         cell_tooltips = np.full(len(values), None, dtype=object)
@@ -40,18 +40,20 @@ class RRNCheck(BaseCheck):
         valid_format = non_empty & ~bad_format
 
         if valid_format.any():
-            digits_series = (
-                values[valid_format].str[:-2].str.replace(".", "", regex=False).str.replace("-", "", regex=False)
-            )
-            control = values[valid_format].str[-2:].astype(int)
+            valid_values = values[valid_format]
+            digits_series = valid_values.str[:-2].str.replace(".", "", regex=False).str.replace("-", "", regex=False)
+            control = valid_values.str[-2:].astype(int)
 
             # NOTE: for people born after 2000, add a 2 to the digits
             digits_int = digits_series.astype(np.int64)
             digits_2_int = ("2" + digits_series).astype(np.int64)
 
             valid = (97 - digits_int % 97 == control) | (97 - digits_2_int % 97 == control)
-            invalid_mask = valid_format.copy()
-            invalid_mask[valid_format] = ~valid
-            cell_tooltips[invalid_mask.values] = UI_TEXT["rrn_invalid_error"]
+            invalid_indices = valid_format.values.copy()
+            invalid_indices[valid_format.values] = ~valid.values
+            cell_tooltips[invalid_indices] = UI_TEXT["rrn_invalid_error"]
 
-        return [(row, col, values.iloc[i], cell_tooltips[i], None) for i, row in enumerate(rows)]
+        return [
+            (row, col, values.iloc[i] if values.iloc[i] != rrn_series.iloc[i] else None, cell_tooltips[i], None)
+            for i, row in enumerate(rows)
+        ]

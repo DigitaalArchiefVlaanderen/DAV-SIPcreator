@@ -18,4 +18,4 @@ class VerpakkingCheck(BaseCheck):
         empty_mask = values == ""
         cell_tooltips[empty_mask.values] = UI_TEXT["verpakking_empty_error"]
 
-        return [(row, col, values.iloc[i], cell_tooltips[i], None) for i, row in enumerate(rows)]
+        return [(row, col, None, cell_tooltips[i], None) for i, row in enumerate(rows)]

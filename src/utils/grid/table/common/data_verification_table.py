@@ -78,7 +78,9 @@ class CommonDataVerificationTable(DataTable):
         max_col = 0
 
         for row, col, value, cell_tooltip, wide_tooltip in results:
-            self.raw_data.iat[row, col] = value
+            if value is not None:
+                self.raw_data.iat[row, col] = value
+
             index = self.index(row, col)
 
             if cell_tooltip:
@@ -183,36 +185,27 @@ class CommonDataVerificationTable(DataTable):
         if not changes:
             return
 
-        raw_changes = [(index.row(), index.column(), self._sanitize_value(value)) for index, value in changes]
+        # Mark all active workers as stale and stop them — their results are based on old data
+        for worker, _ in self._active_workers:
+            worker.stale = True
+            worker.forcibly_stop_signal.emit()
 
-        df_copy = self.raw_data.copy()
+        # Write changes directly to raw_data on the main thread
+        date_rows: set[int] = set()
 
-        def background_apply():
-            date_rows: set[int] = set()
+        for index, value in changes:
+            value = self._sanitize_value(value)
+            self.raw_data.iat[index.row(), index.column()] = value
 
-            for row, col, value in raw_changes:
-                df_copy.iat[row, col] = value
+            if self.raw_data.columns[index.column()] in DATE_COLUMNS:
+                date_rows.add(index.row())
 
-                if df_copy.columns[col] in DATE_COLUMNS:
-                    date_rows.add(row)
-
-            return df_copy, date_rows
-
-        Worker.start(
-            background_apply,
-            on_result=self._on_bulk_data_applied,
-            on_finished=self._check_validation_complete,
-            track_in=self._active_workers,
+        self.dataChanged.emit(
+            self.index(0, 0),
+            self.index(self.raw_data.shape[0] - 1, self.raw_data.shape[1] - 1),
         )
 
-    def _on_bulk_data_applied(self, result: tuple) -> None:
-        df_copy, date_rows = result
-
-        self.beginResetModel()
-        self.raw_data = df_copy
-        self.sip.grid_data.data_as_df = self.raw_data
-        self.endResetModel()
-
+        # Run validation in background on the current raw_data
         cell_range = CellRange(
             row_start=0,
             row_end=self.raw_data.shape[0] - 1,
@@ -223,26 +216,24 @@ class CommonDataVerificationTable(DataTable):
         self._validate_and_auto_update(cell_range, date_rows)
 
     def _validate_and_auto_update(self, cell_range: CellRange, date_rows: set[int]) -> None:
-        def background_task():
-            results, empty_rows = self._run_bulk_validators(cell_range)
-            auto_updates = self._compute_auto_updates(date_rows) if date_rows else []
-
-            return results, empty_rows, auto_updates
+        self.validation_started_signal.emit()
 
         Worker.start(
-            background_task,
-            on_result=lambda result: self._apply_validation_and_auto_updates(result, cell_range),
+            lambda: self._run_bulk_validators(cell_range),
+            on_result=lambda result: self._on_validation_applied(result, cell_range, date_rows),
             on_finished=self._check_validation_complete,
             track_in=self._active_workers,
         )
 
-    def _apply_validation_and_auto_updates(self, result: tuple, cell_range: CellRange | None = None) -> None:
-        results, empty_rows, auto_updates = result
+    def _on_validation_applied(self, result: tuple, cell_range: CellRange, date_rows: set[int]) -> None:
+        results, empty_rows = result
 
         self._apply_bulk_results(results, cell_range, empty_rows)
 
-        for dossier_row_pos, col, value in auto_updates:
-            self.setData(self.index(dossier_row_pos, col), value)
+        if date_rows:
+            auto_updates = self._compute_auto_updates(date_rows)
+            for dossier_row_pos, col, value in auto_updates:
+                self.setData(self.index(dossier_row_pos, col), value)
 
     def _compute_auto_updates(self, date_rows: set[int]) -> list[tuple[int, int, str]]:
         if ColumnName.TYPE.value not in self.raw_data.columns:
