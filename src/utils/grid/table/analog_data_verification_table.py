@@ -238,7 +238,7 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
 
         for row, value in rows:
             if value:
-                new_type = "" if "/" in value else RowType.DOSSIER
+                new_type = RowType.STUK if "/" in value else RowType.DOSSIER
                 new_ref = value.split("/", 1)[0]
                 new_analoog = ANALOOG_DEFAULT_VALUE
             else:
@@ -262,7 +262,7 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
         analoog_col = self.raw_data.columns.get_loc(ColumnName.ANALOOG.value)
 
         if value:
-            new_type = "" if "/" in value else RowType.DOSSIER
+            new_type = RowType.STUK if "/" in value else RowType.DOSSIER
             new_ref = value.split("/", 1)[0]
             new_analoog = ANALOOG_DEFAULT_VALUE
         else:

@@ -142,6 +142,7 @@ class Configuration:
         os.makedirs(self.overdrachtslijsten_location, exist_ok=True)
         os.makedirs(self.analoog_location, exist_ok=True)
         os.makedirs(self.sips_location, exist_ok=True)
+        os.makedirs(self.grid_location, exist_ok=True)
 
     def save(self) -> None:
         configuration_path = os.path.join(self.root_path, SaveLocations.CONFIGURATION_FILE.value)

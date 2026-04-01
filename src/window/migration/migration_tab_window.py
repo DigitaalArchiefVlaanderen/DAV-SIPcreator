@@ -423,6 +423,7 @@ class MigrationTabWindow(Window):
 
         self._format_origineel_doosnummer(mapped_data)
         self._derive_type_and_dossier_ref(mapped_data, row_count)
+        self._derive_naam_from_path(mapped_data)
 
         ordered_columns = [MIGRATION_MAIN_ID_COLUMN]
 
@@ -483,6 +484,19 @@ class MigrationTabWindow(Window):
 
         mapped_data[ColumnName.TYPE.value] = types
         mapped_data[ColumnName.DOSSIER_REF.value] = refs
+
+    @staticmethod
+    def _derive_naam_from_path(mapped_data: dict[str, list]) -> None:
+        naam_col = ColumnName.NAAM.value
+        path_col = ColumnName.PATH_IN_SIP.value
+
+        if naam_col not in mapped_data or path_col not in mapped_data:
+            return
+
+        for i, path in enumerate(mapped_data[path_col]):
+            path = str(path).strip()
+            if "/" in path:
+                mapped_data[naam_col][i] = path.rsplit("/", 1)[1]
 
     def update_global_create_sip_button(self) -> None:
         all_valid = (

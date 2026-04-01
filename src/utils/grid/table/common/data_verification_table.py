@@ -107,16 +107,23 @@ class CommonDataVerificationTable(DataTable):
             )
 
     def _clear_validator_markings(self, cell_range: CellRange, empty_rows: set[int]) -> None:
-        row_range = set(range(cell_range.row_start, cell_range.row_end + 1)) - empty_rows
-        valid_row_indices = {self.raw_data.index[row] for row in row_range}
+        non_empty_range = set(range(cell_range.row_start, cell_range.row_end + 1)) - empty_rows
+        non_empty_indices = {self.raw_data.index[row] for row in non_empty_range}
+        empty_indices = {self.raw_data.index[row] for row in empty_rows}
 
         keys_to_remove = [
             key
             for key in self.markings
-            if key[0] in valid_row_indices
-            and (
-                (key[2] == MarkingSource.WIDE)
-                or (key[2] == MarkingSource.CELL and self.markings[key][0] != CellColor.GREY)
+            if (
+                key[0] in non_empty_indices
+                and (
+                    (key[2] == MarkingSource.WIDE)
+                    or (key[2] == MarkingSource.CELL and self.markings[key][0] != CellColor.GREY)
+                )
+            )
+            or (
+                key[0] in empty_indices
+                and self.markings[key][0] == CellColor.RED
             )
         ]
 

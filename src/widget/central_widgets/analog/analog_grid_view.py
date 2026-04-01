@@ -162,7 +162,7 @@ class AnalogGridView(BaseWidget):
         self.table_model.insert_column(column)
 
     def _save_button_clicked(self, silent: bool = False) -> None:
-        self.application.analog_sip_db_controller.save_data(self.sip, self.table_model.raw_data)
+        self.application.analog_sip_db_controller.save_data(self.sip, self.table_model.get_non_empty_df())
         self.has_unsaved_changes = False
 
         if not silent:

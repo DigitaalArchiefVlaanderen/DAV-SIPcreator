@@ -8,6 +8,7 @@ from src.utils.data_objects.grid_data import GridData
 from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.series import Series
 from src.utils.grid.checks.common.date_check import DateCheck
+from src.utils.grid.checks.digital.empty_row_check import mark_empty_rows
 from src.utils.grid.checks.migration.location_group_check import LOCATION_COLUMNS, _get_location_groups
 from src.utils.grid.table.common.grid_table_view import GridTableView
 from src.utils.grid.table.common.proxy_model import SortFilterProxyModel, TableFilter
@@ -224,6 +225,7 @@ class MigrationGridView(BaseWidget):
         df.insert(insert_pos, new_column_name, "")
 
         self.table_model.shift_markings_for_insert(insert_pos)
+        mark_empty_rows(self.table_model)
         self.table_model.endResetModel()
 
     def _duplicate_location_columns_clicked(self) -> None:
@@ -249,6 +251,7 @@ class MigrationGridView(BaseWidget):
             df.insert(insert_pos + i, col_name, "")
             self.table_model.shift_markings_for_insert(insert_pos + i)
 
+        mark_empty_rows(self.table_model)
         self.table_model.endResetModel()
 
     def _update_role_visibility(self) -> None:

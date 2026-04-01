@@ -4,6 +4,7 @@ from src.controller.file_controller import FileController
 from src.utils.constants import UI_TEXT_ELEMENTS, ColumnName
 from src.utils.data_objects.digital.sip import SIP
 from src.utils.data_objects.sip_status import SIPStatus
+from src.utils.grid.checks.digital.empty_row_check import mark_empty_rows
 from src.utils.grid.table.common.grid_table_view import GridTableView
 from src.utils.grid.table.common.proxy_model import SortFilterProxyModel, TableFilter
 from src.utils.grid.table.digital_data_verification_table import DigitalDataVerificationTable
@@ -167,6 +168,7 @@ class DigitalGridView(BaseWidget):
         df.insert(insert_pos, new_column_name, "")
 
         self.table_model.shift_markings_for_insert(insert_pos)
+        mark_empty_rows(self.table_model)
         self.table_model.endResetModel()
 
     def _save_button_clicked(self) -> None:
