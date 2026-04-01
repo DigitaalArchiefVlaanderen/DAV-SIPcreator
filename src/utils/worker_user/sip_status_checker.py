@@ -5,7 +5,9 @@ from PySide6 import QtCore
 
 from src.controller.api_controller import APIController
 from src.controller.worker_controller import WorkerController
+
 from src.utils.constants import CHECKABLE_SIP_STATUSES, POLL_INTERVAL_SECONDS
+from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.sip import SIP
 from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.worker_user.worker_user import WorkerUser
@@ -44,6 +46,11 @@ class SIPStatusChecker(WorkerUser):
 
             for sip in sips_to_check:
                 try:
+                    if isinstance(sip, MigrationSIP):
+                        yield from self._check_migration_sip(sip)
+
+                        continue
+
                     if sip.edepot_sip_id is None:
                         edepot_id = APIController.get_sip_id(sip)
 
@@ -60,12 +67,14 @@ class SIPStatusChecker(WorkerUser):
 
                     if result is None:
                         yield (None,)
+
                         continue
 
                     new_status, fail_reason = result
 
                     if new_status is None or new_status == sip.status:
                         yield (None,)
+
                         continue
 
                     sip.set_status(new_status)
@@ -81,6 +90,56 @@ class SIPStatusChecker(WorkerUser):
             time.sleep(POLL_INTERVAL_SECONDS)
 
             yield (None,)
+
+    def _check_migration_sip(self, sip: MigrationSIP) -> Iterator[tuple]:
+        """Resolve edepot IDs and check statuses per series for migration SIPs."""
+        changed = False
+
+        for series_name, status in sip.series_statuses.items():
+            if status not in CHECKABLE_SIP_STATUSES:
+                continue
+
+            zip_name = sip.series_zip_names.get(series_name)
+            if not zip_name:
+                continue
+
+            edepot_id = sip.series_edepot_ids.get(series_name)
+
+            if not edepot_id:
+                resolved_id = APIController.get_sip_id_for_name(sip.environment, zip_name)
+
+                if resolved_id:
+                    sip.series_edepot_ids[series_name] = resolved_id
+                    changed = True
+
+                    yield "edepot_resolved", sip, resolved_id
+                else:
+                    yield (None,)
+
+                continue
+
+            result = APIController.get_sip_status_by_id(sip.environment, edepot_id)
+
+            if result is None:
+                yield (None,)
+                continue
+
+            new_status, fail_reason = result
+
+            if new_status is None or new_status == status:
+                yield (None,)
+                continue
+
+            sip.series_statuses[series_name] = new_status
+            changed = True
+
+            if new_status == SIPStatus.REJECTED and fail_reason is not None:
+                yield "sip_rejected", sip, fail_reason
+
+        if changed:
+            sip.derive_overall_status()
+
+            yield "status_changed", sip, sip.status
 
     def _collect_checkable_sips(self) -> list[SIP]:
         result = []

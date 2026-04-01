@@ -1,16 +1,21 @@
 import os
 from collections.abc import Iterable
 
+from natsort import natsort_keygen
 from PySide6 import QtWidgets
 
 from src.controller.excel_controller import ExcelController
+
 from src.utils.constants import KLANT_ROLE, UI_TEXT_ELEMENTS
 from src.utils.data_objects.grid_data import GridData
 from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.sip_status import SIPStatus
+from src.utils.helper import get_attr_deep
+
 from src.widget.central_widgets.central_widget import CentralWidget
 from src.widget.components.migration.migration_listitem_widget import MigrationSipListitemWidget
 from src.widget.components.searchable_list_widget import SearchableListWidgetWithDropdown
+
 from src.window.base_window import Window
 from src.window.migration.migration_tab_window import MigrationTabWindow
 
@@ -37,8 +42,11 @@ class MigrationWidget(CentralWidget):
         self.sip_zips_locatie_button = QtWidgets.QPushButton(common_controls["sip_zips_locatie_button_text"])
         self.sip_databases_locatie_button = QtWidgets.QPushButton(common_controls["sip_databases_locatie_button_text"])
 
+        _natsort_key = natsort_keygen()
         self.sip_list_widget = SearchableListWidgetWithDropdown(
-            search_field="sip.name", dropdown_search_field="sip.status.status_label"
+            search_field="sip.name",
+            dropdown_search_field="sip.status.status_label",
+            sort_key=lambda w: (get_attr_deep(w, "sip.status.priority"), _natsort_key(get_attr_deep(w, "sip.name"))),
         )
         self.sip_list_widget.setup_ui(
             dropdown_options=[
@@ -107,8 +115,7 @@ class MigrationWidget(CentralWidget):
             main_df = db_controller.read_main_data(sip.db_name)
             sip.main_grid_data.data_as_df = main_df
 
-        self.tab_window = MigrationTabWindow(sip=sip)
-        self.tab_window.show()
+        self.application.window_controller.open_window(sip, MigrationTabWindow)
 
     def _update_role_visibility(self) -> None:
         is_klant = self.application.configuration.active_role == KLANT_ROLE

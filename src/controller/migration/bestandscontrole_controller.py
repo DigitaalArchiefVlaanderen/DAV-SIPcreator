@@ -7,6 +7,9 @@ from openpyxl import load_workbook
 from src.utils.base_object import ApplicationMixin
 from src.utils.constants import ColumnName
 
+# NOTE: this file is not using constants like other files are
+# But since this is such a specific implementation, we leave it as-is for now
+
 LIST_SHEET_NAME = "Lijst"
 DOOS_SHEET_NAME = "Doostypes"
 

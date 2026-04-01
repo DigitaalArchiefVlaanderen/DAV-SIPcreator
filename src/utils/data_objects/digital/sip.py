@@ -17,9 +17,11 @@ from datetime import datetime
 import pandas as pd
 
 from src.controller.excel_controller import ExcelController
+
 from src.utils.constants import FILE_REGEXES_TO_IGNORE, ColumnName, RowType
 from src.utils.data_objects.sip import SIP as CommonSIP
 from src.utils.pyside_helper import Helper
+
 from src.widget.components.digital.dossier_widget import DossierWidget
 
 
@@ -72,6 +74,7 @@ class SIP(CommonSIP):
 
     def _get_dossier_structure(self, dossier: DossierWidget) -> dict[str, str]:
         dossier_name = os.path.basename(dossier.path)
+
         return {
             (path_in_sip := self._map_file_location_to_sip_location(dossier_name)): {
                 "path": dossier.path,
@@ -110,6 +113,7 @@ class SIP(CommonSIP):
 
     def _get_file_structure(self, dossier: DossierWidget) -> dict[str, str]:
         dossier_name = os.path.basename(dossier.path)
+
         return {
             (path_in_sip := self._map_file_location_to_sip_location(f"{dossier_name}/{relative_location}")): {
                 "path": (real_path := os.path.join(dossier.path, relative_location)),

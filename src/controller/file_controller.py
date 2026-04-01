@@ -9,6 +9,7 @@ import pandas as pd
 from openpyxl import load_workbook
 
 from src.controller.api_controller import APIController
+
 from src.utils.base_object import BaseObject
 from src.utils.constants import UI_TEXT_ELEMENTS, ColumnName, RowType
 from src.utils.data_objects.digital.sip import SIP
@@ -39,22 +40,25 @@ class FileController(BaseObject):
     @staticmethod
     def _fill_import_template(df: pd.DataFrame, path: str) -> None:
         wb = load_workbook(path)
-        ws = wb["Details"]
 
-        for i, col in enumerate(df.columns):
-            re_match = re.match(r"(.*)(\.\d+| +)$", col)
+        try:
+            ws = wb["Details"]
 
-            if re_match:
-                col = re_match.group(1)
+            for i, col in enumerate(df.columns):
+                re_match = re.match(r"(.*)(\.\d+| +)$", col)
 
-            ws[f"{FileController._col_index_to_xlsx_col(i)}1"] = col
+                if re_match:
+                    col = re_match.group(1)
 
-        for row_index, row_info in df.iterrows():
-            for col_index, value in enumerate(row_info.values):
-                ws[f"{FileController._col_index_to_xlsx_col(col_index)}{row_index + 2}"] = value
+                ws[f"{FileController._col_index_to_xlsx_col(i)}1"] = col
 
-        wb.save(path)
-        wb.close()
+            for row_index, row_info in df.iterrows():
+                for col_index, value in enumerate(row_info.values):
+                    ws[f"{FileController._col_index_to_xlsx_col(col_index)}{row_index + 2}"] = value
+
+            wb.save(path)
+        finally:
+            wb.close()
 
     def _is_sip_folder_structure_valid(self, sip_folder_structure: dict, df: pd.DataFrame) -> bool:
         folder_paths = set()
@@ -129,6 +133,7 @@ class FileController(BaseObject):
         # Validate all files still exist before zipping
         for location in filtered_folder_structure.values():
             file_path = location["path"]
+
             if not os.path.exists(file_path):
                 self.application.notify_user_signal.emit(
                     UI_TEXT["folder_structure_missing_path_error"]["title"],
@@ -156,6 +161,7 @@ class FileController(BaseObject):
 
             with open(sidecar_location, "w", encoding="utf-8") as f:
                 f.write(SIDECAR_TEMPLATE.format(md5=md5))
+
         except OSError as e:
             from src.utils.constants import UI_TEXT_ELEMENTS
 

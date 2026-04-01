@@ -109,10 +109,6 @@
                 "title": "Opgeslagen",
                 "text": "De hoofdtabel is succesvol opgeslagen."
             },
-            "create_sip_success": {
-                "title": "SIP aangemaakt",
-                "text": "De SIP is aangemaakt."
-            },
             "series_not_linked_tooltip": "Een serie moet nog gelinkt worden",
             "series_uri_unknown_tooltip": "De gegeven URI is niet teruggevonden onder de huidige connectie",
             "series_name_missing_tooltip": "Serie ophalen is misgelopen"
@@ -140,6 +136,10 @@
             "create_all_sips_success": {
                 "title": "SIPs aangemaakt",
                 "text": "Alle series zijn succesvol klaargezet voor upload."
+            },
+            "template_retrieval_error": {
+                "title": "Importsjabloon ophalen mislukt",
+                "text": "Het importsjabloon kon niet opgehaald worden voor de geselecteerde serie. De kolommen worden niet automatisch ingevuld."
             }
         },
         "grid": {
@@ -161,10 +161,6 @@
             "bestandscontrole_invalid": {
                 "title": "Bestandscontrole lijst is niet geldig",
                 "text": "De bestandscontrole lijst is niet geldig, bekijk of het pad juist staat, en/of het bestand in orde is."
-            },
-            "bestandscontrole_slow_warning": {
-                "title": "Trage actie",
-                "text": "Omdat er veel rijen moeten veranderen kan de actie tot enkele minuten duren."
             }
         },
         "upload_dialog": {
@@ -177,10 +173,23 @@
                 "text": "Selecteer minstens één serie om te uploaden."
             }
         },
+        "upload_error": {
+            "title": "Upload fout",
+            "text": "De upload van volgende series is mislukt:\n\n{failed_series}"
+        },
+        "migration_series_error": {
+            "title": "Migratie fout",
+            "text": "Serie '{series_name}' kon niet gemigreerd worden uit de oude database."
+        },
         "tab_status_dialog": {
             "title": "Status per serie",
             "series_column": "Serie",
             "status_column": "Status"
+        },
+        "edepot_dialog": {
+            "title": "E-depot locatie",
+            "description": "Selecteer een serie om te openen in e-depot:",
+            "close_button_text": "Sluiten"
         }
     },
     "digital": {
@@ -252,8 +261,7 @@
     "analog": {
         "main": {
             "controls": {
-                "start_sip_button_text": "Start SIP",
-                "sip_creation_loading_text": "Analoog SIP aan het aanmaken..."
+                "start_sip_button_text": "Start SIP"
             }
         },
         "grid_creation": {
@@ -321,6 +329,10 @@
             "missing_credentials_error": {
                 "title": "Ontbrekende API credentials",
                 "text": "De actieve omgeving heeft geen API credentials geconfigureerd."
+            },
+            "AuthenticationError": {
+                "title": "Ongeldige credentials",
+                "text": "De API credentials voor omgeving '{environment_name}' zijn niet correct.\nControleer je gebruikersnaam, wachtwoord, client ID en client secret in de configuratie."
             },
             "Timeout": {
                 "title": "Timeout",
@@ -406,10 +418,6 @@
                 "title": "Pad niet gevonden",
                 "text": "Het pad '{path}' bestaat niet of is niet meer beschikbaar."
             },
-            "permission_error": {
-                "title": "Toegang geweigerd",
-                "text": "Geen lees/schrijf rechten op '{path}'. Controleer de machtigingen."
-            },
             "disk_error": {
                 "title": "Schrijffout",
                 "text": "Fout bij het schrijven naar schijf: {error}"
@@ -429,6 +437,12 @@
             "series_not_found_error": {
                 "title": "Serie niet gevonden",
                 "text": "Probeerde serie te vinden met id '{series_id}' en naam '{series_name}' in '{environment_name}', maar het was niet gevonden."
+            }
+        },
+        "configuration": {
+            "parse_error": {
+                "title": "Configuratie fout",
+                "text": "Het configuratiebestand kon niet gelezen worden en is teruggezet naar de standaardwaarden.\nControleer of het bestand geldig is."
             }
         },
         "unexpected_error": {
@@ -453,7 +467,6 @@
         "digital": {
             "startup_loading_items_text": "SIPs en dossiers aan het inladen",
             "import_template_retrieval_text": "Bezig met importsjabloon ophalen",
-            "adding_dossiers_text": "Bezig met dossiers toe te voegen",
             "upload_right_text": "SIP uploaden..."
         },
         "migration": {

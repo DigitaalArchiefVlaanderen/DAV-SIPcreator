@@ -1,16 +1,16 @@
 from PySide6 import QtCore, QtWidgets
 
-from src.utils.constants import KLANT_ROLE, UI_TEXT_ELEMENTS
+from src.utils.constants import KLANT_ROLE, SERIES_NAME_COLUMN, UI_TEXT_ELEMENTS
 from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.grid.table.common.data_table import DataTable, MarkingSource
 from src.utils.grid.table.common.grid_table_view import GridTableView
 from src.utils.grid.table.common.proxy_model import SortFilterProxyModel, TableFilter
+
 from src.widget.base_widget import BaseWidget
 
 UI_TEXT = UI_TEXT_ELEMENTS["migration"]["main_tab"]
 
 URI_SERIEREGISTER_COLUMN = "URI Serieregister"
-SERIES_NAME_COLUMN = "series_name"
 
 
 class MigrationMainTabView(BaseWidget):

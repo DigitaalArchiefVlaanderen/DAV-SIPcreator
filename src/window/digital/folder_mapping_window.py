@@ -4,7 +4,9 @@ import numpy as np
 
 from src.utils.constants import UI_TEXT_ELEMENTS, ColumnName
 from src.utils.data_objects.digital.sip import SIP
+
 from src.widget.central_widgets.digital.folder_structure_widget import FolderStructureWidget
+
 from src.window.base_window import Window
 
 
@@ -22,19 +24,9 @@ class FolderMappingWindow(Window):
         self.folder_structure_widget = FolderStructureWidget(parent_window=self)
         self.setCentralWidget(self.folder_structure_widget)
 
-        path_in_sip_candidates = [
+        path_in_sip_map_column = next(
             meta_col for meta_col, import_col in self.sip.tag_mapping if import_col == ColumnName.PATH_IN_SIP.value
-        ]
-
-        if not path_in_sip_candidates:
-            self.application.notify_user_signal.emit(
-                UI_TEXT_ELEMENTS["errors"]["sip"]["mapping_error"]["title"],
-                UI_TEXT_ELEMENTS["errors"]["sip"]["mapping_error"]["text"],
-            )
-            self.close()
-            return
-
-        path_in_sip_map_column = path_in_sip_candidates[0]
+        )
         # Only allow columns where not all fields are empty
         columns_without_empty_fields = [
             c

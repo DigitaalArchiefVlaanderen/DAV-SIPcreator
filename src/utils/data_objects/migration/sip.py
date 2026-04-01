@@ -15,6 +15,8 @@ class MigrationSIP(CommonSIP):
         self.grid_data: GridData = self.main_grid_data
         self.series_grid_data: dict[str, GridData] = {}
         self.series_statuses: dict[str, SIPStatus] = {}
+        self.series_edepot_ids: dict[str, str] = {}
+        self.series_zip_names: dict[str, str] = {}
 
     @property
     def db_name(self) -> str:

@@ -2,19 +2,24 @@ import os
 from collections.abc import Iterable
 
 import pandas as pd
+from natsort import natsort_keygen
 from PySide6 import QtWidgets
 
 from src.controller.api_controller import APIController
 from src.controller.excel_controller import ExcelController
+
 from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.data_objects.analog.sip import AnalogSIP
 from src.utils.data_objects.grid_data import GridData
 from src.utils.data_objects.sip_status import SIPStatus
+from src.utils.helper import get_attr_deep
 from src.utils.workers.worker import Worker
+
 from src.widget.central_widgets.analog.analog_grid_creation_dialog import AnalogGridCreationDialog
 from src.widget.central_widgets.central_widget import CentralWidget
 from src.widget.components.migration.migration_listitem_widget import MigrationSipListitemWidget
 from src.widget.components.searchable_list_widget import SearchableListWidgetWithDropdown
+
 from src.window.analog.analog_grid_window import AnalogGridWindow
 from src.window.base_window import Window
 
@@ -38,8 +43,11 @@ class AnalogWidget(CentralWidget):
         self.sip_zips_locatie_button = QtWidgets.QPushButton(common_controls["sip_zips_locatie_button_text"])
         self.sip_databases_locatie_button = QtWidgets.QPushButton(common_controls["sip_databases_locatie_button_text"])
 
+        _natsort_key = natsort_keygen()
         self.sip_list_widget = SearchableListWidgetWithDropdown(
-            search_field="sip.name", dropdown_search_field="sip.status.status_label"
+            search_field="sip.name",
+            dropdown_search_field="sip.status.status_label",
+            sort_key=lambda w: (get_attr_deep(w, "sip.status.priority"), _natsort_key(get_attr_deep(w, "sip.name"))),
         )
         self.sip_list_widget.setup_ui(
             dropdown_options=[
@@ -108,8 +116,7 @@ class AnalogWidget(CentralWidget):
             df = db_controller.read_data(sip.db_name)
             sip.grid_data.data_as_df = df
 
-        self.grid_window = AnalogGridWindow(sip=sip)
-        self.grid_window.show()
+        self.application.window_controller.open_window(sip, AnalogGridWindow)
 
     def _start_sip_clicked(self) -> None:
         self.creation_dialog = AnalogGridCreationDialog()

@@ -4,40 +4,32 @@ from PySide6 import QtCore
 
 from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.sip_status import SIPStatus
-from src.utils.worker_user.worker_user import WorkerUser
-from src.utils.workers.worker import Worker
+from src.utils.worker_user.base_retriever import BaseRetriever
 
 
-class MigrationRetriever(WorkerUser):
+class MigrationRetriever(BaseRetriever):
     migration_sip_loaded_signal = QtCore.Signal(MigrationSIP)
-    error_occurred_signal = QtCore.Signal(Exception)
 
-    def __init__(self):
-        super().__init__()
-
-        self.worker: Worker = None
-
-    def run(self) -> None:
-        self.worker = self.application.worker_controller.run_thread(
-            thread_function=self.background_load_migration_sips, thread_is_generator=True
-        )
-
-        if self.worker is None:
-            return
-
-        self.worker.error_encountered_signal.connect(self.error_occurred_signal.emit)
-
-    def background_load_migration_sips(self) -> Iterator[None]:
+    def _load_sips(self) -> Iterator[None]:
         db_controller = self.application.migration_sip_db_controller
 
         for sip in db_controller.g_read_all_sip_dbs():
             series_statuses = db_controller.read_series_statuses(sip.db_name)
+            tables = db_controller.read_tables(sip.db_name)
 
-            for table_name, (status_name, _) in series_statuses.items():
+            for table_name, (status_name, edepot_id) in series_statuses.items():
                 try:
                     sip.series_statuses[table_name] = SIPStatus[status_name]
                 except KeyError:
                     sip.series_statuses[table_name] = SIPStatus.IN_PROGRESS
+
+                if edepot_id:
+                    sip.series_edepot_ids[table_name] = edepot_id
+
+            for table_name, uri_serieregister, _, _ in tables:
+                series_id = uri_serieregister.rsplit("/", 1)[-1] if uri_serieregister else ""
+                if series_id:
+                    sip.series_zip_names[table_name] = f"{series_id}-{sip.overdrachtslijst_name}-SIPC.zip"
 
             sip.derive_overall_status()
 

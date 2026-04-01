@@ -1,9 +1,9 @@
 import sys
+import traceback as tb_module
 from types import TracebackType
 
 from src.utils.application import Application
 
-import traceback as tb_module
 
 def excepthook(cls, exception: Exception, traceback: TracebackType):
     tb_module.print_exception(cls, exception, traceback)

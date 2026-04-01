@@ -30,8 +30,4 @@ class Toolbar(QtWidgets.QToolBar):
         configuration_action.triggered.connect(self.configuration_clicked)
 
     def configuration_clicked(self):
-        from src.window.configuration_window import ConfigurationWindow
-
-        self.configuration_window = ConfigurationWindow()
-        self.configuration_window.resize(900, 600)
-        self.configuration_window.show()
+        self.application.window_controller.open_configuration_window()

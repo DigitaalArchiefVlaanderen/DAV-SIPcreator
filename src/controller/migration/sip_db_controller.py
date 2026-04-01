@@ -1,15 +1,14 @@
 import os
 import sqlite3 as sql
-from collections.abc import Iterator
 
 import pandas as pd
 
+from src.controller.base_sip_db_controller import BaseSIPDBController
+
 from src.utils.base_object import BaseObject
 from src.utils.constants import (
-    DB_FILE_EXTENSION,
     MIGRATION_MAIN_ID_COLUMN,
     PROD_ENVIRONMENT_NAME,
-    SIP_CREATOR_VERSION,
     TI_ENVIRONMENT_NAME,
     UI_TEXT_ELEMENTS,
     UNKNOWN_TRANSFORMED,
@@ -21,38 +20,23 @@ from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.sip_status import SIPStatus
 
 
-class MigrationSIPDBController(BaseObject):
+class MigrationSIPDBController(BaseSIPDBController):
+    SIP_TYPE = MigrationSIP
+
     def __init__(self) -> None:
         super().__init__()
 
         self.old_sip_db_controller = OldMigrationSIPDBController()
 
-    def conn(self, sip_db_file_name: str) -> sql.Connection:
-        return sql.connect(os.path.join(self.application.configuration.overdrachtslijsten_location, sip_db_file_name))
-
-    def _execute_with_conn(self, sip_db_file_name: str, func):
-        conn = self.conn(sip_db_file_name)
-
-        try:
-            result = func(conn)
-            conn.commit()
-
-            return result
-        except Exception:
-            conn.rollback()
-
-            raise
-        finally:
-            conn.close()
+    @property
+    def db_location(self) -> str:
+        return self.application.configuration.overdrachtslijsten_location
 
     def create_sip_db(self, sip: MigrationSIP, transformed: str = "") -> None:
-        db_path = os.path.join(self.application.configuration.overdrachtslijsten_location, sip.db_name)
+        db_path = os.path.join(self.db_location, sip.db_name)
 
         if os.path.exists(db_path):
-            self.application.notify_user_signal.emit(
-                UI_TEXT_ELEMENTS["errors"]["sip"]["db_already_exists_error"]["title"],
-                UI_TEXT_ELEMENTS["errors"]["sip"]["db_already_exists_error"]["text"].format(db_path=db_path),
-            )
+            self._warn_db_already_exists(db_path)
             return
 
         if not sip.main_grid_data.has_data:
@@ -86,26 +70,16 @@ class MigrationSIPDBController(BaseObject):
                 ),
             )
 
-            conn.execute(f"""
-                CREATE TABLE {DBTableName.SIP_CREATOR.value} (
-                    version text,
-                    transformed text,
-                    last_opened text
-                )
-            """)
-            conn.execute(
-                f"INSERT INTO {DBTableName.SIP_CREATOR.value} (version, transformed, last_opened) VALUES (?, ?, ?)",
-                (SIP_CREATOR_VERSION, transformed, SIP_CREATOR_VERSION),
-            )
+            self._create_sip_creator_table(conn, transformed)
 
             sip.main_grid_data.data_as_df.to_sql(DBTableName.OVERDRACHTSLIJST.value, conn, index=False, dtype="text")
 
-            conn.execute("""
+            conn.execute(f"""
                 CREATE TABLE tables (
                     table_name text,
                     "URI Serieregister" text,
                     edepot_id text,
-                    status text default 'IN_PROGRESS',
+                    status text default '{SIPStatus.IN_PROGRESS.name}',
                     UNIQUE(table_name)
                 )
             """)
@@ -223,114 +197,18 @@ class MigrationSIPDBController(BaseObject):
                 (sip.status.name, sip.edepot_sip_id or ""),
             )
 
-            conn.execute(f"UPDATE {DBTableName.SIP_CREATOR.value} SET last_opened = ?", (SIP_CREATOR_VERSION,))
+            self._update_sip_creator_version(conn)
 
             for series_name, series_status in sip.series_statuses.items():
-                conn.execute("UPDATE tables SET status = ? WHERE table_name = ?", (series_status.name, series_name))
+                edepot_id = sip.series_edepot_ids.get(series_name, "")
+                conn.execute(
+                    "UPDATE tables SET status = ?, edepot_id = ? WHERE table_name = ?",
+                    (series_status.name, edepot_id, series_name),
+                )
 
         self._execute_with_conn(sip.db_name, _persist)
 
-    def persist_all_sips(self) -> None:
-        sips_by_env = self.application.sips.get(MigrationSIP, {})
-
-        for sips in sips_by_env.values():
-            for sip in sips:
-                self.persist_sip(sip)
-
-    def g_read_all_sip_dbs(self) -> Iterator[MigrationSIP]:
-        location = self.application.configuration.overdrachtslijsten_location
-
-        if not os.path.exists(location):
-            return
-
-        for file in os.listdir(location):
-            if file.startswith("old_"):
-                continue
-
-            is_valid = self.is_valid_db(file)
-
-            if is_valid is None:
-                continue
-
-            if not is_valid:
-                continue
-
-            yield self.read_sip_db(file)
-
-    def db_exists(self, sip_db_file_name: str) -> bool:
-        return os.path.exists(
-            os.path.join(self.application.configuration.overdrachtslijsten_location, sip_db_file_name)
-        )
-
-    def get_db_version_info(self, sip_db_file_name: str) -> tuple[str, str] | None:
-        def _read(conn: sql.Connection) -> tuple[str, str] | None:
-            db_tables = [r for r, *_ in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
-
-            if DBTableName.SIP_CREATOR.value not in db_tables:
-                return None
-
-            columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip_creator);").fetchall()]
-
-            row = conn.execute("SELECT * FROM sip_creator").fetchone()
-
-            if row is None:
-                return None
-
-            version = row[0] if "version" in columns else ""
-            transformed = row[columns.index("transformed")] if "transformed" in columns else ""
-
-            return version, transformed
-
-        try:
-            return self._execute_with_conn(sip_db_file_name, _read)
-        except Exception:
-            return None
-
-    def _needs_transformation(self, sip_db_file_name: str) -> bool:
-        version_info = self.get_db_version_info(sip_db_file_name)
-
-        if version_info is None:
-            return False
-
-        version, _ = version_info
-
-        if not version:
-            return False
-
-        try:
-            major_minor = float(version.split(".")[0] + "." + version.split(".")[1])
-
-            return major_minor < 3.0
-        except (ValueError, IndexError):
-            return False
-
-    @staticmethod
-    def _migrate_tables_uploaded_to_status(conn: sql.Connection) -> None:
-        tables_columns = {col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(tables);").fetchall()}
-
-        if "uploaded" in tables_columns and "status" not in tables_columns:
-            conn.execute("ALTER TABLE tables ADD COLUMN status text default 'IN_PROGRESS'")
-
-            conn.execute(f"""
-                UPDATE tables SET status = CASE
-                    WHEN uploaded = 1 THEN '{SIPStatus.UPLOADED.name}'
-                    ELSE '{SIPStatus.IN_PROGRESS.name}'
-                END
-            """)
-
-    def is_valid_db(self, sip_db_file_name: str) -> bool | None:
-        if not self.db_exists(sip_db_file_name):
-            return False
-
-        if not sip_db_file_name.endswith(DB_FILE_EXTENSION):
-            return False
-
-        try:
-            conn = self.conn(sip_db_file_name)
-            conn.close()
-        except Exception:
-            return False
-
+    def _validate_db(self, sip_db_file_name: str) -> bool:
         def _validate(conn: sql.Connection) -> bool | str:
             db_tables = [r for r, *_ in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
 
@@ -382,21 +260,54 @@ class MigrationSIPDBController(BaseObject):
         if result == "needs_transition":
             self.transition_old_db(sip_db_file_name)
 
-            return self.is_valid_db(sip_db_file_name)
+            return self._validate_db(sip_db_file_name)
 
         if result == "needs_intermediate_transition":
             self.transition_intermediate_db(sip_db_file_name)
 
-            return self.is_valid_db(sip_db_file_name)
+            return self._validate_db(sip_db_file_name)
 
         return result
+
+    def _needs_transformation(self, sip_db_file_name: str) -> bool:
+        version_info = self.get_db_version_info(sip_db_file_name)
+
+        if version_info is None:
+            return False
+
+        version, _ = version_info
+
+        if not version:
+            return False
+
+        try:
+            major_minor = float(version.split(".")[0] + "." + version.split(".")[1])
+
+            return major_minor < 3.0
+        except (ValueError, IndexError):
+            return False
+
+    @staticmethod
+    def _migrate_tables_uploaded_to_status(conn: sql.Connection) -> None:
+        tables_columns = {col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(tables);").fetchall()}
+
+        if "uploaded" in tables_columns and "status" not in tables_columns:
+            conn.execute(f"ALTER TABLE tables ADD COLUMN status text default '{SIPStatus.IN_PROGRESS.name}'")
+
+            conn.execute(f"""
+                UPDATE tables SET status = CASE
+                    WHEN uploaded = 1 THEN '{SIPStatus.UPLOADED.name}'
+                    ELSE '{SIPStatus.IN_PROGRESS.name}'
+                END
+            """)
 
     def transition_old_db(self, old_db_file_name: str) -> str | None:
         sip, series_entries = self.old_sip_db_controller.read_sip_db(old_db_file_name)
 
-        location = self.application.configuration.overdrachtslijsten_location
+        location = self.db_location
         old_db_path = os.path.join(location, old_db_file_name)
         renamed_old_path = os.path.join(location, f"old_{old_db_file_name}")
+
         os.rename(old_db_path, renamed_old_path)
 
         for suffix in ("-journal", "-wal", "-shm"):
@@ -425,6 +336,12 @@ class MigrationSIPDBController(BaseObject):
                     try:
                         df = pd.read_sql(f"SELECT * FROM [{clean_name}]", old_conn, dtype=str).fillna("")
                     except Exception:
+                        self.application.notify_user_signal.emit(
+                            UI_TEXT_ELEMENTS["migration"]["migration_series_error"]["title"],
+                            UI_TEXT_ELEMENTS["migration"]["migration_series_error"]["text"].format(
+                                series_name=clean_name
+                            ),
+                        )
                         continue
 
                     if "id" in df.columns:
@@ -452,12 +369,12 @@ class MigrationSIPDBController(BaseObject):
 
                 conn.execute("DROP TABLE series_tables")
 
-                conn.execute("""
+                conn.execute(f"""
                     CREATE TABLE tables (
                         table_name text,
                         "URI Serieregister" text,
                         edepot_id text,
-                        status text default 'IN_PROGRESS',
+                        status text default '{SIPStatus.IN_PROGRESS.name}',
                         UNIQUE(table_name)
                     )
                 """)
@@ -470,12 +387,12 @@ class MigrationSIPDBController(BaseObject):
 
                     conn.execute(f"ALTER TABLE [{table_name}] RENAME TO [{series_name}]")
             else:
-                conn.execute("""
+                conn.execute(f"""
                     CREATE TABLE tables (
                         table_name text,
                         "URI Serieregister" text,
                         edepot_id text,
-                        status text default 'IN_PROGRESS',
+                        status text default '{SIPStatus.IN_PROGRESS.name}',
                         UNIQUE(table_name)
                     )
                 """)

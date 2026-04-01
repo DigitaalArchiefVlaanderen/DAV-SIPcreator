@@ -2,7 +2,7 @@ from collections.abc import Callable
 
 from pandas import DataFrame
 
-from src.utils.constants import UI_TEXT_ELEMENTS
+from src.utils.constants import UI_TEXT_ELEMENTS, SIPType
 from src.utils.grid.checks.base_check import BaseCheck, BulkResult, CellRange
 
 UI_TEXT = UI_TEXT_ELEMENTS["grid_checks"]["migration"]
@@ -15,7 +15,7 @@ class PathInSipCheck(BaseCheck):
     def check_bulk(self, raw_data: DataFrame, col: int, changed_range: CellRange) -> list[BulkResult]:
         active_type = self._type_provider()
 
-        if active_type == "onroerend_erfgoed":
+        if active_type == SIPType.ONROEREND_ERFGOED:
             return []
 
         results: list[BulkResult] = []

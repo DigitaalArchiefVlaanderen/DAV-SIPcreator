@@ -16,6 +16,28 @@ class GridTableView(QtWidgets.QTableView, ApplicationMixin):
         super().__init__()
 
         self.setSortingEnabled(True)
+        self._saved_row = -1
+        self._saved_col = -1
+
+    def reset(self) -> None:
+        """Preserve cursor position across model resets."""
+        cur = self.currentIndex()
+
+        if cur.isValid():
+            self._saved_row = cur.row()
+            self._saved_col = cur.column()
+
+        super().reset()
+
+        proxy = self.model(proxy=True)
+
+        if (
+            proxy is not None
+            and self._saved_row >= 0
+            and self._saved_row < proxy.rowCount()
+            and self._saved_col < proxy.columnCount()
+        ):
+            self.setCurrentIndex(proxy.index(self._saved_row, self._saved_col))
 
     def reset_sorting(self) -> None:
         proxy = self.model(proxy=True)

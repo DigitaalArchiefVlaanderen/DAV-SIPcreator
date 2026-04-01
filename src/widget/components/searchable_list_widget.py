@@ -16,6 +16,7 @@ from PySide6 import QtCore, QtWidgets
 
 from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.helper import get_attr_deep
+
 from src.widget.base_widget import BaseWidget
 
 
@@ -23,10 +24,11 @@ class SearchableListWidget(BaseWidget):
     amount_changed_signal = QtCore.Signal()
     widgets_reloaded_signal = QtCore.Signal()
 
-    def __init__(self, search_field: str):
+    def __init__(self, search_field: str, sort_key: callable = None):
         super().__init__()
 
         self.search_field = search_field
+        self.sort_key = sort_key
 
         self.widgets: list[BaseWidget] = []
         self.filtered_widgets: list[BaseWidget] = []
@@ -98,7 +100,10 @@ class SearchableListWidget(BaseWidget):
         self.search_for_widgets()
 
         if sort:
-            self.widgets = natsorted(self.widgets, key=lambda w: get_attr_deep(w, self.search_field))
+            if self.sort_key:
+                self.widgets = sorted(self.widgets, key=self.sort_key)
+            else:
+                self.widgets = natsorted(self.widgets, key=lambda w: get_attr_deep(w, self.search_field))
 
             self.clear_widgets()
 
@@ -289,10 +294,10 @@ class SearchableListWidgetWithDropdown(BaseWidget):
 
     SHOW_ALL_TEXT = UI_TEXT_ELEMENTS["digital"]["main"]["sip_list"]["show_all"]
 
-    def __init__(self, search_field: str, dropdown_search_field: str):
+    def __init__(self, search_field: str, dropdown_search_field: str, sort_key: callable = None):
         super().__init__()
 
-        self.searchable_list_widget = SearchableListWidget(search_field=search_field)
+        self.searchable_list_widget = SearchableListWidget(search_field=search_field, sort_key=sort_key)
         self.searchable_list_widget.search_for_widgets = self.search_for_widgets
 
         self.dropdown_search_field = dropdown_search_field

@@ -24,6 +24,12 @@ class APIException(Exception):
     pass
 
 
+class APIAuthenticationError(Exception):
+    def __init__(self, environment_name: str):
+        self.environment_name = environment_name
+        super().__init__(f"Authentication failed for environment '{environment_name}'")
+
+
 class APIController:
     @staticmethod
     def _perform_request(
@@ -54,12 +60,17 @@ class APIController:
             "client_secret": environment.api_client_secret,
         }
 
-        response = APIController._perform_request(
-            request_type=requests.post,
-            url=f"{base_url}/{endpoint}",
-            headers=headers,
-            data=data,
-        )
+        try:
+            response = APIController._perform_request(
+                request_type=requests.post,
+                url=f"{base_url}/{endpoint}",
+                headers=headers,
+                data=data,
+            )
+        except requests.exceptions.HTTPError as e:
+            if e.response is not None and e.response.status_code == 401:
+                raise APIAuthenticationError(environment.name) from e
+            raise
 
         return response.json()["access_token"]
 
@@ -260,12 +271,19 @@ class APIController:
             params["page"] = params["page"] + 1
 
     @staticmethod
+    def get_sip_status_by_id(environment: Environment, edepot_id: str) -> tuple[SIPStatus, str | None]:
+        return APIController._fetch_sip_status(environment, edepot_id)
+
+    @staticmethod
     def get_sip_status(sip: SIP) -> tuple[SIPStatus, str | None]:
-        environment = sip.environment
+        return APIController._fetch_sip_status(sip.environment, sip.edepot_sip_id)
+
+    @staticmethod
+    def _fetch_sip_status(environment: Environment, edepot_id: str) -> tuple[SIPStatus, str | None]:
         access_token = APIController._get_access_token(environment)
 
         base_url = environment.api_url
-        endpoint = f"edepot/api/v1/sips/{sip.edepot_sip_id}"
+        endpoint = f"edepot/api/v1/sips/{edepot_id}"
 
         headers = {
             "Authorization": f"Bearer {access_token}",

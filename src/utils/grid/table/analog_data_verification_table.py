@@ -1,5 +1,3 @@
-from functools import partial
-
 import pandas as pd
 from PySide6 import QtCore
 
@@ -48,8 +46,8 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
             if col in self.raw_data.columns:
                 self.disable_column(col)
 
-    def _get_empty_rows(self, cell_range: CellRange) -> set[int]:
-        return {row for row in range(cell_range.row_start, cell_range.row_end + 1) if self._is_row_empty(row)}
+    def _get_empty_rows(self) -> set[int]:
+        return {row for row in range(self.raw_data.shape[0]) if self._is_row_empty(row)}
 
     def _is_row_empty(self, row: int) -> bool:
         for col in range(self.raw_data.shape[1]):
@@ -93,12 +91,16 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
 
         new_df = pd.DataFrame(new_rows, columns=self.raw_data.columns)
 
-        self.beginInsertRows(QtCore.QModelIndex(), self.raw_data.shape[0], self.raw_data.shape[0] + count - 1)
+        first_new = self.raw_data.shape[0]
+        self.beginInsertRows(QtCore.QModelIndex(), first_new, first_new + count - 1)
 
         self.raw_data = pd.concat([self.raw_data, new_df], ignore_index=True)
         self.sip.grid_data.data_as_df = self.raw_data
 
         self.endInsertRows()
+
+        for row in range(first_new, first_new + count):
+            self._mark_disabled_columns_for_row(row)
 
     def setData(self, index, value: str, role=QtCore.Qt.ItemDataRole.EditRole) -> bool:
         if not index.isValid():
@@ -119,7 +121,7 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
         self._validate_single_row(index.row())
 
         if index.row() == self.raw_data.shape[0] - 1 and value != "":
-            QtCore.QTimer.singleShot(0, partial(self._insert_empty_rows, 1))
+            QtCore.QTimer.singleShot(0, self._ensure_empty_bottom_row)
 
         self.data_rows_changed_signal.emit(self.count_data_rows())
 

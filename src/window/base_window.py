@@ -13,6 +13,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from src.utils.constants import get_logo
 from src.utils.workers.worker import Worker
+
 from src.widget.components.statusbar import Statusbar
 from src.widget.components.toolbar import Toolbar
 
@@ -68,6 +69,7 @@ class MainWindow(Window):
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         if self._has_uploading_sips():
             from src.utils.constants import UI_TEXT_ELEMENTS
+
             from src.widget.dialog.yes_no_dialog import YesNoDialog
 
             ui_text = UI_TEXT_ELEMENTS["application"]["upload_in_progress_close_warning"]

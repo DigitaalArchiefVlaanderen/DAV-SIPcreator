@@ -9,11 +9,12 @@ class ExcelReadError(Exception):
 
 
 def _format_number(value, number_format: str) -> str:
-    """Apply an Excel number_format to a numeric value to get the display text."""
+    """Apply an Excel number_format to a numeric value to get the display text"""
     if number_format in (None, "General", "general"):
         # General format: Excel displays integers without decimals
         if isinstance(value, float) and value == int(value):
             return str(int(value))
+
         return str(value)
 
     if number_format == "0":
@@ -21,6 +22,7 @@ def _format_number(value, number_format: str) -> str:
 
     # Fixed decimal places: "0.00", "0.0", "#,##0.00", etc.
     decimal_match = re.search(r"\.([0#]+)", number_format)
+
     if decimal_match:
         decimal_places = len(decimal_match.group(1))
         return f"{value:.{decimal_places}f}"
@@ -34,6 +36,7 @@ def _format_number(value, number_format: str) -> str:
     # Fallback: same as General
     if isinstance(value, float) and value == int(value):
         return str(int(value))
+
     return str(value)
 
 
@@ -61,6 +64,7 @@ class ExcelController:
             raw_headers = [cell.value for cell in rows[0]]
             seen = {}
             headers = []
+
             for h in raw_headers:
                 h_str = str(h) if h is not None else ""
                 if h_str in seen:
@@ -71,6 +75,7 @@ class ExcelController:
                     headers.append(h_str)
 
             data = []
+
             for row in rows[1:]:
                 row_data = []
                 for cell in row:

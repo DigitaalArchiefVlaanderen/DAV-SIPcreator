@@ -2,8 +2,10 @@ from PySide6 import QtGui
 
 from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.data_objects.sip import SIP
+
 from src.widget.central_widgets.digital.digital_grid_view import DigitalGridView
 from src.widget.dialog.yes_no_dialog import YesNoDialog
+
 from src.window.base_window import Window
 
 UI_TEXT = UI_TEXT_ELEMENTS["digital"]["grid"]
@@ -17,6 +19,9 @@ class GridWindow(Window):
 
         self.setWindowTitle(self.sip.name)
         self.resize(1200, 800)
+
+        grid_view = DigitalGridView(sip=self.sip)
+        self.setCentralWidget(grid_view)
 
         self.sip.name_changed_signal.connect(lambda: self.setWindowTitle(self.sip.name))
 

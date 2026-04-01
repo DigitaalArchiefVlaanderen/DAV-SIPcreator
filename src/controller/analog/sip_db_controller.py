@@ -1,15 +1,13 @@
 import json
 import os
 import sqlite3 as sql
-from collections.abc import Iterator
 
 import pandas as pd
 
-from src.utils.base_object import BaseObject
+from src.controller.base_sip_db_controller import BaseSIPDBController
+
 from src.utils.constants import (
-    DB_FILE_EXTENSION,
     PROD_ENVIRONMENT_NAME,
-    SIP_CREATOR_VERSION,
     TI_ENVIRONMENT_NAME,
     UNKNOWN_TRANSFORMED,
     DBColumnName,
@@ -19,41 +17,23 @@ from src.utils.data_objects.analog.sip import AnalogSIP
 from src.utils.data_objects.sip_status import SIPStatus
 
 
-class AnalogSIPDBController(BaseObject):
+class AnalogSIPDBController(BaseSIPDBController):
+    SIP_TYPE = AnalogSIP
+
     def __init__(self) -> None:
         super().__init__()
 
-    def conn(self, db_file_name: str) -> sql.Connection:
-        return sql.connect(os.path.join(self.application.configuration.analoog_location, db_file_name))
-
-    def _execute_with_conn(self, db_file_name: str, func):
-        conn = self.conn(db_file_name)
-
-        try:
-            result = func(conn)
-            conn.commit()
-
-            return result
-        except Exception:
-            conn.rollback()
-
-            raise
-        finally:
-            conn.close()
+    @property
+    def db_location(self) -> str:
+        return self.application.configuration.analoog_location
 
     def create_sip_db(
         self, sip: AnalogSIP, columns: list[str], series_id: str, series_name: str, transformed: str = ""
     ) -> bool:
-        db_path = os.path.join(self.application.configuration.analoog_location, sip.db_name)
+        db_path = os.path.join(self.db_location, sip.db_name)
 
         if os.path.exists(db_path):
-            from src.utils.constants import UI_TEXT_ELEMENTS
-
-            self.application.notify_user_signal.emit(
-                UI_TEXT_ELEMENTS["errors"]["sip"]["db_already_exists_error"]["title"],
-                UI_TEXT_ELEMENTS["errors"]["sip"]["db_already_exists_error"]["text"].format(db_apth=db_path),
-            )
-
+            self._warn_db_already_exists(db_path)
             return False
 
         def _create(conn: sql.Connection) -> None:
@@ -87,17 +67,7 @@ class AnalogSIPDBController(BaseObject):
                 ),
             )
 
-            conn.execute(f"""
-                CREATE TABLE {DBTableName.SIP_CREATOR.value} (
-                    {DBColumnName.VERSION.value} text,
-                    {DBColumnName.TRANSFORMED.value} text,
-                    {DBColumnName.LAST_OPENED.value} text
-                )
-            """)
-            conn.execute(
-                f"INSERT INTO {DBTableName.SIP_CREATOR.value} ({DBColumnName.VERSION.value}, {DBColumnName.TRANSFORMED.value}, {DBColumnName.LAST_OPENED.value}) VALUES (?, ?, ?)",
-                (SIP_CREATOR_VERSION, transformed, SIP_CREATOR_VERSION),
-            )
+            self._create_sip_creator_table(conn, transformed)
 
             df = pd.DataFrame(columns=columns)
             df.loc[0] = [""] * len(columns)
@@ -115,6 +85,7 @@ class AnalogSIPDBController(BaseObject):
                 f"{DBColumnName.EDEPOT_SIP_ID.value}, {DBColumnName.UPLOADED.value} "
                 f"FROM {DBTableName.SIP.value};"
             ).fetchone()
+
             name, status, environment_name, series_id, series_name, edepot_sip_id, uploaded = result
 
             sip = AnalogSIP()
@@ -157,64 +128,34 @@ class AnalogSIPDBController(BaseObject):
                 (sip.status.name, series_name, sip.edepot_sip_id or "", int(sip.uploaded)),
             )
 
-            conn.execute(
-                f"UPDATE {DBTableName.SIP_CREATOR.value} SET {DBColumnName.LAST_OPENED.value} = ?",
-                (SIP_CREATOR_VERSION,),
-            )
+            self._update_sip_creator_version(conn)
 
         self._execute_with_conn(sip.db_name, _persist)
 
-    def persist_all_sips(self) -> None:
-        sips_by_env = self.application.sips.get(AnalogSIP, {})
-
-        for sips in sips_by_env.values():
-            for sip in sips:
-                self.persist_sip(sip)
-
-    def g_read_all_sip_dbs(self) -> Iterator[tuple[AnalogSIP, str, str]]:
-        location = self.application.configuration.analoog_location
-
-        if not os.path.exists(location):
-            return
-
-        for file in os.listdir(location):
-            if file.startswith("old_"):
-                continue
-
-            if not file.endswith(DB_FILE_EXTENSION):
-                continue
-
-            if not self.is_valid_db(file):
-                continue
-
-            yield self.read_sip_db(file)
-
-    def db_exists(self, db_file_name: str) -> bool:
-        return os.path.exists(os.path.join(self.application.configuration.analoog_location, db_file_name))
-
-    def is_valid_db(self, db_file_name: str) -> bool:
-        if not self.db_exists(db_file_name):
-            return False
-
-        try:
-            conn = self.conn(db_file_name)
+    def _validate_db(self, db_file_name: str) -> bool:
+        def _validate(conn: sql.Connection) -> bool | str:
             tables = [r for r, *_ in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
-            conn.close()
-        except Exception:
-            return False
 
-        if "extra" in tables:
+            if "extra" in tables:
+                return "needs_transition"
+
+            return (
+                DBTableName.SIP.value in tables
+                and DBTableName.DATA.value in tables
+                and DBTableName.SIP_CREATOR.value in tables
+            )
+
+        result = self._execute_with_conn(db_file_name, _validate)
+
+        if result == "needs_transition":
             return self._transition_old_analog_db(db_file_name)
 
-        return (
-            DBTableName.SIP.value in tables
-            and DBTableName.DATA.value in tables
-            and DBTableName.SIP_CREATOR.value in tables
-        )
+        return result
 
     def _transition_old_analog_db(self, db_file_name: str) -> bool:
         try:
             conn = self.conn(db_file_name)
+
             series_json_str, edepot_id, data_changed = conn.execute("SELECT * FROM extra").fetchone()
             df = pd.read_sql("SELECT * FROM data", conn, dtype=str).fillna("")
 
@@ -241,9 +182,10 @@ class AnalogSIPDBController(BaseObject):
         else:
             status = SIPStatus.IN_PROGRESS
 
-        location = self.application.configuration.analoog_location
+        location = self.db_location
         old_path = os.path.join(location, db_file_name)
         renamed_path = os.path.join(location, f"old_{db_file_name}")
+
         os.rename(old_path, renamed_path)
 
         sip = AnalogSIP()

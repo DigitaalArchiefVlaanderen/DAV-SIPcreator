@@ -122,15 +122,18 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
     ) -> None:
         row, col = self.data_index(index)
         color = CellColor.YELLOW if warning else CellColor.RED
+
         self.markings[(row, col, source)] = (color, tooltip)
 
     def shift_markings_for_insert(self, insert_col: int) -> None:
         updated: dict[tuple[int, int, MarkingSource], tuple[CellColor, str]] = {}
+
         for (row, col, source), value in self.markings.items():
             if col >= insert_col:
                 updated[(row, col + 1, source)] = value
             else:
                 updated[(row, col, source)] = value
+
         self.markings = updated
 
     def filter_name_column(self, active: bool) -> None:

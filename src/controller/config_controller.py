@@ -1,7 +1,18 @@
 import json
 import os
 
-from src.utils.constants import CONFIGURATION_FILE_NAME, ConfigKey, SaveLocations
+from src.utils.constants import (
+    CONFIG_KEY_BESTANDSCONTROLE,
+    CONFIG_KEY_ENVIRONMENTS,
+    CONFIG_KEY_ROLES,
+    CONFIG_KEY_SIP_STORAGE,
+    CONFIG_KEY_TYPE_SIPS,
+    CONFIG_SECTION_MISC,
+    CONFIGURATION_FILE_NAME,
+    ConfigKey,
+    SaveLocations,
+    SIPType,
+)
 from src.utils.data_objects.configuration import Configuration, ConfigurationVersion
 from src.utils.path import is_path_exists_or_creatable
 
@@ -11,30 +22,30 @@ class ConfigController:
     def _verify_configuration(
         configuration: dict, root_path: str, version: ConfigurationVersion = ConfigurationVersion.V4
     ) -> bool:
-        if "misc" not in configuration:
+        if CONFIG_SECTION_MISC not in configuration:
             return False
 
         for environment, values in configuration.items():
             if not isinstance(values, dict):
                 return False
 
-            if environment == "misc":
-                if "SIP Creator opslag locatie" not in values:
+            if environment == CONFIG_SECTION_MISC:
+                if CONFIG_KEY_SIP_STORAGE not in values:
                     return False
 
                 if version in (ConfigurationVersion.V5, ConfigurationVersion.V4, ConfigurationVersion.V3):
-                    if "Bestandscontrole lijst locatie" not in values:
+                    if CONFIG_KEY_BESTANDSCONTROLE not in values:
                         return False
 
-                if not is_path_exists_or_creatable(values["SIP Creator opslag locatie"]):
-                    configuration[environment]["SIP Creator opslag locatie"] = os.path.join(
+                if not is_path_exists_or_creatable(values[CONFIG_KEY_SIP_STORAGE]):
+                    configuration[environment][CONFIG_KEY_SIP_STORAGE] = os.path.join(
                         root_path, SaveLocations.DEFAULT_BASE_SAVE_LOCATION.value
                     )
 
                 if version == ConfigurationVersion.V1:
-                    tabs = ("Omgevingen",)
+                    tabs = (CONFIG_KEY_ENVIRONMENTS,)
                 else:
-                    tabs = ("Omgevingen", "Rollen", "Type SIPs")
+                    tabs = (CONFIG_KEY_ENVIRONMENTS, CONFIG_KEY_ROLES, CONFIG_KEY_TYPE_SIPS)
 
                 for tab in tabs:
                     if tab not in values:
@@ -55,12 +66,12 @@ class ConfigController:
                     if active != 1:
                         return False
 
-                    if tab == "Type SIPs" and version in (ConfigurationVersion.V5, ConfigurationVersion.V4):
-                        if "onroerend_erfgoed" not in values[tab]:
+                    if tab == CONFIG_KEY_TYPE_SIPS and version in (ConfigurationVersion.V5, ConfigurationVersion.V4):
+                        if SIPType.ONROEREND_ERFGOED not in values[tab]:
                             return False
 
                         if version == ConfigurationVersion.V5:
-                            if "analoog" not in values[tab]:
+                            if SIPType.ANALOOG not in values[tab]:
                                 return False
 
                 continue
@@ -102,7 +113,9 @@ class ConfigController:
             try:
                 configuration = json.load(f)
             except Exception:
-                return Configuration.get_default(root_path)
+                config = Configuration.get_default(root_path)
+                config.had_parse_error = True
+                return config
 
             for v in (
                 ConfigurationVersion.V5,

@@ -4,13 +4,16 @@ from typing import TYPE_CHECKING
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from src.utils.constants import UI_TEXT_ELEMENTS, BusinessRules
+from src.utils.constants import UI_TEXT_ELEMENTS, BusinessRules, ColumnName
 from src.utils.data_objects.digital.sip import SIP
 from src.utils.data_objects.series import SeriesStatus
+
 from src.widget.base_widget import ApplicationMixin, BaseWidget, ComponentWidget
 from src.widget.central_widgets.central_widget import CentralWidget
 from src.widget.components.digital.mapping_widget import TagMappingWidget
+
 from src.window.base_window import Window
+from src.window.digital.folder_mapping_window import FolderMappingWindow
 
 if TYPE_CHECKING:
     from src.window.digital.sip_detail_window import SipDetailWindow
@@ -73,7 +76,19 @@ class SipDetailWidget(CentralWidget):
 
     def open_folder_structure_handler(self) -> None:
         self._update_tag_mapping()
-        self.application.window_controller.open_folder_mapping_window(sip=self.sip)
+
+        has_path_in_sip = any(
+            import_col == ColumnName.PATH_IN_SIP.value for _, import_col in self.sip.tag_mapping
+        )
+
+        if not has_path_in_sip:
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["sip"]["mapping_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["sip"]["mapping_error"]["text"],
+            )
+            return
+
+        self.application.window_controller.open_window(self.sip, FolderMappingWindow)
 
     def open_grid_handler(self) -> None:
         if not self.sip.name.strip():

@@ -3,21 +3,19 @@ import re
 from PySide6 import QtCore, QtWidgets
 
 from src.controller.migration.bestandscontrole_controller import VALUE_TO_COLUMN
+
 from src.utils.constants import KLANT_ROLE, MIGRATION_MAIN_ID_COLUMN, UI_TEXT_ELEMENTS, ColumnName
 from src.utils.data_objects.grid_data import GridData
 from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.series import Series
 from src.utils.grid.checks.common.date_check import DateCheck
-from src.utils.grid.checks.digital.empty_row_check import mark_empty_rows
 from src.utils.grid.checks.migration.location_group_check import LOCATION_COLUMNS, _get_location_groups
-from src.utils.grid.table.common.grid_table_view import GridTableView
-from src.utils.grid.table.common.proxy_model import SortFilterProxyModel, TableFilter
 from src.utils.grid.table.migration_data_verification_table import MigrationDataVerificationTable
 from src.utils.pyside_helper import clear_widget_warning_style, set_widget_warning_style
-from src.widget.base_widget import BaseWidget
+
+from src.widget.central_widgets.base_grid_view import COMMON_GRID_TEXT, BaseGridView
 
 UI_TEXT = UI_TEXT_ELEMENTS["migration"]["grid"]
-COMMON_GRID_TEXT = UI_TEXT_ELEMENTS["grid_checks"]["common"]
 
 NON_DUPLICATABLE_COLUMNS = {
     MIGRATION_MAIN_ID_COLUMN,
@@ -42,16 +40,17 @@ LOCATION_COLUMN_BASES = {
 }
 
 
-class MigrationGridView(BaseWidget):
+class MigrationGridView(BaseGridView):
+    NON_DUPLICATABLE_COLUMNS = NON_DUPLICATABLE_COLUMNS
+
     create_sip_signal = QtCore.Signal()
 
-    def __init__(self, sip: MigrationSIP, series_name: str, grid_data: GridData) -> None:
-        super().__init__()
+    def __init__(self, sip: MigrationSIP, series_name: str, grid_data: GridData, series_id: str = "") -> None:
+        super().__init__(sip)
 
-        self.sip = sip
         self.series_name = series_name
+        self.series_id = series_id
         self.grid_data = grid_data
-        self.has_unsaved_changes = False
         self.series: Series | None = None
 
         self._lookup_series()
@@ -64,26 +63,19 @@ class MigrationGridView(BaseWidget):
         env_name = self.application.configuration.active_environment_name
         series_list = self.application.sneaky_series().get(env_name, [])
 
+        if self.series_id:
+            for s in series_list:
+                if s._id == self.series_id:
+                    self.series = s
+                    return
+
         for s in series_list:
             if s.get_full_name() == self.series_name:
                 self.series = s
-
                 return
 
     def setup_ui(self) -> None:
-        self.grid_layout = QtWidgets.QGridLayout()
-        self.setLayout(self.grid_layout)
-
-        self.series_label = QtWidgets.QLabel()
-
-        self.default_sorting_button = QtWidgets.QPushButton(text=UI_TEXT["default_sorting_button_text"])
-
-        self.show_bad_rows_checkbox = QtWidgets.QCheckBox(text=UI_TEXT["bad_rows_checkbox_text"])
-
-        self.column_dropdown = QtWidgets.QComboBox()
-        self.column_dropdown.setEditable(True)
-        self.column_dropdown.setInsertPolicy(QtWidgets.QComboBox.InsertPolicy.NoInsert)
-        self.add_column_button = QtWidgets.QPushButton(text=UI_TEXT["add_column_button_text"])
+        self._create_common_widgets(UI_TEXT)
 
         self.duplicate_location_button = QtWidgets.QPushButton(text=UI_TEXT["duplicate_location_columns_button_text"])
 
@@ -91,21 +83,10 @@ class MigrationGridView(BaseWidget):
 
         previous_grid_data = self.sip.grid_data
         self.sip.grid_data = self.grid_data
-        self.table_model = MigrationDataVerificationTable(sip=self.sip)
+        self._create_table(MigrationDataVerificationTable(sip=self.sip))
         self.sip.grid_data = previous_grid_data
 
-        self.proxy_model = SortFilterProxyModel()
-        self.proxy_model.setSourceModel(self.table_model)
-
-        self.table_view = GridTableView()
-        self.table_view.setModel(self.proxy_model)
-
         self._hide_main_id_column()
-        self._populate_column_dropdown()
-        self.column_dropdown.completer().setFilterMode(QtCore.Qt.MatchFlag.MatchContains)
-
-        self.save_button = QtWidgets.QPushButton(text=UI_TEXT["save_button_text"])
-        self.create_sip_button = QtWidgets.QPushButton(text=UI_TEXT["create_sip_button_text"])
 
         self._update_series_label()
         self.table_model.validate_all()
@@ -129,16 +110,9 @@ class MigrationGridView(BaseWidget):
         self.grid_layout.addLayout(button_layout, 3, 0, 1, 5)
 
     def setup_signals(self) -> None:
-        self.default_sorting_button.clicked.connect(self.proxy_model.reset_sorting)
-        self.show_bad_rows_checkbox.stateChanged.connect(self._bad_rows_clicked)
-        self.add_column_button.clicked.connect(self._add_column_button_clicked)
+        self._connect_common_signals()
         self.duplicate_location_button.clicked.connect(self._duplicate_location_columns_clicked)
         self.load_bestandscontrole_button.clicked.connect(self._load_bestandscontrole_clicked)
-        self.save_button.clicked.connect(self._save_button_clicked)
-        self.create_sip_button.clicked.connect(self._create_sip_clicked)
-        self.table_model.dataChanged.connect(self._data_changed)
-        self.table_model.validation_started_signal.connect(self._update_create_sip_button)
-        self.table_model.validation_finished_signal.connect(self._update_create_sip_button)
         self.application.series_updated_signal.connect(self._on_series_updated)
         self.application.application_role_changed_signal.connect(self._update_role_visibility)
 
@@ -179,13 +153,13 @@ class MigrationGridView(BaseWidget):
         for col in self.table_model.raw_data.columns:
             base_col = col.rstrip()
 
-            if base_col in NON_DUPLICATABLE_COLUMNS:
+            if base_col in self.NON_DUPLICATABLE_COLUMNS:
                 continue
 
             if re.match(r".+_\d+$", base_col):
                 base_col = re.sub(r"_\d+$", "", base_col)
 
-                if base_col in NON_DUPLICATABLE_COLUMNS:
+                if base_col in self.NON_DUPLICATABLE_COLUMNS:
                     continue
 
             if base_col not in seen:
@@ -196,37 +170,6 @@ class MigrationGridView(BaseWidget):
         self.create_sip_button.setEnabled(
             not self.table_model.has_bad_rows and self.series is not None and not self.table_model.is_validating
         )
-
-    def _data_changed(self) -> None:
-        self.has_unsaved_changes = True
-        self._update_create_sip_button()
-
-    def _bad_rows_clicked(self, state: int) -> None:
-        self.proxy_model.toggle_filter(TableFilter.BAD_ROWS)
-
-    def _add_column_button_clicked(self) -> None:
-        column = self.column_dropdown.currentText()
-
-        if not column:
-            return
-
-        df = self.table_model.raw_data
-
-        self.table_model.beginResetModel()
-
-        new_column_name = column
-
-        while (new_column_name := f"{new_column_name} ") in df.columns:
-            pass
-
-        col_loc = df.columns.get_loc(column)
-        spaces = len(new_column_name) - len(column)
-        insert_pos = col_loc + spaces
-        df.insert(insert_pos, new_column_name, "")
-
-        self.table_model.shift_markings_for_insert(insert_pos)
-        mark_empty_rows(self.table_model)
-        self.table_model.endResetModel()
 
     def _duplicate_location_columns_clicked(self) -> None:
         df = self.table_model.raw_data
@@ -250,6 +193,8 @@ class MigrationGridView(BaseWidget):
         for i, col_name in enumerate(new_columns):
             df.insert(insert_pos + i, col_name, "")
             self.table_model.shift_markings_for_insert(insert_pos + i)
+
+        from src.utils.grid.checks.digital.empty_row_check import mark_empty_rows
 
         mark_empty_rows(self.table_model)
         self.table_model.endResetModel()

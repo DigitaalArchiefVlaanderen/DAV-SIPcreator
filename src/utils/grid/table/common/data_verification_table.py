@@ -25,6 +25,7 @@ class CommonDataVerificationTable(DataTable):
         self._active_workers: list[tuple[Worker, QtCore.QThread]] = []
 
         date_check = DateCheck(series_provider=lambda: self.sip.series)
+
         self.COLUMN_VALIDATORS = {
             **self.COLUMN_VALIDATORS,
             ColumnName.OPENINGSDATUM: date_check,
@@ -38,7 +39,7 @@ class CommonDataVerificationTable(DataTable):
     def _sanitize_value(self, value: str) -> str:
         return str(value).encode(encoding="utf-8", errors="replace").decode("utf-8")
 
-    def _get_empty_rows(self, cell_range: CellRange) -> set[int]:
+    def _get_empty_rows(self) -> set[int]:
         if ColumnName.TYPE.value not in self.raw_data.columns:
             return set()
 
@@ -46,13 +47,14 @@ class CommonDataVerificationTable(DataTable):
 
         return {
             row
-            for row in range(cell_range.row_start, cell_range.row_end + 1)
+            for row in range(self.raw_data.shape[0])
             if self.raw_data.iat[row, type_col] == RowType.GEEN
         }
 
     def _run_bulk_validators(self, cell_range: CellRange) -> tuple[list[BulkResult], set[int]]:
         results: list[BulkResult] = []
-        empty_rows = self._get_empty_rows(cell_range)
+        empty_rows = self._get_empty_rows()
+
 
         for column_name, check in self.COLUMN_VALIDATORS.items():
             if column_name.value not in self.raw_data.columns:
@@ -71,6 +73,25 @@ class CommonDataVerificationTable(DataTable):
     ) -> None:
         if cell_range:
             self._clear_validator_markings(cell_range, empty_rows or set())
+
+        # Clear markings for all cells reported by validators outside the original range.
+        # Cross-row checks (e.g. uniqueness) may return results for rows beyond the
+        # changed_range — their old markings must be cleared before new ones are applied.
+        if results:
+            result_cells = {(r[0], r[1]) for r in results}
+            range_rows = set(range(cell_range.row_start, cell_range.row_end + 1)) if cell_range else set()
+
+            for row, col in result_cells:
+                if row in range_rows:
+                    continue  # already cleared by _clear_validator_markings
+
+                row_idx = self.raw_data.index[row]
+
+                for source in (MarkingSource.CELL, MarkingSource.WIDE):
+                    key = (row_idx, col, source)
+
+                    if key in self.markings and self.markings[key][0] != CellColor.GREY:
+                        del self.markings[key]
 
         min_row = float("inf")
         max_row = 0

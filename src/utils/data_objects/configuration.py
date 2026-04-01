@@ -3,7 +3,25 @@ import os
 from dataclasses import dataclass
 from enum import Enum
 
-from src.utils.constants import ConfigKey, SaveLocations
+from src.utils.constants import (
+    CONFIG_KEY_BESTANDSCONTROLE,
+    CONFIG_KEY_ENVIRONMENTS,
+    CONFIG_KEY_ROLES,
+    CONFIG_KEY_SIP_STORAGE,
+    CONFIG_KEY_TYPE_SIPS,
+    CONFIG_SECTION_MISC,
+    DEFAULT_PROD_API_URL,
+    DEFAULT_PROD_FTPS_URL,
+    DEFAULT_TI_API_URL,
+    DEFAULT_TI_FTPS_URL,
+    KLANT_ROLE,
+    PROD_ENVIRONMENT_NAME,
+    ROLE_DEPOTMEDEWERKER,
+    TI_ENVIRONMENT_NAME,
+    ConfigKey,
+    SaveLocations,
+    SIPType,
+)
 
 
 class ConfigurationVersion(Enum):
@@ -102,31 +120,31 @@ class Misc:
     @staticmethod
     def get_default(root_path: str) -> "Misc":
         return Misc(
-            environments_activity=dict(
-                ti=False,
-                prod=True,
-            ),
-            role_activity=dict(
-                klant=True,
-                depotmedewerker=False,
-            ),
-            type_activity=dict(
-                digitaal=True,
-                migratie=False,
-                onroerend_erfgoed=False,
-                analoog=False,
-            ),
+            environments_activity={
+                TI_ENVIRONMENT_NAME: False,
+                PROD_ENVIRONMENT_NAME: True,
+            },
+            role_activity={
+                KLANT_ROLE: True,
+                ROLE_DEPOTMEDEWERKER: False,
+            },
+            type_activity={
+                SIPType.DIGITAAL: True,
+                SIPType.MIGRATIE: False,
+                SIPType.ONROEREND_ERFGOED: False,
+                SIPType.ANALOOG: False,
+            },
             save_location=os.path.join(root_path, SaveLocations.DEFAULT_BASE_SAVE_LOCATION.value),
             bestandscontrole_lijst_location="",
         )
 
     def to_json(self) -> dict:
         return {
-            "Omgevingen": self.environments_activity,
-            "Rollen": self.role_activity,
-            "Type SIPs": self.type_activity,
-            "SIP Creator opslag locatie": self.save_location,
-            "Bestandscontrole lijst locatie": self.bestandscontrole_lijst_location,
+            CONFIG_KEY_ENVIRONMENTS: self.environments_activity,
+            CONFIG_KEY_ROLES: self.role_activity,
+            CONFIG_KEY_TYPE_SIPS: self.type_activity,
+            CONFIG_KEY_SIP_STORAGE: self.save_location,
+            CONFIG_KEY_BESTANDSCONTROLE: self.bestandscontrole_lijst_location,
         }
 
 
@@ -135,6 +153,7 @@ class Configuration:
     environments: list[Environment]
     misc: Misc
     root_path: str
+    had_parse_error: bool = False
 
     def create_locations(self) -> None:
         os.makedirs(self.sip_db_location, exist_ok=True)
@@ -153,14 +172,14 @@ class Configuration:
     @staticmethod
     def get_default(root_path: str) -> "Configuration":
         misc = Misc.get_default(root_path)
-        ti = Environment.get_default("ti")
-        prod = Environment.get_default("prod")
+        ti = Environment.get_default(TI_ENVIRONMENT_NAME)
+        prod = Environment.get_default(PROD_ENVIRONMENT_NAME)
 
-        ti.api_url = "https://digitaalarchief-ti.vlaanderen.be"
-        ti.ftps_url = "ingest.digitaalarchief-ti.vlaanderen.be"
+        ti.api_url = DEFAULT_TI_API_URL
+        ti.ftps_url = DEFAULT_TI_FTPS_URL
 
-        prod.api_url = "https://digitaalarchief.vlaanderen.be"
-        prod.ftps_url = "ingest.digitaalarchief.vlaanderen.be"
+        prod.api_url = DEFAULT_PROD_API_URL
+        prod.ftps_url = DEFAULT_PROD_FTPS_URL
 
         return Configuration(
             environments=[ti, prod],
@@ -169,7 +188,7 @@ class Configuration:
         )
 
     def to_json(self) -> dict:
-        return {"misc": self.misc.to_json(), **{env.name: env.to_json() for env in self.environments}}
+        return {CONFIG_SECTION_MISC: self.misc.to_json(), **{env.name: env.to_json() for env in self.environments}}
 
     @staticmethod
     def from_json(json: dict, root_path: str, version: ConfigurationVersion) -> "Configuration":
@@ -177,59 +196,59 @@ class Configuration:
         misc = None
 
         for k, v in json.items():
-            if k == "misc":
+            if k == CONFIG_SECTION_MISC:
                 if version == ConfigurationVersion.V1:
                     misc_default = Misc.get_default(root_path)
 
                     misc = Misc(
-                        environments_activity=v["Omgevingen"],
+                        environments_activity=v[CONFIG_KEY_ENVIRONMENTS],
                         role_activity=misc_default.role_activity,
                         type_activity=misc_default.type_activity,
-                        save_location=v["SIP Creator opslag locatie"],
+                        save_location=v[CONFIG_KEY_SIP_STORAGE],
                         bestandscontrole_lijst_location="",
                     )
                 elif version == ConfigurationVersion.V2:
-                    types = v["Type SIPs"]
-                    types["onroerend_erfgoed"] = False
-                    types["analoog"] = False
+                    types = v[CONFIG_KEY_TYPE_SIPS]
+                    types[SIPType.ONROEREND_ERFGOED] = False
+                    types[SIPType.ANALOOG] = False
 
                     misc = Misc(
-                        environments_activity=v["Omgevingen"],
-                        role_activity=v["Rollen"],
+                        environments_activity=v[CONFIG_KEY_ENVIRONMENTS],
+                        role_activity=v[CONFIG_KEY_ROLES],
                         type_activity=types,
-                        save_location=v["SIP Creator opslag locatie"],
+                        save_location=v[CONFIG_KEY_SIP_STORAGE],
                         bestandscontrole_lijst_location="",
                     )
                 elif version == ConfigurationVersion.V3:
-                    types = v["Type SIPs"]
-                    types["onroerend_erfgoed"] = False
-                    types["analoog"] = False
+                    types = v[CONFIG_KEY_TYPE_SIPS]
+                    types[SIPType.ONROEREND_ERFGOED] = False
+                    types[SIPType.ANALOOG] = False
 
                     misc = Misc(
-                        environments_activity=v["Omgevingen"],
-                        role_activity=v["Rollen"],
+                        environments_activity=v[CONFIG_KEY_ENVIRONMENTS],
+                        role_activity=v[CONFIG_KEY_ROLES],
                         type_activity=types,
-                        save_location=v["SIP Creator opslag locatie"],
-                        bestandscontrole_lijst_location=v["Bestandscontrole lijst locatie"],
+                        save_location=v[CONFIG_KEY_SIP_STORAGE],
+                        bestandscontrole_lijst_location=v[CONFIG_KEY_BESTANDSCONTROLE],
                     )
                 elif version == ConfigurationVersion.V4:
-                    types = v["Type SIPs"]
-                    types["analoog"] = False
+                    types = v[CONFIG_KEY_TYPE_SIPS]
+                    types[SIPType.ANALOOG] = False
 
                     misc = Misc(
-                        environments_activity=v["Omgevingen"],
-                        role_activity=v["Rollen"],
+                        environments_activity=v[CONFIG_KEY_ENVIRONMENTS],
+                        role_activity=v[CONFIG_KEY_ROLES],
                         type_activity=types,
-                        save_location=v["SIP Creator opslag locatie"],
-                        bestandscontrole_lijst_location=v["Bestandscontrole lijst locatie"],
+                        save_location=v[CONFIG_KEY_SIP_STORAGE],
+                        bestandscontrole_lijst_location=v[CONFIG_KEY_BESTANDSCONTROLE],
                     )
                 elif version == ConfigurationVersion.V5:
                     misc = Misc(
-                        environments_activity=v["Omgevingen"],
-                        role_activity=v["Rollen"],
-                        type_activity=v["Type SIPs"],
-                        save_location=v["SIP Creator opslag locatie"],
-                        bestandscontrole_lijst_location=v["Bestandscontrole lijst locatie"],
+                        environments_activity=v[CONFIG_KEY_ENVIRONMENTS],
+                        role_activity=v[CONFIG_KEY_ROLES],
+                        type_activity=v[CONFIG_KEY_TYPE_SIPS],
+                        save_location=v[CONFIG_KEY_SIP_STORAGE],
+                        bestandscontrole_lijst_location=v[CONFIG_KEY_BESTANDSCONTROLE],
                     )
             else:
                 api = v[ConfigKey.API.value]

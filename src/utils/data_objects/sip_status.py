@@ -21,7 +21,8 @@ class SIPStatus(enum.Enum):
         return UI_TEXT_ELEMENTS["sip"]["status"][self.name.lower()]["text"]
 
     @property
-    def priority(self):
+    def priority(self) -> int:
         from src.utils.constants import UI_TEXT_ELEMENTS
 
         return UI_TEXT_ELEMENTS["sip"]["status"][self.name.lower()]["priority"]
+

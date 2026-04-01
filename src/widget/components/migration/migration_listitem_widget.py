@@ -7,12 +7,15 @@ from src.utils.constants import KLANT_ROLE, UI_TEXT_ELEMENTS
 from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.workers.worker import Worker
+
 from src.widget.base_widget import BaseWidget
+from src.widget.dialog.migration_edepot_dialog import MigrationEdepotDialog
 from src.widget.dialog.migration_tab_status_dialog import MigrationTabStatusDialog
 from src.widget.dialog.migration_upload_dialog import MigrationUploadDialog
 from src.widget.dialog.yes_no_dialog import YesNoDialog
 
 UI_TEXT = UI_TEXT_ELEMENTS["sip"]["controls"]
+UI_MIGRATION_TEXT = UI_TEXT_ELEMENTS["migration"]
 
 
 class MigrationSipListitemWidget(QtWidgets.QFrame):
@@ -147,7 +150,7 @@ class MigrationControlsWidget(BaseWidget):
 
         self.open_button.clicked.connect(self.open_button_clicked_handler)
         self.upload_button.clicked.connect(self.upload_button_clicked_handler)
-        self.edepot_button.clicked.connect(self.sip.open_edepot_url)
+        self.edepot_button.clicked.connect(self.edepot_button_clicked_handler)
         self.remove_button.clicked.connect(self.remove_button_clicked_handler)
 
     def _update_role_visibility(self) -> None:
@@ -155,6 +158,16 @@ class MigrationControlsWidget(BaseWidget):
 
         self.upload_button.setHidden(is_klant)
         self.edepot_button.setHidden(is_klant)
+
+    def edepot_button_clicked_handler(self) -> None:
+        if not self.sip.series_edepot_ids:
+            return
+
+        dialog = MigrationEdepotDialog(
+            series_edepot_ids=self.sip.series_edepot_ids,
+            base_url=self.sip.environment.api_url,
+        )
+        dialog.exec()
 
     def open_button_clicked_handler(self) -> None:
         self.open_overdrachtslijst_signal.emit(self.sip)
@@ -229,9 +242,9 @@ class MigrationControlsWidget(BaseWidget):
             for series_name, sip_loc, sidecar_loc in upload_infos:
                 try:
                     upload_controller._perform_upload(self.sip, sip_loc, sidecar_loc)
-                    results.append((series_name, True))
-                except Exception:
-                    results.append((series_name, False))
+                    results.append((series_name, True, ""))
+                except Exception as e:
+                    results.append((series_name, False, str(e)))
 
             return results
 
@@ -241,8 +254,10 @@ class MigrationControlsWidget(BaseWidget):
             on_error=lambda e: self.application.error_handler(e),
         )
 
-    def _on_upload_complete(self, results: list[tuple[str, bool]]) -> None:
-        for series_name, success in results:
+    def _on_upload_complete(self, results: list[tuple[str, bool, str]]) -> None:
+        failed_series = []
+
+        for series_name, success, error_msg in results:
             if success:
                 self.sip.series_statuses[series_name] = SIPStatus.UPLOADED
 
@@ -255,6 +270,14 @@ class MigrationControlsWidget(BaseWidget):
                 self.application.migration_sip_db_controller.update_series_status(
                     self.sip, series_name, SIPStatus.SIP_CREATED
                 )
+
+                failed_series.append(f"- {series_name}: {error_msg}" if error_msg else f"- {series_name}")
+
+        if failed_series:
+            self.application.notify_user_signal.emit(
+                UI_MIGRATION_TEXT["upload_error"]["title"],
+                UI_MIGRATION_TEXT["upload_error"]["text"].format(failed_series="\n".join(failed_series)),
+            )
 
         self.sip.derive_overall_status()
 
@@ -273,7 +296,7 @@ class MigrationControlsWidget(BaseWidget):
             case SIPStatus.PARTIALLY_UPLOADED:
                 self.open_button.setEnabled(True)
                 self.upload_button.setEnabled(True)
-                self.edepot_button.setEnabled(False)
+                self.edepot_button.setEnabled(bool(self.sip.series_edepot_ids))
                 self.remove_button.setEnabled(True)
             case SIPStatus.UPLOADING:
                 self.open_button.setEnabled(False)
@@ -283,12 +306,12 @@ class MigrationControlsWidget(BaseWidget):
             case SIPStatus.UPLOADED:
                 self.open_button.setEnabled(False)
                 self.upload_button.setEnabled(False)
-                self.edepot_button.setEnabled(False)
+                self.edepot_button.setEnabled(bool(self.sip.series_edepot_ids))
                 self.remove_button.setEnabled(True)
             case SIPStatus.PROCESSING | SIPStatus.ACCEPTED | SIPStatus.REJECTED:
                 self.open_button.setEnabled(False)
                 self.upload_button.setEnabled(False)
-                self.edepot_button.setEnabled(True)
+                self.edepot_button.setEnabled(bool(self.sip.series_edepot_ids))
                 self.remove_button.setEnabled(True)
             case SIPStatus.DELETED:
                 self.open_button.setEnabled(False)

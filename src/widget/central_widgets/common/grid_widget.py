@@ -1,6 +1,7 @@
 from PySide6 import QtWidgets
 
 from src.utils.data_objects.sip import SIP
+
 from src.widget.central_widgets.central_widget import CentralWidget
 
 

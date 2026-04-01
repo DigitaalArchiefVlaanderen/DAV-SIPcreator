@@ -1,3 +1,4 @@
+import contextlib
 from copy import deepcopy
 from functools import partial
 
@@ -5,6 +6,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from src.utils.constants import PROD_ENVIRONMENT_NAME, TI_ENVIRONMENT_NAME, UI_TEXT_ELEMENTS
 from src.utils.data_objects.configuration import Environment, Misc
+
 from src.widget.base_widget import BaseWidget
 
 UI_TEXT = UI_TEXT_ELEMENTS["configuration"]
@@ -83,8 +85,10 @@ class ConfigurationWidget(BaseWidget):
             self.application.reset_bestandscontrole_location()
 
     def save_button_clicked_handler(self) -> None:
+        window = self.window()
         self.save()
-        self.window().close()
+        with contextlib.suppress(RuntimeError):
+            window.close()  # May already be deleted by _close_all_tracked_windows
 
     def has_changes(self) -> bool:
         return self.new_configuration != self.application.configuration

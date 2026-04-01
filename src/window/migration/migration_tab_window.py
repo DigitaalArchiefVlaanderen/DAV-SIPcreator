@@ -10,6 +10,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from src.controller.api_controller import APIController
 from src.controller.excel_controller import ExcelController
 from src.controller.file_controller import SIDECAR_TEMPLATE
+
 from src.utils.constants import (
     ANALOOG_DEFAULT_VALUE,
     MIGRATION_MAIN_ID_COLUMN,
@@ -26,9 +27,11 @@ from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.pyside_helper import clear_widget_warning_style, set_widget_warning_style
 from src.utils.workers.worker import Worker
+
 from src.widget.central_widgets.migration.migration_grid_view import MigrationGridView
 from src.widget.central_widgets.migration.migration_main_tab_view import MigrationMainTabView
 from src.widget.dialog.yes_no_dialog import YesNoDialog
+
 from src.window.base_window import Window
 
 UI_TEXT = UI_TEXT_ELEMENTS["migration"]["tab_window"]
@@ -77,6 +80,7 @@ class MigrationTabWindow(Window):
         self.main_tab_view.create_sip_signal.connect(self._create_all_sips)
         self.sip.name_changed_signal.connect(lambda: self.setWindowTitle(self.sip.name))
         self.application.application_environment_changed_signal.connect(self.close)
+        self.application.application_type_changed_signal.connect(self._on_type_changed)
 
     def _ensure_series_name_column(self) -> None:
         df = self.sip.main_grid_data.data_as_df
@@ -93,6 +97,10 @@ class MigrationTabWindow(Window):
         if changed:
             self.sip.main_grid_data.data_as_df = df
 
+    def _on_type_changed(self) -> None:
+        for grid_view in self.series_tabs.values():
+            grid_view.table_model.validate_all()
+
     def _load_existing_series_tabs(self) -> None:
         self._set_tab_loading(0, True)
         self._set_controls_busy(True)
@@ -101,9 +109,10 @@ class MigrationTabWindow(Window):
             tables = self.application.migration_sip_db_controller.read_tables(self.sip.db_name)
             results = []
 
-            for table_name, _, _, _ in tables:
+            for table_name, uri_serieregister, _, _ in tables:
                 df = self.application.migration_sip_db_controller.read_series_data(self.sip.db_name, table_name)
-                results.append((table_name, df))
+                series_id = uri_serieregister.rsplit("/", 1)[-1] if uri_serieregister else ""
+                results.append((table_name, df, series_id))
 
             return results
 
@@ -115,17 +124,17 @@ class MigrationTabWindow(Window):
             track_in=self._active_workers,
         )
 
-    def _on_tabs_loaded(self, results: list[tuple[str, pd.DataFrame]]) -> None:
+    def _on_tabs_loaded(self, results: list[tuple[str, pd.DataFrame, str]]) -> None:
         existing_table_names = set()
 
-        for table_name, df in results:
+        for table_name, df, series_id in results:
             existing_table_names.add(table_name)
 
             grid_data = GridData()
             grid_data.data_as_df = df
             self.sip.series_grid_data[table_name] = grid_data
 
-            grid_view = MigrationGridView(sip=self.sip, series_name=table_name, grid_data=grid_data)
+            grid_view = MigrationGridView(sip=self.sip, series_name=table_name, grid_data=grid_data, series_id=series_id)
             grid_view.table_model.validation_finished_signal.connect(self.update_global_create_sip_button)
             grid_view.create_sip_signal.connect(self._create_all_sips)
             self.series_tabs[table_name] = grid_view
@@ -201,7 +210,7 @@ class MigrationTabWindow(Window):
                 self.sip, uri_serieregister=uri_serieregister, table_name=series_name, df=series_df
             )
 
-            grid_view = MigrationGridView(sip=self.sip, series_name=series_name, grid_data=grid_data)
+            grid_view = MigrationGridView(sip=self.sip, series_name=series_name, grid_data=grid_data, series_id=series_id)
             grid_view.table_model.validation_finished_signal.connect(self.update_global_create_sip_button)
             grid_view.create_sip_signal.connect(self._create_all_sips)
             self.series_tabs[series_name] = grid_view
@@ -215,6 +224,10 @@ class MigrationTabWindow(Window):
                 series_id=series_id,
             )
         except Exception:
+            self.application.notify_user_signal.emit(
+                UI_TEXT["template_retrieval_error"]["title"],
+                UI_TEXT["template_retrieval_error"]["text"],
+            )
             return None
 
         template_df = ExcelController.read_excel(file_location)
@@ -263,6 +276,7 @@ class MigrationTabWindow(Window):
     def _assign_rows_to_series(self, source_rows: list[int], series_id: str, series_name: str) -> None:
         table_name = series_name
         uri_serieregister = f"{self.sip.environment.get_serie_register_uri()}/{series_id}"
+        self.sip.series_zip_names[table_name] = f"{series_id}-{self.sip.overdrachtslijst_name}-SIPC.zip"
         main_df = self.sip.main_grid_data.data_as_df
 
         existing_count = 0
@@ -347,7 +361,8 @@ class MigrationTabWindow(Window):
                 self.sip, uri_serieregister=uri_serieregister, table_name=table_name, df=series_df
             )
 
-            grid_view = MigrationGridView(sip=self.sip, series_name=series_name, grid_data=grid_data)
+            series_id = uri_serieregister.rsplit("/", 1)[-1] if uri_serieregister else ""
+            grid_view = MigrationGridView(sip=self.sip, series_name=series_name, grid_data=grid_data, series_id=series_id)
             grid_view.table_model.validation_finished_signal.connect(self.update_global_create_sip_button)
             grid_view.create_sip_signal.connect(self._create_all_sips)
             self.series_tabs[table_name] = grid_view

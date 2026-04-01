@@ -2,11 +2,9 @@ from PySide6 import QtCore
 
 from src.utils.base_object import BaseObject
 from src.utils.data_objects.sip import SIP
+
 from src.window.base_window import Window
 from src.window.configuration_window import ConfigurationWindow
-from src.window.digital.folder_mapping_window import FolderMappingWindow
-from src.window.digital.sip_detail_window import SipDetailWindow
-from src.window.grid_window import GridWindow
 from src.window.sip_creator_window import SipCreatorWindow
 
 
@@ -20,6 +18,7 @@ class WindowController(BaseObject):
 
         # Mapping of windows
         self.trackable_windows: dict[SIP, dict[type[Window], Window]] = dict()
+        self.configuration_window: ConfigurationWindow | None = None
 
         self.application.application_environment_changed_signal.connect(self._close_all_tracked_windows)
 
@@ -28,6 +27,10 @@ class WindowController(BaseObject):
         self._close_all_tracked_windows()
 
     def _close_all_tracked_windows(self) -> None:
+        if self.configuration_window is not None:
+            self.configuration_window.close()
+            self.configuration_window = None
+
         for windows_dict in self.trackable_windows.values():
             for window in windows_dict.values():
                 window.close()
@@ -40,31 +43,46 @@ class WindowController(BaseObject):
         return self.sip_creator_window
 
     def open_configuration_window(self) -> ConfigurationWindow:
-        # NOTE: we always remake this, since it loads the real time configuration data
-        configuration_window = ConfigurationWindow()
-        configuration_window.show()
+        # NOTE: we always remake this, since it loads a deepcopy of the configuration data
+        # We use deleteLater instead of close to avoid triggering the save-on-close dialog
+        if self.configuration_window is not None:
+            self.configuration_window.hide()
+            self.configuration_window.deleteLater()
 
-        return configuration_window
+        self.configuration_window = ConfigurationWindow()
+        self.configuration_window.show()
 
-    # Helpers
-    def __open_from_trackable(self, sip: SIP, window_type: type[Window], *window_args, **window_kwargs) -> Window:
+        return self.configuration_window
+
+    def open_window(self, sip: SIP, window_type: type[Window]) -> Window:
         windows_dict = self.trackable_windows.setdefault(sip, dict())
 
         if window_type in windows_dict:
             existing = windows_dict[window_type]
+
             existing.show()
             existing.raise_()
             existing.activateWindow()
+
             return existing
 
-        window_kwargs["sip"] = sip
-        window = window_type(*window_args, **window_kwargs)
+        window = window_type(sip=sip)
         windows_dict[window_type] = window
 
         window.window_about_to_close_signal.connect(lambda: self._untrack_window(sip, window_type))
 
         window.show()
+
         return window
+
+    def get_window(self, sip: SIP, window_type: type[Window]) -> Window | None:
+        return self.trackable_windows.get(sip, {}).get(window_type)
+
+    def get_first_window_of_type(self, window_type: type[Window]) -> Window | None:
+        for windows_dict in self.trackable_windows.values():
+            if window_type in windows_dict:
+                return windows_dict[window_type]
+        return None
 
     def _untrack_window(self, sip: SIP, window_type: type[Window]) -> None:
         if sip in self.trackable_windows and window_type in self.trackable_windows[sip]:
@@ -78,13 +96,3 @@ class WindowController(BaseObject):
             window.close()
 
         self.trackable_windows.pop(sip, None)
-
-    # Digital
-    def open_folder_mapping_window(self, sip: SIP) -> FolderMappingWindow:
-        return self.__open_from_trackable(sip=sip, window_type=FolderMappingWindow)
-
-    def open_sip_detail_window(self, sip: SIP) -> SipDetailWindow:
-        return self.__open_from_trackable(sip=sip, window_type=SipDetailWindow)
-
-    def open_grid_window(self, sip: SIP) -> GridWindow:
-        return self.__open_from_trackable(sip=sip, window_type=GridWindow)

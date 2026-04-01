@@ -3,6 +3,7 @@ from PySide6 import QtWidgets
 from src.utils.base_object import ApplicationMixin
 from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.data_objects.sip import SIP, SIPStatus
+
 from src.widget.dialog.yes_no_dialog import YesNoDialog
 
 UI_TEXT = UI_TEXT_ELEMENTS["sip"]

@@ -8,12 +8,15 @@ from contextlib import suppress
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from src.controller.upload_controller import UploadController
+
 from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.data_objects.digital.sip import SIP
 from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.pyside_helper import clear_widget_warning_style, set_widget_warning_style
+
 from src.widget.base_widget import BaseWidget
 from src.widget.dialog.yes_no_dialog import YesNoDialog
+
 from src.window.base_window import Window
 from src.window.digital.sip_detail_window import SipDetailWindow
 
@@ -182,8 +185,7 @@ class ControlsWidget(BaseWidget):
             self.application.window_controller.open_digital_grid_signal.emit(self.sip)
             return
 
-        self.sip_detail_window = SipDetailWindow(sip=self.sip)
-        self.sip_detail_window.show()
+        self.application.window_controller.open_window(self.sip, SipDetailWindow)
 
     def upload_button_clicked_handler(self) -> None:
         self.application.start_task(

@@ -7,6 +7,7 @@ from PySide6 import QtCore
 
 from src.controller.api_controller import APIController
 from src.controller.worker_controller import WorkerController
+
 from src.utils.constants import PROD_ENVIRONMENT_NAME, TI_ENVIRONMENT_NAME
 from src.utils.data_objects.series import Series
 from src.utils.worker_user.worker_user import WorkerUser

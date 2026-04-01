@@ -1,8 +1,11 @@
 from src.controller.api_controller import APIController
+
 from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.data_objects.digital.sip import SIP
 from src.utils.workers.worker import Worker
+
 from src.widget.central_widgets.digital.sip_detail_widget import SipDetailWidget
+
 from src.window.base_window import Window
 
 

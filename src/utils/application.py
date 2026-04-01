@@ -17,18 +17,21 @@ from src.controller.migration.bestandscontrole_controller import BestandsControl
 from src.controller.migration.sip_db_controller import MigrationSIPDBController
 from src.controller.window_controller import WindowController
 from src.controller.worker_controller import WorkerController
+
 from src.utils.constants import PROD_ENVIRONMENT_NAME, TI_ENVIRONMENT_NAME, UI_TEXT_ELEMENTS, determine_root_path
 from src.utils.data_objects.configuration import Configuration
 from src.utils.data_objects.series import Series
 from src.utils.data_objects.sip import SIP
 from src.utils.pyside_helper import Helper
 from src.utils.worker_user.analog.analog_retriever import AnalogRetriever
-from src.utils.worker_user.digital.sip_retriever import DigitalSIPRetriever
+from src.utils.worker_user.digital.digital_retriever import DigitalRetriever
 from src.utils.worker_user.migration.migration_retriever import MigrationRetriever
 from src.utils.worker_user.series_retriever import SeriesRetriever
 from src.utils.worker_user.sip_status_checker import SIPStatusChecker
 from src.utils.workers.worker import Worker
+
 from src.widget.dialog.warning_dialog import WarningDialog
+
 from src.window.base_window import Window
 
 
@@ -92,7 +95,7 @@ class Application(QtWidgets.QApplication):
         self.migration_sip_db_controller = MigrationSIPDBController()
         self.worker_controller = WorkerController()
         self.series_retriever = SeriesRetriever()
-        self.digital_sip_retriever = DigitalSIPRetriever()
+        self.digital_sip_retriever = DigitalRetriever()
         self.analog_sip_retriever = AnalogRetriever()
         self.migration_sip_retriever = MigrationRetriever()
         self.window_controller = WindowController()
@@ -107,6 +110,15 @@ class Application(QtWidgets.QApplication):
         self.load_sips()
 
         QtCore.QTimer.singleShot(0, self.reset_bestandscontrole_location)
+
+        if self.configuration.had_parse_error:
+            QtCore.QTimer.singleShot(
+                0,
+                lambda: self.warn_user(
+                    UI_ERROR_TEXT["configuration"]["parse_error"]["title"],
+                    UI_ERROR_TEXT["configuration"]["parse_error"]["text"],
+                ),
+            )
 
         if not self.configuration.active_environment.has_api_credentials():
             QtCore.QTimer.singleShot(
@@ -262,21 +274,37 @@ class Application(QtWidgets.QApplication):
         if isinstance(exception, IgnorableException):
             return
 
-        # NOTE: this refers to a dict in the UI_TEXT_ELEMENTS for one specific error
-        # We will later use this to get title/text
-        error_mapping = {
-            requests.exceptions.Timeout: UI_ERROR_TEXT["api"]["Timeout"],
-            requests.exceptions.HTTPError: UI_ERROR_TEXT["api"]["HTTPError"],
-            requests.exceptions.RequestException: UI_ERROR_TEXT["api"]["APIError"],
-        }
+        from src.controller.api_controller import APIAuthenticationError
 
-        title_and_text = error_mapping.get(exception)
+        if isinstance(exception, APIAuthenticationError):
+            title = UI_ERROR_TEXT["api"]["AuthenticationError"]["title"]
+            text = UI_ERROR_TEXT["api"]["AuthenticationError"]["text"].format(
+                environment_name=exception.environment_name
+            )
+
+            self.notify_user_signal.emit(title, text)
+            return
+
+        # NOTE: order matters - most specific types first, base classes last
+        error_mapping = [
+            (requests.exceptions.Timeout, UI_ERROR_TEXT["api"]["Timeout"]),
+            (requests.exceptions.HTTPError, UI_ERROR_TEXT["api"]["HTTPError"]),
+            (requests.exceptions.RequestException, UI_ERROR_TEXT["api"]["APIError"]),
+        ]
+
+        title_and_text = None
+
+        for exc_type, text_entry in error_mapping:
+            if isinstance(exception, exc_type):
+                title_and_text = text_entry
+                break
 
         if title_and_text is None:
             title = UI_ERROR_TEXT["unexpected_error"]["title"]
             text = UI_ERROR_TEXT["unexpected_error"]["text"].format(
                 exception_name=type(exception).__name__, exception=exception
             )
+
             traceback.print_exception(type(exception), exception, exception.__traceback__)
         else:
             title = title_and_text["title"]

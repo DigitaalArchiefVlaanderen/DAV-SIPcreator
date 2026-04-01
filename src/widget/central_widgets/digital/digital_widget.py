@@ -6,22 +6,25 @@ It also contains some controls specifically for this view.
 import os
 from collections.abc import Iterable
 
+from natsort import natsort_keygen
 from PySide6 import QtCore, QtWidgets
 
 from src.utils.base_object import ApplicationMixin
 from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.data_objects.digital.sip import SIP
 from src.utils.data_objects.sip_status import SIPStatus
-from src.utils.helper import count_files_from_dirs
+from src.utils.helper import count_files_from_dirs, get_attr_deep
+
 from src.widget.central_widgets.central_widget import CentralWidget
-from src.widget.central_widgets.digital.digital_grid_view import DigitalGridView
 from src.widget.components.digital.dossier_widget import DossierWidget
 from src.widget.components.digital.sip_listitem_widget import SipListitemWidget
 from src.widget.components.searchable_list_widget import (
     SearchableListWidgetWithDropdown,
     SearchableListWidgetWithSelection,
 )
+
 from src.window.base_window import Window
+from src.window.digital.sip_detail_window import SipDetailWindow
 from src.window.grid_window import GridWindow
 
 
@@ -57,8 +60,11 @@ class DigitalWidget(CentralWidget):
             remove_item_text=self.UI_TEXT["dossier_list"]["remove_dossiers"],
         )
 
+        _natsort_key = natsort_keygen()
         self.sip_list_widget = SearchableListWidgetWithDropdown(
-            search_field="sip.name", dropdown_search_field="sip.status.status_label"
+            search_field="sip.name",
+            dropdown_search_field="sip.status.status_label",
+            sort_key=lambda w: (get_attr_deep(w, "sip.status.priority"), _natsort_key(get_attr_deep(w, "sip.name"))),
         )
         self.sip_list_widget.setup_ui(
             dropdown_options=[
@@ -160,7 +166,7 @@ class DigitalWidget(CentralWidget):
 
         self.application.add_sip(sip)
 
-        self.sip_detail_window = self.application.window_controller.open_sip_detail_window(sip=sip)
+        self.application.window_controller.open_window(sip, SipDetailWindow)
 
         self.dossier_list_widget.remove_selected_handler()
 
@@ -168,15 +174,6 @@ class DigitalWidget(CentralWidget):
 
     def open_grid_handler(self, sip: SIP) -> None:
         from src.controller.excel_controller import ExcelReadError
-
-        # If already open, bring to foreground
-        wc = self.application.window_controller
-        existing = wc.trackable_windows.get(sip, {}).get(GridWindow)
-        if existing is not None:
-            existing.show()
-            existing.raise_()
-            existing.activateWindow()
-            return
 
         if not self.application.digital_sip_db_controller.db_exists(sip.db_name):
             try:
@@ -203,9 +200,7 @@ class DigitalWidget(CentralWidget):
         if not sip.grid_data.has_data:
             sip.grid_data.data_as_df = self.application.digital_sip_db_controller.read_sip_data(sip.db_name)
 
-        grid_window = wc.open_grid_window(sip=sip)
-        grid_view = DigitalGridView(sip=sip)
-        grid_window.setCentralWidget(grid_view)
+        self.application.window_controller.open_window(sip, GridWindow)
 
 
 # Controls
@@ -263,8 +258,8 @@ class AddDossiersButton(QtWidgets.QPushButton, ApplicationMixin):
 
         if estimated_seconds > 2:
             self.application.notify_user_signal.emit(
-                self.UI_TEXT["actions_takes_long_warning"]["title"],
-                self.UI_TEXT["actions_takes_long_warning"]["text"].format(estimated_seconds=estimated_seconds),
+                self.UI_TEXT["action_takes_long_warning"]["title"],
+                self.UI_TEXT["action_takes_long_warning"]["text"].format(estimated_seconds=estimated_seconds),
             )
 
         self.interaction_finished_signal.emit(dossier_widgets)
