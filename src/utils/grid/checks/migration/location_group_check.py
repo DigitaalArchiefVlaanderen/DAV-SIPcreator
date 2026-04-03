@@ -23,7 +23,8 @@ def _get_location_groups(columns: list[str]) -> list[list[str]]:
     suffix = 1
 
     while True:
-        suffixed_group = [f"{col}_{suffix}" for col in LOCATION_COLUMNS]
+        spaces = " " * suffix
+        suffixed_group = [f"{col}{spaces}" for col in LOCATION_COLUMNS]
         found = [col for col in suffixed_group if col in columns]
 
         if len(found) != 4:
@@ -33,6 +34,41 @@ def _get_location_groups(columns: list[str]) -> list[list[str]]:
         suffix += 1
 
     return groups
+
+
+def validate_location_columns(columns: list[str]) -> str | None:
+    """Validate that location columns appear in complete sets and correct order.
+
+    Returns an error message if invalid, None if valid.
+    """
+    suffix = 0
+
+    while True:
+        spaces = " " * suffix if suffix > 0 else ""
+        group = [f"{col}{spaces}" for col in LOCATION_COLUMNS]
+        found = [col for col in group if col in columns]
+
+        if len(found) == 0:
+            break
+
+        if len(found) != 4:
+            missing = [col.rstrip() for col in group if col not in columns]
+            return (
+                f"Onvolledige set locatie kolommen gevonden. "
+                f"Ontbrekend: {', '.join(missing)}"
+            )
+
+        # Verify order: the 4 columns must appear in the correct relative order
+        indices = [columns.index(col) for col in group]
+        if indices != sorted(indices) or any(indices[i + 1] - indices[i] != 1 for i in range(3)):
+            return (
+                "Locatie kolommen staan niet in de juiste volgorde. "
+                f"Verwachte volgorde: {', '.join(col.rstrip() for col in LOCATION_COLUMNS)}"
+            )
+
+        suffix += 1
+
+    return None
 
 
 class LocationGroupCheck(BaseCheck):

@@ -417,6 +417,11 @@
                 "text": "Het bestand '{path}' kon niet gelezen worden. Controleer of het een geldig Excel (.xlsx) bestand is."
             }
         },
+        "migration": {
+            "location_validation_error": {
+                "title": "Overdrachtslijst kan niet geïmporteerd worden"
+            }
+        },
         "file_system": {
             "path_not_found_error": {
                 "title": "Pad niet gevonden",

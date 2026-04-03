@@ -60,7 +60,7 @@ class ExcelController:
                 wb.close()
                 return pd.DataFrame()
 
-            # Deduplicate column names (like pandas does with .1, .2 suffixes)
+            # Deduplicate column names using trailing spaces
             raw_headers = [cell.value for cell in rows[0]]
 
             # Strip trailing empty columns (phantom columns from Excel formatting)
@@ -74,7 +74,7 @@ class ExcelController:
                 h_str = str(h) if h is not None else ""
                 if h_str in seen:
                     seen[h_str] += 1
-                    headers.append(f"{h_str}.{seen[h_str]}")
+                    headers.append(h_str + " " * seen[h_str])
                 else:
                     seen[h_str] = 0
                     headers.append(h_str)

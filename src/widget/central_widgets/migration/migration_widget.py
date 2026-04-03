@@ -10,6 +10,7 @@ from src.utils.constants import KLANT_ROLE, UI_TEXT_ELEMENTS
 from src.utils.data_objects.grid_data import GridData
 from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.sip_status import SIPStatus
+from src.utils.grid.checks.migration.location_group_check import validate_location_columns
 from src.utils.helper import get_attr_deep
 
 from src.widget.central_widgets.central_widget import CentralWidget
@@ -138,6 +139,15 @@ class MigrationWidget(CentralWidget):
         sip.overdrachtslijst_name = overdrachtslijst_name
 
         df = ExcelController.read_excel(file_path)
+
+        location_error = validate_location_columns(list(df.columns))
+        if location_error:
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["migration"]["location_validation_error"]["title"],
+                location_error,
+            )
+            return
+
         sip.main_grid_data = GridData()
         sip.main_grid_data.data_as_df = df.fillna("")
         sip.grid_data = sip.main_grid_data

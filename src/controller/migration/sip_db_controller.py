@@ -252,6 +252,7 @@ class MigrationSIPDBController(BaseSIPDBController):
                     return False
 
             self._migrate_tables_uploaded_to_status(conn)
+            self._migrate_location_column_suffixes(conn)
 
             return True
 
@@ -300,6 +301,33 @@ class MigrationSIPDBController(BaseSIPDBController):
                     ELSE '{SIPStatus.IN_PROGRESS.name}'
                 END
             """)
+
+    @staticmethod
+    def _migrate_location_column_suffixes(conn: sql.Connection) -> None:
+        """Rename _N suffixed location columns to trailing-space convention in all tables."""
+        from src.utils.grid.checks.migration.location_group_check import LOCATION_COLUMNS
+
+        all_tables = [
+            name for name, *_ in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
+        ]
+
+        for table_name in all_tables:
+            table_columns = [col_name for _, col_name, *_ in conn.execute(f"PRAGMA table_info([{table_name}]);")]
+            renames = {}
+
+            for col in table_columns:
+                for base in LOCATION_COLUMNS:
+                    if col.startswith(f"{base}_") and col[len(base) + 1 :].isdigit():
+                        suffix_num = int(col[len(base) + 1 :])
+                        new_name = base + " " * suffix_num
+                        renames[col] = new_name
+                        break
+
+            if renames:
+                df = pd.read_sql(f"SELECT * FROM [{table_name}]", conn, dtype=str).fillna("")
+                df = df.rename(columns=renames)
+                conn.execute(f"DROP TABLE [{table_name}]")
+                df.to_sql(table_name, conn, index=False, dtype="text")
 
     def transition_old_db(self, old_db_file_name: str) -> str | None:
         sip, series_entries = self.old_sip_db_controller.read_sip_db(old_db_file_name)

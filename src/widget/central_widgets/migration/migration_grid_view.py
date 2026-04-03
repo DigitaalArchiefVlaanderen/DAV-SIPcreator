@@ -156,12 +156,6 @@ class MigrationGridView(BaseGridView):
             if base_col in self.NON_DUPLICATABLE_COLUMNS:
                 continue
 
-            if re.match(r".+_\d+$", base_col):
-                base_col = re.sub(r"_\d+$", "", base_col)
-
-                if base_col in self.NON_DUPLICATABLE_COLUMNS:
-                    continue
-
             if base_col not in seen:
                 self.column_dropdown.addItem(base_col)
                 seen.add(base_col)
@@ -184,7 +178,8 @@ class MigrationGridView(BaseGridView):
 
         suffix = len(groups)
 
-        new_columns = [f"{base}_{suffix}" for base in LOCATION_COLUMNS]
+        spaces = " " * suffix
+        new_columns = [f"{base}{spaces}" for base in LOCATION_COLUMNS]
 
         insert_pos = columns.index(last_verpakkingstype) + 1
 
@@ -219,7 +214,7 @@ class MigrationGridView(BaseGridView):
 
     def _update_location_column_visibility(self, hide: bool) -> None:
         for i, col_name in enumerate(self.table_model.raw_data.columns):
-            base_col = re.sub(r"_\d+$", "", col_name.rstrip())
+            base_col = col_name.rstrip()
 
             if base_col in LOCATION_COLUMN_BASES:
                 if hide:

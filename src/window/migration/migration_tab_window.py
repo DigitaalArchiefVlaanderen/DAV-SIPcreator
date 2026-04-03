@@ -143,13 +143,13 @@ def map_main_to_series(
 
     # Auto-map: carry over columns from the Overdrachtslijst that match template columns.
     # This can overwrite earlier mappings (e.g. Naam, Origineel Doosnummer).
-    # Read-only columns (Type, DossierRef, Analoog?) are never overwritten.
+    # Read-only columns (Type, DossierRef, Analoog?) and their duplicates are never overwritten.
     # A column is only mapped if it has at least one non-empty value across the entire
     # Overdrachtslijst (not just the selected rows).
     auto_mapped_columns: set[str] = set()
     if template_columns:
         for col in template_columns:
-            if col in AUTO_MAP_BLOCKED_COLUMNS or col not in selected_data.columns:
+            if col.rstrip() in AUTO_MAP_BLOCKED_COLUMNS or col not in selected_data.columns:
                 continue
 
             if not all_data[col].astype(str).str.strip().any():
@@ -158,6 +158,52 @@ def map_main_to_series(
             source_values = selected_data[col].values.tolist()
             mapped_data[col] = source_values
             auto_mapped_columns.add(col)
+
+    # Auto-map duplicate columns from the Overdrachtslijst that are NOT in the template
+    # but whose base column IS in the template. Only include if the selected rows have data.
+    # Location column duplicates are handled as full sets (all 4 or none).
+    extra_duplicate_columns: list[str] = []
+    extra_location_groups: list[list[str]] = []
+    if template_columns:
+        template_set = set(template_columns)
+
+        # First, find complete location column duplicate sets
+        from src.utils.grid.checks.migration.location_group_check import LOCATION_COLUMNS
+
+        suffix = 1
+        while True:
+            spaces = " " * suffix
+            group = [f"{base}{spaces}" for base in LOCATION_COLUMNS]
+            present = [col for col in group if col in selected_data.columns]
+            if not present:
+                break
+            # Check if any of the 4 columns have data in the selected rows
+            has_data = any(
+                selected_data[col].astype(str).str.strip().any()
+                for col in present
+            )
+            if has_data and len(present) == 4:
+                for col in group:
+                    mapped_data[col] = selected_data[col].values.tolist()
+                    auto_mapped_columns.add(col)
+                extra_location_groups.append(group)
+            suffix += 1
+
+        # Then, find regular (non-location) duplicate columns
+        location_base_set = set(LOCATION_COLUMNS)
+        for col in selected_data.columns:
+            if col in template_set or col in mapped_data:
+                continue
+            if col.rstrip() in AUTO_MAP_BLOCKED_COLUMNS:
+                continue
+            base_col = col.rstrip()
+            if base_col in location_base_set:
+                continue  # Handled above as location group
+            if base_col in template_set and col != base_col:
+                if selected_data[col].astype(str).str.strip().any():
+                    mapped_data[col] = selected_data[col].values.tolist()
+                    auto_mapped_columns.add(col)
+                    extra_duplicate_columns.append(col)
 
     # Derive Type and DossierRef AFTER auto-mapping, so they use the final
     # Path in SIP values (which may have been auto-mapped from the source Excel).
@@ -170,9 +216,23 @@ def map_main_to_series(
     ordered_columns = [MIGRATION_MAIN_ID_COLUMN]
 
     if template_columns:
+        location_base_set = set(LOCATION_COLUMNS) if extra_location_groups else set()
+
         for col in template_columns:
             if col not in ordered_columns and col != DBColumnName.URI_SERIEREGISTER.value:
                 ordered_columns.append(col)
+                # Insert regular duplicate columns right after their base column
+                if col.rstrip() not in location_base_set:
+                    for dup_col in extra_duplicate_columns:
+                        if dup_col.rstrip() == col.rstrip() and dup_col not in ordered_columns:
+                            ordered_columns.append(dup_col)
+
+            # After the last location column (Verpakkingstype), insert all location groups
+            if col == ColumnName.VERPAKKINGSTYPE.value:
+                for group in extra_location_groups:
+                    for loc_col in group:
+                        if loc_col not in ordered_columns:
+                            ordered_columns.append(loc_col)
 
         if DBColumnName.URI_SERIEREGISTER.value in template_columns:
             ordered_columns.append(DBColumnName.URI_SERIEREGISTER.value)
@@ -420,22 +480,7 @@ class MigrationTabWindow(Window):
         if template_df is None:
             return None
 
-        seen: dict[str, int] = {}
-        columns = []
-
-        for col in template_df.columns:
-            base_col = re.sub(r"\.\d+$", "", col)
-
-            if base_col in seen:
-                seen[base_col] += 1
-                col = base_col + " " * seen[base_col]
-            else:
-                seen[base_col] = 0
-                col = base_col
-
-            columns.append(col)
-
-        return columns
+        return list(template_df.columns)
 
     def _set_controls_busy(self, busy: bool) -> None:
         self.main_tab_view.assign_button.setEnabled(not busy)
@@ -525,7 +570,15 @@ class MigrationTabWindow(Window):
             existing_grid_data = self.sip.series_grid_data[table_name]
             existing_df = existing_grid_data.data_as_df
 
-            combined_df = pd.concat([existing_df, series_df], ignore_index=True)
+            # Use series_df column order (which has correct duplicate column placement)
+            # and include any existing columns not in series_df
+            all_columns = list(series_df.columns)
+            for col in existing_df.columns:
+                if col not in all_columns:
+                    all_columns.append(col)
+
+            combined_df = pd.concat([existing_df, series_df], ignore_index=True).fillna("")
+            combined_df = combined_df[all_columns]
             existing_grid_data.data_as_df = combined_df
 
             grid_view = self.series_tabs[table_name]
@@ -563,7 +616,7 @@ class MigrationTabWindow(Window):
         for row_idx in source_rows:
             old_series = str(main_df.iat[row_idx, name_col]).strip()
 
-            if not old_series or old_series == "nan" or old_series == new_table_name:
+            if not old_series or old_series == "nan":
                 continue
 
             if old_series not in main_ids_by_old_series:
