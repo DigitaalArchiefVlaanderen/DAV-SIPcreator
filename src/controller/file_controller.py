@@ -163,8 +163,6 @@ class FileController(BaseObject):
                 f.write(SIDECAR_TEMPLATE.format(md5=md5))
 
         except OSError as e:
-            from src.utils.constants import UI_TEXT_ELEMENTS
-
             self.application.notify_user_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["file_system"]["disk_error"]["title"],
                 UI_TEXT_ELEMENTS["errors"]["file_system"]["disk_error"]["text"].format(error=e),

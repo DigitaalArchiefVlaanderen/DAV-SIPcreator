@@ -51,7 +51,6 @@ class SeriesRetriever(WorkerUser):
 
         environment = self.application.configuration.get_environment(environment_name)
 
-        # TODO: proper error
         if not environment.has_api_credentials():
             return
 

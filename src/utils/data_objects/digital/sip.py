@@ -18,7 +18,7 @@ import pandas as pd
 
 from src.controller.excel_controller import ExcelController
 
-from src.utils.constants import FILE_REGEXES_TO_IGNORE, ColumnName, RowType
+from src.utils.constants import FILE_REGEXES_TO_IGNORE, UI_TEXT_ELEMENTS, ColumnName, RowType
 from src.utils.data_objects.sip import SIP as CommonSIP
 from src.utils.pyside_helper import Helper
 
@@ -161,7 +161,15 @@ class SIP(CommonSIP):
         return folder_structure
 
     def set_data_from_dossiers(self) -> None:
-        df = pd.DataFrame(columns=self.read_import_template().columns)
+        import_template = self.read_import_template()
+        if import_template is None:
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["sip"]["no_import_template_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["sip"]["no_import_template_error"]["text"],
+            )
+            return
+
+        df = pd.DataFrame(columns=import_template.columns)
 
         folder_structure = self._get_folder_structure()
 

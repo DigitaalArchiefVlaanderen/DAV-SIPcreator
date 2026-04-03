@@ -50,11 +50,7 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
         return {row for row in range(self.raw_data.shape[0]) if self._is_row_empty(row)}
 
     def _is_row_empty(self, row: int) -> bool:
-        for col in range(self.raw_data.shape[1]):
-            if str(self.raw_data.iat[row, col]) != "":
-                return False
-
-        return True
+        return self._background_is_row_empty(self.raw_data, row)
 
     def count_data_rows(self) -> int:
         return sum(1 for row in range(self.raw_data.shape[0]) if not self._is_row_empty(row))
@@ -259,27 +255,10 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
         if ColumnName.TYPE.value not in self.raw_data.columns:
             return
 
+        self._background_bulk_auto_fill(self.raw_data, [(row, value)])
+
         type_col = self.raw_data.columns.get_loc(ColumnName.TYPE.value)
-        dossier_ref_col = self.raw_data.columns.get_loc(ColumnName.DOSSIER_REF.value)
         analoog_col = self.raw_data.columns.get_loc(ColumnName.ANALOOG.value)
-
-        if value:
-            new_type = RowType.STUK if "/" in value else RowType.DOSSIER
-            new_ref = value.split("/", 1)[0]
-            new_analoog = ANALOOG_DEFAULT_VALUE
-        else:
-            new_type = ""
-            new_ref = ""
-            new_analoog = ""
-
-        self.raw_data.iat[row, type_col] = new_type
-        self.raw_data.iat[row, dossier_ref_col] = new_ref
-        self.raw_data.iat[row, analoog_col] = new_analoog
-
-        if ColumnName.NAAM.value in self.raw_data.columns:
-            naam_col = self.raw_data.columns.get_loc(ColumnName.NAAM.value)
-            self.raw_data.iat[row, naam_col] = value
-
         self.dataChanged.emit(
             self.index(row, type_col),
             self.index(row, analoog_col),

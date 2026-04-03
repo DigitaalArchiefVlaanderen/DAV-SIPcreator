@@ -10,7 +10,7 @@ from natsort import natsort_keygen
 from PySide6 import QtCore, QtWidgets
 
 from src.utils.base_object import ApplicationMixin
-from src.utils.constants import UI_TEXT_ELEMENTS
+from src.utils.constants import UI_TEXT_ELEMENTS, BusinessRules
 from src.utils.data_objects.digital.sip import SIP
 from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.helper import count_files_from_dirs, get_attr_deep
@@ -286,8 +286,7 @@ class StartSIPButton(QtWidgets.QPushButton, ApplicationMixin):
             )
             return
 
-        # NOTE: maximum amount of lines is 9999 + header
-        if amount_of_files > 9999:
+        if amount_of_files > BusinessRules.MAX_ROWS_PER_SERIES:
             self.application.notify_user_signal.emit(
                 self.UI_TEXT["too_many_files_warning"]["title"],
                 self.UI_TEXT["too_many_files_warning"]["text"].format(amount_of_files=amount_of_files),

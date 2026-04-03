@@ -79,6 +79,18 @@ class AnalogGridCreationDialog(QtWidgets.QWidget, ApplicationMixin):
         if not sip_name:
             return
 
+        from src.utils.data_objects.sip import SIP
+
+        invalid_chars = SIP.INVALID_NAME_CHARACTERS & set(sip_name)
+        if invalid_chars:
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["sip_name"]["invalid_characters_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["sip_name"]["invalid_characters_error"]["text"].format(
+                    characters=" ".join(sorted(invalid_chars))
+                ),
+            )
+            return
+
         series_id = self.series_combobox.currentData()
 
         if series_id is None:

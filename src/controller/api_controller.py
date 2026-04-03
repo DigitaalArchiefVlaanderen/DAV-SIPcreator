@@ -195,7 +195,6 @@ class APIController:
 
         return file_location
 
-    # TODO: do in background
     @staticmethod
     def get_sip_id(sip: SIP) -> str:
         environment = sip.environment

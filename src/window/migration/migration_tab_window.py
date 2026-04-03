@@ -47,7 +47,142 @@ FIXED_VALUE_COLUMNS = {
     ColumnName.ANALOOG.value: ANALOOG_DEFAULT_VALUE,
 }
 
+AUTO_MAP_BLOCKED_COLUMNS = {
+    ColumnName.TYPE.value,
+    ColumnName.DOSSIER_REF.value,
+    ColumnName.ANALOOG.value,
+}
+
 URI_SERIEREGISTER_COLUMN = DBColumnName.URI_SERIEREGISTER.value
+
+
+def _format_origineel_doosnummer(mapped_data: dict[str, list], overdrachtslijst_name: str) -> None:
+    col = ColumnName.ORIGINEEL_DOOSNUMMER.value
+
+    if col not in mapped_data:
+        return
+
+    for i, value in enumerate(mapped_data[col]):
+        raw = str(value).strip()
+
+        if not raw or raw == "nan":
+            mapped_data[col][i] = ""
+            continue
+
+        if re.match(r"^\d+$", raw):
+            raw = raw.zfill(4)
+
+        mapped_data[col][i] = f"{raw}/{overdrachtslijst_name}"
+
+
+def _derive_type_and_dossier_ref(mapped_data: dict[str, list], row_count: int) -> None:
+    path_col = ColumnName.PATH_IN_SIP.value
+
+    if path_col not in mapped_data:
+        return
+
+    types = []
+    refs = []
+
+    for value in mapped_data[path_col]:
+        value = str(value).strip()
+
+        if not value or value == "nan":
+            types.append("")
+            refs.append("")
+        elif "/" in value:
+            types.append(RowType.STUK)
+            refs.append(value.split("/", 1)[0])
+        else:
+            types.append(RowType.DOSSIER)
+            refs.append(value)
+
+    mapped_data[ColumnName.TYPE.value] = types
+    mapped_data[ColumnName.DOSSIER_REF.value] = refs
+
+
+def _derive_naam_from_path(mapped_data: dict[str, list]) -> None:
+    naam_col = ColumnName.NAAM.value
+    path_col = ColumnName.PATH_IN_SIP.value
+
+    if naam_col not in mapped_data or path_col not in mapped_data:
+        return
+
+    for i, path in enumerate(mapped_data[path_col]):
+        path = str(path).strip()
+        if "/" in path:
+            mapped_data[naam_col][i] = path.rsplit("/", 1)[1]
+
+
+def map_main_to_series(
+    selected_data: pd.DataFrame,
+    template_columns: list[str] | None = None,
+    overdrachtslijst_name: str = "",
+    all_data: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    if all_data is None:
+        all_data = selected_data
+    mapped_data: dict[str, list] = {}
+    row_count = len(selected_data)
+
+    mapped_data[MIGRATION_MAIN_ID_COLUMN] = selected_data.index.astype(str).tolist()
+
+    for main_col, series_cols in MAIN_TO_SERIES_COLUMN_MAPPING.items():
+        if main_col in selected_data.columns:
+            values = selected_data[main_col].values.tolist()
+        else:
+            values = [""] * row_count
+
+        for series_col in series_cols:
+            mapped_data[series_col] = list(values)
+
+    for col_name, fixed_value in FIXED_VALUE_COLUMNS.items():
+        mapped_data[col_name] = [fixed_value] * row_count
+
+    _format_origineel_doosnummer(mapped_data, overdrachtslijst_name)
+
+    # Auto-map: carry over columns from the Overdrachtslijst that match template columns.
+    # This can overwrite earlier mappings (e.g. Naam, Origineel Doosnummer).
+    # Read-only columns (Type, DossierRef, Analoog?) are never overwritten.
+    # A column is only mapped if it has at least one non-empty value across the entire
+    # Overdrachtslijst (not just the selected rows).
+    auto_mapped_columns: set[str] = set()
+    if template_columns:
+        for col in template_columns:
+            if col in AUTO_MAP_BLOCKED_COLUMNS or col not in selected_data.columns:
+                continue
+
+            if not all_data[col].astype(str).str.strip().any():
+                continue
+
+            source_values = selected_data[col].values.tolist()
+            mapped_data[col] = source_values
+            auto_mapped_columns.add(col)
+
+    # Derive Type and DossierRef AFTER auto-mapping, so they use the final
+    # Path in SIP values (which may have been auto-mapped from the source Excel).
+    _derive_type_and_dossier_ref(mapped_data, row_count)
+
+    # Only derive Naam from Path in SIP if it wasn't explicitly auto-mapped
+    if ColumnName.NAAM.value not in auto_mapped_columns:
+        _derive_naam_from_path(mapped_data)
+
+    ordered_columns = [MIGRATION_MAIN_ID_COLUMN]
+
+    if template_columns:
+        for col in template_columns:
+            if col not in ordered_columns and col != DBColumnName.URI_SERIEREGISTER.value:
+                ordered_columns.append(col)
+
+        if DBColumnName.URI_SERIEREGISTER.value in template_columns:
+            ordered_columns.append(DBColumnName.URI_SERIEREGISTER.value)
+
+    series_df = pd.DataFrame()
+
+    for col in ordered_columns:
+        series_df[col] = mapped_data.get(col, "")
+
+    return series_df.fillna("").reset_index(drop=True)
 
 
 class MigrationTabWindow(Window):
@@ -70,6 +205,7 @@ class MigrationTabWindow(Window):
         self.setCentralWidget(self.tab_widget)
 
         self._ensure_series_name_column()
+        self._auto_populate_series_names()
 
         self.sip.grid_data = self.sip.main_grid_data
         self.main_tab_view = MigrationMainTabView(sip=self.sip)
@@ -81,6 +217,7 @@ class MigrationTabWindow(Window):
         self.sip.name_changed_signal.connect(lambda: self.setWindowTitle(self.sip.name))
         self.application.application_environment_changed_signal.connect(self.close)
         self.application.application_type_changed_signal.connect(self._on_type_changed)
+        self.application.series_updated_signal.connect(self._on_series_updated)
 
     def _ensure_series_name_column(self) -> None:
         df = self.sip.main_grid_data.data_as_df
@@ -93,9 +230,57 @@ class MigrationTabWindow(Window):
         if URI_SERIEREGISTER_COLUMN not in df.columns:
             df[URI_SERIEREGISTER_COLUMN] = ""
             changed = True
+        elif list(df.columns)[-1] != URI_SERIEREGISTER_COLUMN:
+            # Move URI Serieregister to the last column
+            uri_data = df.pop(URI_SERIEREGISTER_COLUMN)
+            df[URI_SERIEREGISTER_COLUMN] = uri_data
+            changed = True
 
         if changed:
             self.sip.main_grid_data.data_as_df = df
+
+    def _on_series_updated(self) -> None:
+        if self._auto_populate_series_names():
+            self.main_tab_view.table_model.beginResetModel()
+            self.main_tab_view.table_model.raw_data = self.sip.main_grid_data.data_as_df
+            self.main_tab_view.table_model.endResetModel()
+
+            existing_table_names = set(self.series_tabs.keys())
+            self._create_missing_series_tabs(existing_table_names)
+
+    def _auto_populate_series_names(self) -> bool:
+        df = self.sip.main_grid_data.data_as_df
+
+        if URI_SERIEREGISTER_COLUMN not in df.columns or SERIES_NAME_COLUMN not in df.columns:
+            return False
+
+        env_name = self.application.configuration.active_environment_name
+        series_list = self.application.sneaky_series().get(env_name, [])
+        base_uri = self.sip.environment.get_serie_register_uri()
+        uri_to_name = {f"{base_uri}/{s._id}": s.get_full_name() for s in series_list}
+
+        uri_col = df.columns.get_loc(URI_SERIEREGISTER_COLUMN)
+        name_col = df.columns.get_loc(SERIES_NAME_COLUMN)
+        changed = False
+
+        for row in range(df.shape[0]):
+            uri = str(df.iat[row, uri_col]).strip()
+            series_name = str(df.iat[row, name_col]).strip()
+
+            if not uri or uri == "nan":
+                continue
+
+            if series_name and series_name != "nan":
+                continue
+
+            if uri in uri_to_name:
+                df.iat[row, name_col] = uri_to_name[uri]
+                changed = True
+
+        if changed:
+            self.sip.main_grid_data.data_as_df = df
+
+        return changed
 
     def _on_type_changed(self) -> None:
         for grid_view in self.series_tabs.values():
@@ -419,99 +604,12 @@ class MigrationTabWindow(Window):
     def _map_main_to_series(
         self, selected_data: pd.DataFrame, template_columns: list[str] | None = None
     ) -> pd.DataFrame:
-        mapped_data: dict[str, list] = {}
-        row_count = len(selected_data)
-
-        mapped_data[MIGRATION_MAIN_ID_COLUMN] = selected_data.index.astype(str).tolist()
-
-        for main_col, series_cols in MAIN_TO_SERIES_COLUMN_MAPPING.items():
-            if main_col in selected_data.columns:
-                values = selected_data[main_col].values.tolist()
-            else:
-                values = [""] * row_count
-
-            for series_col in series_cols:
-                mapped_data[series_col] = list(values)
-
-        for col_name, fixed_value in FIXED_VALUE_COLUMNS.items():
-            mapped_data[col_name] = [fixed_value] * row_count
-
-        self._format_origineel_doosnummer(mapped_data)
-        self._derive_type_and_dossier_ref(mapped_data, row_count)
-        self._derive_naam_from_path(mapped_data)
-
-        ordered_columns = [MIGRATION_MAIN_ID_COLUMN]
-
-        if template_columns:
-            for col in template_columns:
-                if col not in ordered_columns:
-                    ordered_columns.append(col)
-
-        series_df = pd.DataFrame()
-
-        for col in ordered_columns:
-            series_df[col] = mapped_data.get(col, "")
-
-        return series_df.fillna("").reset_index(drop=True)
-
-    def _format_origineel_doosnummer(self, mapped_data: dict[str, list]) -> None:
-        col = ColumnName.ORIGINEEL_DOOSNUMMER.value
-
-        if col not in mapped_data:
-            return
-
-        overdrachtslijst_name = self.sip.overdrachtslijst_name
-
-        for i, value in enumerate(mapped_data[col]):
-            raw = str(value).strip()
-
-            if not raw or raw == "nan":
-                mapped_data[col][i] = ""
-                continue
-
-            if re.match(r"^\d+$", raw):
-                raw = raw.zfill(4)
-
-            mapped_data[col][i] = f"{raw}/{overdrachtslijst_name}"
-
-    @staticmethod
-    def _derive_type_and_dossier_ref(mapped_data: dict[str, list], row_count: int) -> None:
-        path_col = ColumnName.PATH_IN_SIP.value
-
-        if path_col not in mapped_data:
-            return
-
-        types = []
-        refs = []
-
-        for value in mapped_data[path_col]:
-            value = str(value).strip()
-
-            if not value or value == "nan":
-                types.append("")
-                refs.append("")
-            elif "/" in value:
-                types.append(RowType.STUK)
-                refs.append(value.split("/", 1)[0])
-            else:
-                types.append(RowType.DOSSIER)
-                refs.append(value)
-
-        mapped_data[ColumnName.TYPE.value] = types
-        mapped_data[ColumnName.DOSSIER_REF.value] = refs
-
-    @staticmethod
-    def _derive_naam_from_path(mapped_data: dict[str, list]) -> None:
-        naam_col = ColumnName.NAAM.value
-        path_col = ColumnName.PATH_IN_SIP.value
-
-        if naam_col not in mapped_data or path_col not in mapped_data:
-            return
-
-        for i, path in enumerate(mapped_data[path_col]):
-            path = str(path).strip()
-            if "/" in path:
-                mapped_data[naam_col][i] = path.rsplit("/", 1)[1]
+        return map_main_to_series(
+            selected_data,
+            template_columns,
+            self.sip.overdrachtslijst_name,
+            all_data=self.sip.main_grid_data.data_as_df,
+        )
 
     def update_global_create_sip_button(self) -> None:
         all_valid = (
@@ -567,7 +665,7 @@ class MigrationTabWindow(Window):
         def background_create_sips():
             self.application.configuration.create_locations()
             configuration = self.application.configuration
-            ol_name = self.sip.overdrachtslijst_name[:185]
+            ol_name = self.sip.overdrachtslijst_name[:BusinessRules.SIP_TITLE_MAX_LENGTH]
 
             for _, series_id, df in series_data:
                 import_template_loc = APIController.get_import_template(

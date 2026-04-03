@@ -387,6 +387,10 @@
             "duplicate_name_error": {
                 "title": "Dubbele SIP naam",
                 "text": "Er bestaat al een SIP met de naam '{name}'. Kies een andere naam."
+            },
+            "no_import_template_error": {
+                "title": "Importsjabloon ontbreekt",
+                "text": "Er is geen importsjabloon beschikbaar. Download eerst een importsjabloon."
             }
         },
         "upload": {
@@ -507,6 +511,7 @@
         },
         "migration": {
             "location_group_incomplete": "Alle locatie kolommen in een groep moeten ingevuld zijn",
+            "location_group_required": "De eerste set locatie kolommen is verplicht",
             "path_in_sip_slash_error": "Path in SIP mag geen '/' bevatten"
         },
         "analog": {

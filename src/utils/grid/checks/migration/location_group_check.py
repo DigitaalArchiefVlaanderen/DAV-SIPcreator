@@ -46,25 +46,29 @@ class LocationGroupCheck(BaseCheck):
         results: list[BulkResult] = []
         rows = range(changed_range.row_start, changed_range.row_end + 1)
 
-        for group in groups:
+        for group_index, group in enumerate(groups):
             group_col_indices = [columns.index(c) for c in group]
+            is_first_group = group_index == 0
 
             for row in rows:
                 values = [str(raw_data.iat[row, c]) for c in group_col_indices]
                 has_any = any(v.strip() for v in values)
                 has_all = all(v.strip() for v in values)
 
-                if has_any and not has_all:
+                if is_first_group:
+                    # First group: all 4 columns are always required
+                    if not has_all:
+                        for i, c in enumerate(group_col_indices):
+                            if not values[i].strip():
+                                results.append(
+                                    (row, c, None, UI_TEXT["location_group_required"], None)
+                                )
+                elif has_any and not has_all:
+                    # Subsequent groups: all-or-nothing
                     for i, c in enumerate(group_col_indices):
                         if not values[i].strip():
                             results.append(
-                                (
-                                    row,
-                                    c,
-                                    None,
-                                    UI_TEXT["location_group_incomplete"],
-                                    None,
-                                )
+                                (row, c, None, UI_TEXT["location_group_incomplete"], None)
                             )
 
         return results

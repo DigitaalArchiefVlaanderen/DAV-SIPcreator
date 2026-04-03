@@ -39,7 +39,7 @@ class MigrationMainTabView(BaseWidget):
 
         self.table_view = GridTableView()
         self.table_view.setModel(self.proxy_model)
-        self.table_view.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table_view.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectItems)
 
         self.series_dropdown = QtWidgets.QComboBox()
         self.series_dropdown.setEditable(True)
@@ -127,7 +127,6 @@ class MigrationMainTabView(BaseWidget):
                 self.table_model.mark_cell(
                     uri_index,
                     source=MarkingSource.CELL,
-                    warning=True,
                     tooltip=UI_TEXT["series_uri_unknown_tooltip"],
                 )
                 self.table_model.mark_cell(
@@ -153,9 +152,10 @@ class MigrationMainTabView(BaseWidget):
         self.create_sip_button.setEnabled(not self.table_model.has_bad_rows)
 
     def _assign_button_clicked(self) -> None:
-        selected_indexes = self.table_view.selectionModel().selectedRows()
+        selected_indexes = self.table_view.selectionModel().selectedIndexes()
+        selected_rows = sorted({idx.row() for idx in selected_indexes})
 
-        if not selected_indexes:
+        if not selected_rows:
             self.application.notify_user_signal.emit(
                 UI_TEXT["no_selection"]["title"],
                 UI_TEXT["no_selection"]["text"],
@@ -173,7 +173,9 @@ class MigrationMainTabView(BaseWidget):
 
             return
 
-        source_rows = [self.proxy_model.mapToSource(idx).row() for idx in selected_indexes]
+        source_rows = sorted({
+            self.proxy_model.mapToSource(self.proxy_model.index(row, 0)).row() for row in selected_rows
+        })
 
         self.assign_to_series_signal.emit(source_rows, series._id, series.get_full_name())
 

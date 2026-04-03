@@ -62,6 +62,11 @@ class ExcelController:
 
             # Deduplicate column names (like pandas does with .1, .2 suffixes)
             raw_headers = [cell.value for cell in rows[0]]
+
+            # Strip trailing empty columns (phantom columns from Excel formatting)
+            while raw_headers and raw_headers[-1] is None:
+                raw_headers.pop()
+
             seen = {}
             headers = []
 
@@ -74,11 +79,13 @@ class ExcelController:
                     seen[h_str] = 0
                     headers.append(h_str)
 
+            num_columns = len(headers)
+
             data = []
 
             for row in rows[1:]:
                 row_data = []
-                for cell in row:
+                for cell in row[:num_columns]:
                     value = cell.value
 
                     if value is None:
@@ -93,6 +100,10 @@ class ExcelController:
                 data.append(row_data)
 
             wb.close()
+
+            # Strip trailing rows where every cell is empty
+            while data and all(cell == "" for cell in data[-1]):
+                data.pop()
 
             return pd.DataFrame(data, columns=headers).fillna("")
         except ExcelReadError:
