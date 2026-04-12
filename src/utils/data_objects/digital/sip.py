@@ -100,10 +100,15 @@ class SIP(CommonSIP):
         structure = {}
 
         for dirpath, dirnames, filenames in os.walk(dossier_path):
-            # Include empty directories
+            # Include empty directories, but skip '.' and '..' (relative path artifacts)
             if not filenames and not dirnames:
+                rel_path = os.path.relpath(dirpath, base_path).replace("\\", "/")
+
+                if rel_path in (".", ".."):
+                    continue
+
                 dir_name = os.path.basename(dirpath)
-                structure[dir_name] = os.path.relpath(dirpath, base_path).replace("\\", "/")
+                structure[dir_name] = rel_path
 
             for filename in filenames:
                 file_path = os.path.join(dirpath, filename)
