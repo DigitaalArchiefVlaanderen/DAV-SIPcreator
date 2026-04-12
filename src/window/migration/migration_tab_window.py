@@ -796,6 +796,8 @@ class MigrationTabWindow(Window):
             UI_TEXT["create_all_sips_success"]["text"],
         )
 
+        self.close()
+
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         has_unsaved = any(grid_view.has_unsaved_changes for grid_view in self.series_tabs.values())
 

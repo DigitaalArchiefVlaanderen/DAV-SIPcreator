@@ -123,3 +123,5 @@ class DigitalGridView(BaseGridView):
             UI_TEXT["create_sip_success"]["title"],
             UI_TEXT["create_sip_success"]["text"],
         )
+
+        self.window().close()
