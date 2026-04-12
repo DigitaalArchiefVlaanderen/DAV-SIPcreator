@@ -153,7 +153,7 @@ class AnalogGridView(BaseGridView):
 
             for col_index, col_name in enumerate(non_empty_df.columns):
                 clean_name = col_name.strip()
-                matches = re.match(r"(.+)\.\d+", clean_name)
+                matches = re.match(r"(.+)\.\d+$", clean_name)
 
                 if matches is not None:
                     clean_name = matches.group(1)

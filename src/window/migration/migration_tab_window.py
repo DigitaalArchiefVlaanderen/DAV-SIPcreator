@@ -736,7 +736,7 @@ class MigrationTabWindow(Window):
 
                     for col_index, col_name in enumerate(df.columns):
                         clean_name = col_name.strip()
-                        matches = re.match(r"(.+)[\s.]\d+$", clean_name)
+                        matches = re.match(r"(.+)\.\d+$", clean_name)
 
                         if matches is not None:
                             clean_name = matches.group(1)
