@@ -214,9 +214,14 @@ class ControlsWidget(BaseWidget):
                 self.upload_button.setEnabled(False)
                 self.edepot_button.setEnabled(False)
                 self.remove_button.setEnabled(True)
-            case SIPStatus.PROCESSING | SIPStatus.ACCEPTED | SIPStatus.REJECTED:
+            case SIPStatus.PROCESSING | SIPStatus.ACCEPTED:
                 self.open_button.setEnabled(False)
                 self.upload_button.setEnabled(False)
+                self.edepot_button.setEnabled(True)
+                self.remove_button.setEnabled(True)
+            case SIPStatus.REJECTED:
+                self.open_button.setEnabled(True)
+                self.upload_button.setEnabled(has_series)
                 self.edepot_button.setEnabled(True)
                 self.remove_button.setEnabled(True)
             case SIPStatus.DELETED:
