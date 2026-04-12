@@ -1,9 +1,13 @@
 from enum import Enum
 
+import natsort
+from natsort import natsort_keygen
 from PySide6 import QtCore
 
 from src.utils.constants import ColumnName, RowType
 from src.utils.grid.table.common.data_table import DataTable
+
+_natsort_key = natsort_keygen(alg=natsort.ns.IGNORECASE)
 
 
 class TableFilter(Enum):
@@ -17,6 +21,13 @@ class SortFilterProxyModel(QtCore.QSortFilterProxyModel):
 
         self.setDynamicSortFilter(False)
         self.active_filters: set[TableFilter] = set()
+
+    # NOTE: overwrite the existing sorting to use natsorted with ignore case
+    def lessThan(self, left: QtCore.QModelIndex, right: QtCore.QModelIndex) -> bool:
+        left_data = self.sourceModel().data(left, QtCore.Qt.ItemDataRole.DisplayRole)
+        right_data = self.sourceModel().data(right, QtCore.Qt.ItemDataRole.DisplayRole)
+
+        return _natsort_key(str(left_data)) < _natsort_key(str(right_data))
 
     def reset_sorting(self) -> None:
         self.sort(-1)
