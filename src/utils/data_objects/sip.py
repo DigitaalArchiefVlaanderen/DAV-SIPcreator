@@ -15,6 +15,7 @@ class SIP(BaseObject):
     name_changed_signal = QtCore.Signal()
     status_changed_signal = QtCore.Signal()
     series_changed_signal = QtCore.Signal()
+    grid_validity_changed_signal = QtCore.Signal(bool)
 
     def __init__(self):
         super().__init__()
@@ -23,6 +24,7 @@ class SIP(BaseObject):
         self.__name: str = "No name set"
         self.__status: SIPStatus = SIPStatus.IN_PROGRESS
         self.__series: Series = None
+        self.__grid_valid: bool = False
 
         self.environment: Environment = self.application.configuration.active_environment
 
@@ -100,6 +102,15 @@ class SIP(BaseObject):
     def set_series(self, series: Series) -> None:
         self.__series = series
         self.series_changed_signal.emit()
+
+    @property
+    def grid_valid(self) -> bool:
+        return self.__grid_valid
+
+    def set_grid_valid(self, valid: bool) -> None:
+        if self.__grid_valid != valid:
+            self.__grid_valid = valid
+            self.grid_validity_changed_signal.emit(valid)
 
     @property
     def db_name(self) -> str:

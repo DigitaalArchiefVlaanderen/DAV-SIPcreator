@@ -45,7 +45,8 @@ class AnalogSIPDBController(BaseSIPDBController):
                     {DBColumnName.SERIES_ID.value} text,
                     {DBColumnName.SERIES_NAME.value} text,
                     {DBColumnName.EDEPOT_SIP_ID.value} text,
-                    {DBColumnName.UPLOADED.value} integer default 0
+                    {DBColumnName.UPLOADED.value} integer default 0,
+                    {DBColumnName.GRID_VALID.value} integer default 0
                 )
             """)
             conn.execute(
@@ -53,8 +54,8 @@ class AnalogSIPDBController(BaseSIPDBController):
                 INSERT INTO {DBTableName.SIP.value}
                 ({DBColumnName.NAME.value}, {DBColumnName.STATUS.value}, {DBColumnName.ENVIRONMENT_NAME.value},
                  {DBColumnName.SERIES_ID.value}, {DBColumnName.SERIES_NAME.value},
-                 {DBColumnName.EDEPOT_SIP_ID.value}, {DBColumnName.UPLOADED.value})
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                 {DBColumnName.EDEPOT_SIP_ID.value}, {DBColumnName.UPLOADED.value}, {DBColumnName.GRID_VALID.value})
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     sip.name,
@@ -64,6 +65,7 @@ class AnalogSIPDBController(BaseSIPDBController):
                     series_name,
                     sip.edepot_sip_id or "",
                     int(sip.uploaded),
+                    int(sip.grid_valid),
                 ),
             )
 
@@ -86,7 +88,19 @@ class AnalogSIPDBController(BaseSIPDBController):
                 f"FROM {DBTableName.SIP.value};"
             ).fetchone()
 
-            name, status, environment_name, series_id, series_name, edepot_sip_id, uploaded = result
+            columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()]
+            has_grid_valid = DBColumnName.GRID_VALID.value in columns
+
+            result = conn.execute(
+                f"SELECT {DBColumnName.NAME.value}, {DBColumnName.STATUS.value}, {DBColumnName.ENVIRONMENT_NAME.value}, "
+                f"{DBColumnName.SERIES_ID.value}, {DBColumnName.SERIES_NAME.value}, "
+                f"{DBColumnName.EDEPOT_SIP_ID.value}, {DBColumnName.UPLOADED.value}"
+                + (f", {DBColumnName.GRID_VALID.value}" if has_grid_valid else "")
+                + f" FROM {DBTableName.SIP.value};"
+            ).fetchone()
+
+            name, status, environment_name, series_id, series_name, edepot_sip_id, uploaded = result[:7]
+            grid_valid = bool(result[7]) if has_grid_valid else False
 
             sip = AnalogSIP()
             sip.force_set_name(name)
@@ -94,6 +108,7 @@ class AnalogSIPDBController(BaseSIPDBController):
             sip.environment = self.application.configuration.get_environment(environment_name)
             sip.saved_series_name = series_name
             sip.uploaded = bool(uploaded)
+            sip.set_grid_valid(grid_valid)
 
             if edepot_sip_id:
                 sip.edepot_sip_id = edepot_sip_id
@@ -120,13 +135,22 @@ class AnalogSIPDBController(BaseSIPDBController):
 
         def _persist(conn: sql.Connection) -> None:
             series_name = sip.series.get_full_name() if sip.series else (sip.saved_series_name or "")
+            columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()]
 
-            conn.execute(
-                f"UPDATE {DBTableName.SIP.value} SET {DBColumnName.STATUS.value} = ?, "
-                f"{DBColumnName.SERIES_NAME.value} = ?, {DBColumnName.EDEPOT_SIP_ID.value} = ?, "
-                f"{DBColumnName.UPLOADED.value} = ?",
-                (sip.status.name, series_name, sip.edepot_sip_id or "", int(sip.uploaded)),
-            )
+            if DBColumnName.GRID_VALID.value in columns:
+                conn.execute(
+                    f"UPDATE {DBTableName.SIP.value} SET {DBColumnName.STATUS.value} = ?, "
+                    f"{DBColumnName.SERIES_NAME.value} = ?, {DBColumnName.EDEPOT_SIP_ID.value} = ?, "
+                    f"{DBColumnName.UPLOADED.value} = ?, {DBColumnName.GRID_VALID.value} = ?",
+                    (sip.status.name, series_name, sip.edepot_sip_id or "", int(sip.uploaded), int(sip.grid_valid)),
+                )
+            else:
+                conn.execute(
+                    f"UPDATE {DBTableName.SIP.value} SET {DBColumnName.STATUS.value} = ?, "
+                    f"{DBColumnName.SERIES_NAME.value} = ?, {DBColumnName.EDEPOT_SIP_ID.value} = ?, "
+                    f"{DBColumnName.UPLOADED.value} = ?",
+                    (sip.status.name, series_name, sip.edepot_sip_id or "", int(sip.uploaded)),
+                )
 
             self._update_sip_creator_version(conn)
 

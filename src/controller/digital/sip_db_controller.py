@@ -12,6 +12,7 @@ from src.utils.constants import (
     UI_TEXT_ELEMENTS,
     UNKNOWN_TRANSFORMED,
     APIResponseKey,
+    DBColumnName,
     DBTableName,
 )
 from src.utils.data_objects.digital.sip import SIP as DigitalSIP
@@ -82,13 +83,14 @@ class DigitalSIPDBController(BaseSIPDBController):
                     edepot_sip_id text,
                     dossiers_list text,
                     tag_mapping text,
-                    folder_mapping text
+                    folder_mapping text,
+                    {DBColumnName.GRID_VALID.value} integer default 0
                 )
             """)
             conn.execute(
                 f"""
-                INSERT INTO {DBTableName.SIP.value} (name, status, environment_name, series_id, series_name, edepot_sip_id, dossiers_list, tag_mapping, folder_mapping)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO {DBTableName.SIP.value} (name, status, environment_name, series_id, series_name, edepot_sip_id, dossiers_list, tag_mapping, folder_mapping, {DBColumnName.GRID_VALID.value})
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     sip.name,
@@ -100,6 +102,7 @@ class DigitalSIPDBController(BaseSIPDBController):
                     json.dumps([d.path for d in sip.dossiers]),
                     json.dumps(sip.tag_mapping),
                     json.dumps(sip.folder_mapping),
+                    int(sip.grid_valid),
                 ),
             )
 
@@ -116,20 +119,17 @@ class DigitalSIPDBController(BaseSIPDBController):
         """
 
         def _read(conn: sql.Connection) -> tuple[SIP, str, str]:
+            columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()]
+            has_grid_valid = DBColumnName.GRID_VALID.value in columns
+
             result = conn.execute(
-                "SELECT name, status, environment_name, series_id, series_name, edepot_sip_id, dossiers_list, tag_mapping, folder_mapping FROM sip;"
+                "SELECT name, status, environment_name, series_id, series_name, edepot_sip_id, dossiers_list, tag_mapping, folder_mapping"
+                + (f", {DBColumnName.GRID_VALID.value}" if has_grid_valid else "")
+                + " FROM sip;"
             ).fetchone()
-            (
-                name,
-                status,
-                environment_name,
-                series_id,
-                series_name,
-                edepot_sip_id,
-                dossiers_list,
-                tag_mapping,
-                folder_mapping,
-            ) = result
+
+            name, status, environment_name, series_id, series_name, edepot_sip_id, dossiers_list, tag_mapping, folder_mapping = result[:9]
+            grid_valid = bool(result[9]) if has_grid_valid else False
 
             sip = DigitalSIP()
             sip.force_set_name(name)
@@ -141,6 +141,7 @@ class DigitalSIPDBController(BaseSIPDBController):
             sip.set_dossiers([DossierWidget(path=d) for d in json.loads(dossiers_list)])
             sip.tag_mapping = _parse_tag_mapping(tag_mapping)
             sip.folder_mapping = json.loads(folder_mapping)
+            sip.set_grid_valid(grid_valid)
 
             return sip, series_id, series_name
 
@@ -154,10 +155,18 @@ class DigitalSIPDBController(BaseSIPDBController):
             return
 
         def _persist(conn: sql.Connection) -> None:
-            conn.execute(
-                f"UPDATE {DBTableName.SIP.value} SET status = ?, series_name = ?, edepot_sip_id = ?",
-                (sip.status.name, sip.series.get_full_name(), sip.edepot_sip_id or ""),
-            )
+            columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()]
+
+            if DBColumnName.GRID_VALID.value in columns:
+                conn.execute(
+                    f"UPDATE {DBTableName.SIP.value} SET status = ?, series_name = ?, edepot_sip_id = ?, {DBColumnName.GRID_VALID.value} = ?",
+                    (sip.status.name, sip.series.get_full_name(), sip.edepot_sip_id or "", int(sip.grid_valid)),
+                )
+            else:
+                conn.execute(
+                    f"UPDATE {DBTableName.SIP.value} SET status = ?, series_name = ?, edepot_sip_id = ?",
+                    (sip.status.name, sip.series.get_full_name(), sip.edepot_sip_id or ""),
+                )
 
             self._update_sip_creator_version(conn)
 

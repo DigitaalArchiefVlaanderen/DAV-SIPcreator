@@ -47,19 +47,20 @@ class MigrationSIPDBController(BaseSIPDBController):
             return
 
         def _create(conn: sql.Connection) -> None:
-            conn.execute("""
+            conn.execute(f"""
                 CREATE TABLE sip (
                     name text,
                     status text,
                     environment_name text,
                     edepot_sip_id text,
-                    overdrachtslijst_name text
+                    overdrachtslijst_name text,
+                    {DBColumnName.GRID_VALID.value} integer default 0
                 )
             """)
             conn.execute(
-                """
-                INSERT INTO sip (name, status, environment_name, edepot_sip_id, overdrachtslijst_name)
-                VALUES (?, ?, ?, ?, ?)
+                f"""
+                INSERT INTO sip (name, status, environment_name, edepot_sip_id, overdrachtslijst_name, {DBColumnName.GRID_VALID.value})
+                VALUES (?, ?, ?, ?, ?, ?)
             """,
                 (
                     sip.name,
@@ -67,6 +68,7 @@ class MigrationSIPDBController(BaseSIPDBController):
                     sip.environment.name,
                     sip.edepot_sip_id or "",
                     sip.overdrachtslijst_name,
+                    int(sip.grid_valid),
                 ),
             )
 
@@ -88,10 +90,17 @@ class MigrationSIPDBController(BaseSIPDBController):
 
     def read_sip_db(self, sip_db_file_name: str) -> MigrationSIP:
         def _read(conn: sql.Connection) -> MigrationSIP:
+            columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()]
+            has_grid_valid = DBColumnName.GRID_VALID.value in columns
+
             result = conn.execute(
-                "SELECT name, status, environment_name, edepot_sip_id, overdrachtslijst_name FROM sip;"
+                "SELECT name, status, environment_name, edepot_sip_id, overdrachtslijst_name"
+                + (f", {DBColumnName.GRID_VALID.value}" if has_grid_valid else "")
+                + " FROM sip;"
             ).fetchone()
-            name, status, environment_name, edepot_sip_id, overdrachtslijst_name = result
+
+            name, status, environment_name, edepot_sip_id, overdrachtslijst_name = result[:5]
+            grid_valid = bool(result[5]) if has_grid_valid else False
 
             sip = MigrationSIP()
             sip.force_set_name(name)
@@ -99,6 +108,7 @@ class MigrationSIPDBController(BaseSIPDBController):
             sip.environment = self.application.configuration.get_environment(environment_name)
             sip.edepot_sip_id = edepot_sip_id
             sip.overdrachtslijst_name = overdrachtslijst_name
+            sip.set_grid_valid(grid_valid)
 
             return sip
 
@@ -192,10 +202,18 @@ class MigrationSIPDBController(BaseSIPDBController):
             return
 
         def _persist(conn: sql.Connection) -> None:
-            conn.execute(
-                f"UPDATE {DBTableName.SIP.value} SET status = ?, edepot_sip_id = ?",
-                (sip.status.name, sip.edepot_sip_id or ""),
-            )
+            columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()]
+
+            if DBColumnName.GRID_VALID.value in columns:
+                conn.execute(
+                    f"UPDATE {DBTableName.SIP.value} SET status = ?, edepot_sip_id = ?, {DBColumnName.GRID_VALID.value} = ?",
+                    (sip.status.name, sip.edepot_sip_id or "", int(sip.grid_valid)),
+                )
+            else:
+                conn.execute(
+                    f"UPDATE {DBTableName.SIP.value} SET status = ?, edepot_sip_id = ?",
+                    (sip.status.name, sip.edepot_sip_id or ""),
+                )
 
             self._update_sip_creator_version(conn)
 

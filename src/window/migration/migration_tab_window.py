@@ -727,6 +727,8 @@ class MigrationTabWindow(Window):
         for grid_view in self.series_tabs.values():
             grid_view.create_sip_button.setEnabled(all_valid)
 
+        self.sip.set_grid_valid(all_valid)
+
     def _create_all_sips(self) -> None:
         for grid_view in self.series_tabs.values():
             grid_view._save_button_clicked(silent=True)

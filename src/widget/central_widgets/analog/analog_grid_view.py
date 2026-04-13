@@ -80,9 +80,9 @@ class AnalogGridView(BaseGridView):
             self.table_model.validate_all()
 
     def _update_create_sip_button(self) -> None:
-        self.create_sip_button.setEnabled(
-            self.table_model.is_data_valid() and self.sip.series is not None and not self.table_model.is_validating
-        )
+        valid = self.table_model.is_data_valid() and self.sip.series is not None and not self.table_model.is_validating
+        self.create_sip_button.setEnabled(valid)
+        self.sip.set_grid_valid(valid)
 
     def _update_row_count_label(self, count: int) -> None:
         self.row_count_label.setText(UI_TEXT["row_count_label"].format(count=count))

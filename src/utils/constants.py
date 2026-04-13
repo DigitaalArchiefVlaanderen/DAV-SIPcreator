@@ -79,6 +79,7 @@ class DBColumnName(Enum):
     LAST_OPENED = "last_opened"
     SERIES_ID = "series_id"
     SERIES_NAME = "series_name"
+    GRID_VALID = "grid_valid"
 
 
 class ConfigKey(Enum):

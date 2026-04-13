@@ -79,9 +79,9 @@ class DigitalGridView(BaseGridView):
             self.table_model.validate_all()
 
     def _update_create_sip_button(self) -> None:
-        self.create_sip_button.setEnabled(
-            not self.table_model.has_bad_rows and self.sip.series is not None and not self.table_model.is_validating
-        )
+        valid = not self.table_model.has_bad_rows and self.sip.series is not None and not self.table_model.is_validating
+        self.create_sip_button.setEnabled(valid)
+        self.sip.set_grid_valid(valid)
 
     def _name_extension_clicked(self, state: int) -> None:
         self.table_model.filter_name_column(active=state == QtCore.Qt.CheckState.Checked.value)

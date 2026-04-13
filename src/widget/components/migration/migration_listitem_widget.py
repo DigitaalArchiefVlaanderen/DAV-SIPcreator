@@ -146,6 +146,7 @@ class MigrationControlsWidget(BaseWidget):
 
     def setup_signals(self) -> None:
         self.sip.status_changed_signal.connect(self.sip_status_changed_handler)
+        self.sip.grid_validity_changed_signal.connect(self._on_grid_validity_changed)
         self.application.application_role_changed_signal.connect(self._update_role_visibility)
 
         self.open_button.clicked.connect(self.open_button_clicked_handler)
@@ -172,7 +173,15 @@ class MigrationControlsWidget(BaseWidget):
     def open_button_clicked_handler(self) -> None:
         self.open_overdrachtslijst_signal.emit(self.sip)
 
+    def _on_grid_validity_changed(self, valid: bool) -> None:
+        self.sip_status_changed_handler()
+
     def upload_button_clicked_handler(self) -> None:
+        if self.sip.status == SIPStatus.IN_PROGRESS:
+            # Auto-open the tab window so the user can create SIPs
+            self.open_overdrachtslijst_signal.emit(self.sip)
+            return
+
         uploadable = [name for name, status in self.sip.series_statuses.items() if status == SIPStatus.SIP_CREATED]
 
         if not uploadable:
@@ -282,20 +291,22 @@ class MigrationControlsWidget(BaseWidget):
         self.sip.derive_overall_status()
 
     def sip_status_changed_handler(self) -> None:
+        grid_valid = self.sip.grid_valid
+
         match self.sip.status:
             case SIPStatus.IN_PROGRESS:
                 self.open_button.setEnabled(True)
-                self.upload_button.setEnabled(False)
+                self.upload_button.setEnabled(grid_valid)
                 self.edepot_button.setEnabled(False)
                 self.remove_button.setEnabled(True)
             case SIPStatus.SIP_CREATED:
                 self.open_button.setEnabled(True)
-                self.upload_button.setEnabled(True)
+                self.upload_button.setEnabled(grid_valid)
                 self.edepot_button.setEnabled(False)
                 self.remove_button.setEnabled(True)
             case SIPStatus.PARTIALLY_UPLOADED:
                 self.open_button.setEnabled(True)
-                self.upload_button.setEnabled(True)
+                self.upload_button.setEnabled(grid_valid)
                 self.edepot_button.setEnabled(bool(self.sip.series_edepot_ids))
                 self.remove_button.setEnabled(True)
             case SIPStatus.UPLOADING:
@@ -315,7 +326,7 @@ class MigrationControlsWidget(BaseWidget):
                 self.remove_button.setEnabled(True)
             case SIPStatus.REJECTED:
                 self.open_button.setEnabled(True)
-                self.upload_button.setEnabled(True)
+                self.upload_button.setEnabled(grid_valid)
                 self.edepot_button.setEnabled(bool(self.sip.series_edepot_ids))
                 self.remove_button.setEnabled(True)
             case SIPStatus.DELETED:

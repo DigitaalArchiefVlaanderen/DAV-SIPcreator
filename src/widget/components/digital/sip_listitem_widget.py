@@ -169,6 +169,7 @@ class ControlsWidget(BaseWidget):
         self.sip.status_changed_signal.connect(self.sip_status_changed_handler)
         # NOTE: in case of the series now having been added, we may want to change the button availabilities
         self.sip.series_changed_signal.connect(self.sip_status_changed_handler)
+        self.sip.grid_validity_changed_signal.connect(self._on_grid_validity_changed)
 
         # Control signals
         self.open_button.clicked.connect(self.open_button_clicked_handler)
@@ -188,6 +189,11 @@ class ControlsWidget(BaseWidget):
         self.application.window_controller.open_window(self.sip, SipDetailWindow)
 
     def upload_button_clicked_handler(self) -> None:
+        if self.sip.status == SIPStatus.IN_PROGRESS:
+            # Auto-create SIP first, then upload
+            self.application.window_controller.open_digital_grid_signal.emit(self.sip)
+            return
+
         self.application.start_task(
             window=self.parent_window,
             description=UI_TEXT_ELEMENTS["toolbar_info"]["digital"]["upload_right_text"],
@@ -195,18 +201,22 @@ class ControlsWidget(BaseWidget):
             is_generator=False,
         )
 
+    def _on_grid_validity_changed(self, valid: bool) -> None:
+        self.sip_status_changed_handler()
+
     def sip_status_changed_handler(self) -> None:
         has_series = self.sip.series is not None
+        grid_valid = self.sip.grid_valid
 
         match self.sip.status:
             case SIPStatus.IN_PROGRESS:
                 self.open_button.setEnabled(True)
-                self.upload_button.setEnabled(False)
+                self.upload_button.setEnabled(grid_valid)
                 self.edepot_button.setEnabled(False)
                 self.remove_button.setEnabled(True)
             case SIPStatus.SIP_CREATED:
                 self.open_button.setEnabled(True)
-                self.upload_button.setEnabled(has_series)
+                self.upload_button.setEnabled(has_series and grid_valid)
                 self.edepot_button.setEnabled(False)
                 self.remove_button.setEnabled(True)
             case SIPStatus.UPLOADING | SIPStatus.UPLOADED:
@@ -221,7 +231,7 @@ class ControlsWidget(BaseWidget):
                 self.remove_button.setEnabled(True)
             case SIPStatus.REJECTED:
                 self.open_button.setEnabled(True)
-                self.upload_button.setEnabled(has_series)
+                self.upload_button.setEnabled(has_series and grid_valid)
                 self.edepot_button.setEnabled(True)
                 self.remove_button.setEnabled(True)
             case SIPStatus.DELETED:
