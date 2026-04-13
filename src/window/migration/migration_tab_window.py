@@ -252,6 +252,7 @@ class MigrationTabWindow(Window):
         self.sip = sip
         self.series_tabs: dict[str, MigrationGridView] = {}
         self._active_workers: list[tuple[Worker, QtCore.QThread]] = []
+        self._tabs_loading: bool = False
 
         self.setWindowTitle(self.sip.name)
         self.resize(1200, 800)
@@ -300,6 +301,9 @@ class MigrationTabWindow(Window):
             self.sip.main_grid_data.data_as_df = df
 
     def _on_series_updated(self) -> None:
+        if self._tabs_loading:
+            return
+
         if self._auto_populate_series_names():
             self.main_tab_view.table_model.beginResetModel()
             self.main_tab_view.table_model.raw_data = self.sip.main_grid_data.data_as_df
@@ -347,6 +351,7 @@ class MigrationTabWindow(Window):
             grid_view.table_model.validate_all()
 
     def _load_existing_series_tabs(self) -> None:
+        self._tabs_loading = True
         self._set_tab_loading(0, True)
         self._set_controls_busy(True)
 
@@ -371,9 +376,13 @@ class MigrationTabWindow(Window):
 
     def _on_tabs_loaded(self, results: list[tuple[str, pd.DataFrame, str]]) -> None:
         existing_table_names = set()
+        existing_uris = set()
 
         for table_name, df, series_id in results:
             existing_table_names.add(table_name)
+            if series_id:
+                base_uri = self.sip.environment.get_serie_register_uri()
+                existing_uris.add(f"{base_uri}/{series_id}")
 
             grid_data = GridData()
             grid_data.data_as_df = df
@@ -387,9 +396,10 @@ class MigrationTabWindow(Window):
             tab_index = self.tab_widget.addTab(grid_view, table_name)
             self._set_tab_loading(tab_index, True)
 
-        self._create_missing_series_tabs(existing_table_names)
+        self._create_missing_series_tabs(existing_table_names, existing_uris)
 
     def _on_load_finished(self) -> None:
+        self._tabs_loading = False
         self._set_controls_busy(False)
 
         for i in range(self.tab_widget.count()):
@@ -412,11 +422,16 @@ class MigrationTabWindow(Window):
             if current_text.endswith(suffix):
                 self.tab_widget.setTabText(tab_index, current_text[: -len(suffix)])
 
-    def _create_missing_series_tabs(self, existing_table_names: set[str]) -> None:
+    def _create_missing_series_tabs(
+        self, existing_table_names: set[str], existing_uris: set[str] | None = None
+    ) -> None:
         main_df = self.sip.main_grid_data.data_as_df
 
         if SERIES_NAME_COLUMN not in main_df.columns or URI_SERIEREGISTER_COLUMN not in main_df.columns:
             return
+
+        if existing_uris is None:
+            existing_uris = set()
 
         name_col = main_df.columns.get_loc(SERIES_NAME_COLUMN)
         uri_col = main_df.columns.get_loc(URI_SERIEREGISTER_COLUMN)
@@ -431,6 +446,11 @@ class MigrationTabWindow(Window):
                 continue
 
             if series_name in existing_table_names:
+                continue
+
+            # Also skip if this URI is already covered by an existing tab
+            # (handles case where the series name changed but the URI is the same)
+            if uri and uri != "nan" and uri in existing_uris:
                 continue
 
             if series_name not in unlinked_series:
