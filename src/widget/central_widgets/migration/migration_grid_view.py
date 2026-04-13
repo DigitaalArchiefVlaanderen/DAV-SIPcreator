@@ -44,6 +44,7 @@ class MigrationGridView(BaseGridView):
     NON_DUPLICATABLE_COLUMNS = NON_DUPLICATABLE_COLUMNS
 
     create_sip_signal = QtCore.Signal()
+    delete_series_rows_signal = QtCore.Signal(str, list)
 
     def __init__(self, sip: MigrationSIP, series_name: str, grid_data: GridData, series_id: str = "") -> None:
         super().__init__(sip)
@@ -97,7 +98,10 @@ class MigrationGridView(BaseGridView):
         self.duplication_layout.addWidget(self.add_column_button, 1)
         self.duplication_layout.addWidget(self.duplicate_location_button, 1)
 
+        self.delete_rows_button = QtWidgets.QPushButton(text=UI_TEXT["delete_rows_button_text"])
+
         button_layout = QtWidgets.QHBoxLayout()
+        button_layout.addWidget(self.delete_rows_button, 1)
         button_layout.addWidget(self.save_button, 1)
         button_layout.addWidget(self.create_sip_button, 1)
 
@@ -112,6 +116,7 @@ class MigrationGridView(BaseGridView):
     def setup_signals(self) -> None:
         self._connect_common_signals()
         self.duplicate_location_button.clicked.connect(self._duplicate_location_columns_clicked)
+        self.delete_rows_button.clicked.connect(self._delete_rows_clicked)
         self.load_bestandscontrole_button.clicked.connect(self._load_bestandscontrole_clicked)
         self.application.series_updated_signal.connect(self._on_series_updated)
         self.application.application_role_changed_signal.connect(self._update_role_visibility)
@@ -274,6 +279,19 @@ class MigrationGridView(BaseGridView):
                 UI_TEXT["save_success"]["title"],
                 UI_TEXT["save_success"]["text"],
             )
+
+    def _delete_rows_clicked(self) -> None:
+        selected_indexes = self.table_view.selectionModel().selectedIndexes()
+        selected_rows = sorted({idx.row() for idx in selected_indexes})
+
+        if not selected_rows:
+            return
+
+        source_rows = sorted({
+            self.proxy_model.mapToSource(self.proxy_model.index(row, 0)).row() for row in selected_rows
+        })
+
+        self.delete_series_rows_signal.emit(self.series_name, source_rows)
 
     def _create_sip_clicked(self) -> None:
         self.create_sip_signal.emit()

@@ -274,6 +274,7 @@ class MigrationTabWindow(Window):
 
     def setup_signals(self) -> None:
         self.main_tab_view.assign_to_series_signal.connect(self._assign_rows_to_series)
+        self.main_tab_view.delete_rows_signal.connect(self._delete_rows_from_main)
         self.main_tab_view.create_sip_signal.connect(self._create_all_sips)
         self.sip.name_changed_signal.connect(lambda: self.setWindowTitle(self.sip.name))
         self.application.application_environment_changed_signal.connect(self.close)
@@ -391,6 +392,7 @@ class MigrationTabWindow(Window):
             grid_view = MigrationGridView(sip=self.sip, series_name=table_name, grid_data=grid_data, series_id=series_id)
             grid_view.table_model.validation_finished_signal.connect(self.update_global_create_sip_button)
             grid_view.create_sip_signal.connect(self._create_all_sips)
+            grid_view.delete_series_rows_signal.connect(self._delete_rows_from_series)
             self.series_tabs[table_name] = grid_view
 
             tab_index = self.tab_widget.addTab(grid_view, table_name)
@@ -478,6 +480,7 @@ class MigrationTabWindow(Window):
             grid_view = MigrationGridView(sip=self.sip, series_name=series_name, grid_data=grid_data, series_id=series_id)
             grid_view.table_model.validation_finished_signal.connect(self.update_global_create_sip_button)
             grid_view.create_sip_signal.connect(self._create_all_sips)
+            grid_view.delete_series_rows_signal.connect(self._delete_rows_from_series)
             self.series_tabs[series_name] = grid_view
             self.tab_widget.addTab(grid_view, series_name)
 
@@ -623,6 +626,7 @@ class MigrationTabWindow(Window):
             grid_view = MigrationGridView(sip=self.sip, series_name=series_name, grid_data=grid_data, series_id=series_id)
             grid_view.table_model.validation_finished_signal.connect(self.update_global_create_sip_button)
             grid_view.create_sip_signal.connect(self._create_all_sips)
+            grid_view.delete_series_rows_signal.connect(self._delete_rows_from_series)
             self.series_tabs[table_name] = grid_view
             self.tab_widget.addTab(grid_view, series_name)
 
@@ -712,9 +716,115 @@ class MigrationTabWindow(Window):
             all_data=self.sip.main_grid_data.data_as_df,
         )
 
+    def _delete_rows_from_main(self, source_rows: list[int]) -> None:
+        """Delete rows from the Overdrachtslijst and cascade to series tabs."""
+        main_df = self.sip.main_grid_data.data_as_df
+        main_ids = [str(row) for row in source_rows]
+        main_id_set = set(main_ids)
+
+        # Remove matching rows from all series tabs
+        for series_name in list(self.series_tabs.keys()):
+            grid_view = self.series_tabs[series_name]
+            series_df = grid_view.table_model.raw_data
+
+            if MIGRATION_MAIN_ID_COLUMN not in series_df.columns:
+                continue
+
+            remaining_df = series_df[
+                ~series_df[MIGRATION_MAIN_ID_COLUMN].astype(str).isin(main_id_set)
+            ].reset_index(drop=True)
+
+            if remaining_df.empty:
+                tab_index = self.tab_widget.indexOf(grid_view)
+                self.tab_widget.removeTab(tab_index)
+                grid_view.deleteLater()
+
+                del self.series_tabs[series_name]
+                del self.sip.series_grid_data[series_name]
+
+                self.application.migration_sip_db_controller.delete_series_table(self.sip, series_name)
+            else:
+                grid_view.grid_data.data_as_df = remaining_df
+
+                grid_view.table_model.beginResetModel()
+                grid_view.table_model.raw_data = remaining_df
+                grid_view.table_model.endResetModel()
+
+                self.application.migration_sip_db_controller.save_series_data(self.sip, series_name, remaining_df)
+
+        # Remove rows from main DataFrame
+        updated_main_df = main_df.drop(index=source_rows).reset_index(drop=True)
+        self.sip.main_grid_data.data_as_df = updated_main_df
+
+        self.main_tab_view.table_model.beginResetModel()
+        self.main_tab_view.table_model.raw_data = updated_main_df
+        self.main_tab_view.table_model.endResetModel()
+
+        self.application.migration_sip_db_controller.save_main_data(self.sip, updated_main_df)
+        self.main_tab_view._validate_series()
+
+    def _delete_rows_from_series(self, series_name: str, source_rows: list[int]) -> None:
+        """Delete rows from a series tab and clear the assignment in Overdrachtslijst."""
+        if series_name not in self.series_tabs:
+            return
+
+        grid_view = self.series_tabs[series_name]
+        series_df = grid_view.table_model.raw_data
+
+        # Get main_ids for the rows being deleted
+        deleted_main_ids = set()
+        if MIGRATION_MAIN_ID_COLUMN in series_df.columns:
+            for row in source_rows:
+                deleted_main_ids.add(str(series_df.iloc[row, series_df.columns.get_loc(MIGRATION_MAIN_ID_COLUMN)]))
+
+        # Clear series_name and URI in the main DataFrame for matching rows
+        main_df = self.sip.main_grid_data.data_as_df
+        if SERIES_NAME_COLUMN in main_df.columns:
+            name_col = main_df.columns.get_loc(SERIES_NAME_COLUMN)
+            uri_col = main_df.columns.get_loc(URI_SERIEREGISTER_COLUMN)
+
+            for main_id in deleted_main_ids:
+                if main_id.isdigit():
+                    row_idx = int(main_id)
+                    if row_idx < len(main_df):
+                        main_df.iat[row_idx, name_col] = ""
+                        main_df.iat[row_idx, uri_col] = ""
+
+            self.sip.main_grid_data.data_as_df = main_df
+
+            self.main_tab_view.table_model.beginResetModel()
+            self.main_tab_view.table_model.raw_data = main_df
+            self.main_tab_view.table_model.endResetModel()
+
+            self.application.migration_sip_db_controller.save_main_data(self.sip, main_df)
+            self.main_tab_view._validate_series()
+
+        # Remove rows from series DataFrame
+        remaining_df = series_df.drop(index=source_rows).reset_index(drop=True)
+
+        if remaining_df.empty:
+            tab_index = self.tab_widget.indexOf(grid_view)
+            self.tab_widget.removeTab(tab_index)
+            grid_view.deleteLater()
+
+            del self.series_tabs[series_name]
+            del self.sip.series_grid_data[series_name]
+
+            self.application.migration_sip_db_controller.delete_series_table(self.sip, series_name)
+        else:
+            grid_view.grid_data.data_as_df = remaining_df
+
+            grid_view.table_model.beginResetModel()
+            grid_view.table_model.raw_data = remaining_df
+            grid_view.table_model.endResetModel()
+
+            self.application.migration_sip_db_controller.save_series_data(self.sip, series_name, remaining_df)
+
+        self.update_global_create_sip_button()
+
     def update_global_create_sip_button(self) -> None:
         all_valid = (
-            self.series_tabs
+            bool(self.series_tabs)
             and all(
                 not gv.table_model.has_bad_rows and gv.series is not None and not gv.table_model.is_validating
                 for gv in self.series_tabs.values()

@@ -111,7 +111,8 @@
             },
             "series_not_linked_tooltip": "Een serie moet nog gelinkt worden",
             "series_uri_unknown_tooltip": "De gegeven URI is niet teruggevonden onder de huidige connectie",
-            "series_name_missing_tooltip": "Serie ophalen is misgelopen"
+            "series_name_missing_tooltip": "Serie ophalen is misgelopen",
+            "delete_rows_button_text": "Verwijder geselecteerde rijen"
         },
         "tab_window": {
             "main_tab_title": "Overdrachtslijst",
@@ -161,7 +162,8 @@
             "bestandscontrole_invalid": {
                 "title": "Bestandscontrole lijst is niet geldig",
                 "text": "De bestandscontrole lijst is niet geldig, bekijk of het pad juist staat, en/of het bestand in orde is."
-            }
+            },
+            "delete_rows_button_text": "Verwijder geselecteerde rijen"
         },
         "upload_dialog": {
             "title": "Upload importsjablonen",

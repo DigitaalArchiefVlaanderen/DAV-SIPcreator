@@ -16,6 +16,7 @@ URI_SERIEREGISTER_COLUMN = "URI Serieregister"
 class MigrationMainTabView(BaseWidget):
     assign_to_series_signal = QtCore.Signal(list, str, str)
     create_sip_signal = QtCore.Signal()
+    delete_rows_signal = QtCore.Signal(list)
 
     def __init__(self, sip: MigrationSIP) -> None:
         super().__init__()
@@ -50,10 +51,13 @@ class MigrationMainTabView(BaseWidget):
 
         self.unassigned_only_checkbox = QtWidgets.QCheckBox(text=UI_TEXT["unassigned_only_checkbox_text"])
 
+        self.delete_rows_button = QtWidgets.QPushButton(text=UI_TEXT["delete_rows_button_text"])
+
         self.save_button = QtWidgets.QPushButton(text=UI_TEXT["save_button_text"])
         self.create_sip_button = QtWidgets.QPushButton(text=UI_TEXT["create_sip_button_text"])
 
         button_layout = QtWidgets.QHBoxLayout()
+        button_layout.addWidget(self.delete_rows_button, 1)
         button_layout.addWidget(self.save_button, 1)
         button_layout.addWidget(self.create_sip_button, 1)
 
@@ -65,6 +69,7 @@ class MigrationMainTabView(BaseWidget):
 
     def setup_signals(self) -> None:
         self.assign_button.clicked.connect(self._assign_button_clicked)
+        self.delete_rows_button.clicked.connect(self._delete_rows_clicked)
         self.unassigned_only_checkbox.stateChanged.connect(self._unassigned_only_clicked)
         self.save_button.clicked.connect(self._save_button_clicked)
         self.create_sip_button.clicked.connect(self._create_sip_clicked)
@@ -194,6 +199,19 @@ class MigrationMainTabView(BaseWidget):
             UI_TEXT["save_success"]["title"],
             UI_TEXT["save_success"]["text"],
         )
+
+    def _delete_rows_clicked(self) -> None:
+        selected_indexes = self.table_view.selectionModel().selectedIndexes()
+        selected_rows = sorted({idx.row() for idx in selected_indexes})
+
+        if not selected_rows:
+            return
+
+        source_rows = sorted({
+            self.proxy_model.mapToSource(self.proxy_model.index(row, 0)).row() for row in selected_rows
+        })
+
+        self.delete_rows_signal.emit(source_rows)
 
     def _create_sip_clicked(self) -> None:
         self.create_sip_signal.emit()
