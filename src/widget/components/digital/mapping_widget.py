@@ -188,6 +188,7 @@ class FolderMappingWidget(QtWidgets.QFrame):
             return
 
         self.output_mapping.add_tag(selected_metadata_tag.text())
+        self.metadata_mapping.remove_selected_tag()
 
     def unmap_tags_clicked(self):
         selected_tag = self.output_mapping.get_selected_tag()
@@ -195,6 +196,7 @@ class FolderMappingWidget(QtWidgets.QFrame):
         if selected_tag is None:
             return
 
+        self.metadata_mapping.add_tag(selected_tag.text())
         self.output_mapping.remove_selected_tag()
 
     def get_mapping(self) -> list[str]:
