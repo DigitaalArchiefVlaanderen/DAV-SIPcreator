@@ -75,21 +75,25 @@ class DigitalSIPDBController(BaseSIPDBController):
         def _create(conn: sql.Connection) -> None:
             conn.execute(f"""
                 CREATE TABLE {DBTableName.SIP.value} (
-                    name text,
-                    status text,
-                    environment_name text,
-                    series_id text,
-                    series_name text,
-                    edepot_sip_id text,
-                    dossiers_list text,
-                    tag_mapping text,
-                    folder_mapping text,
+                    {DBColumnName.NAME.value} text,
+                    {DBColumnName.STATUS.value} text,
+                    {DBColumnName.ENVIRONMENT_NAME.value} text,
+                    {DBColumnName.SERIES_ID.value} text,
+                    {DBColumnName.SERIES_NAME.value} text,
+                    {DBColumnName.EDEPOT_SIP_ID.value} text,
+                    {DBColumnName.DOSSIERS_LIST.value} text,
+                    {DBColumnName.TAG_MAPPING.value} text,
+                    {DBColumnName.FOLDER_MAPPING.value} text,
                     {DBColumnName.GRID_VALID.value} integer default 0
                 )
             """)
             conn.execute(
                 f"""
-                INSERT INTO {DBTableName.SIP.value} (name, status, environment_name, series_id, series_name, edepot_sip_id, dossiers_list, tag_mapping, folder_mapping, {DBColumnName.GRID_VALID.value})
+                INSERT INTO {DBTableName.SIP.value}
+                ({DBColumnName.NAME.value}, {DBColumnName.STATUS.value}, {DBColumnName.ENVIRONMENT_NAME.value},
+                 {DBColumnName.SERIES_ID.value}, {DBColumnName.SERIES_NAME.value}, {DBColumnName.EDEPOT_SIP_ID.value},
+                 {DBColumnName.DOSSIERS_LIST.value}, {DBColumnName.TAG_MAPPING.value}, {DBColumnName.FOLDER_MAPPING.value},
+                 {DBColumnName.GRID_VALID.value})
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
@@ -123,9 +127,11 @@ class DigitalSIPDBController(BaseSIPDBController):
             has_grid_valid = DBColumnName.GRID_VALID.value in columns
 
             result = conn.execute(
-                "SELECT name, status, environment_name, series_id, series_name, edepot_sip_id, dossiers_list, tag_mapping, folder_mapping"
+                f"SELECT {DBColumnName.NAME.value}, {DBColumnName.STATUS.value}, {DBColumnName.ENVIRONMENT_NAME.value}, "
+                f"{DBColumnName.SERIES_ID.value}, {DBColumnName.SERIES_NAME.value}, {DBColumnName.EDEPOT_SIP_ID.value}, "
+                f"{DBColumnName.DOSSIERS_LIST.value}, {DBColumnName.TAG_MAPPING.value}, {DBColumnName.FOLDER_MAPPING.value}"
                 + (f", {DBColumnName.GRID_VALID.value}" if has_grid_valid else "")
-                + " FROM sip;"
+                + f" FROM {DBTableName.SIP.value};"
             ).fetchone()
 
             name, status, environment_name, series_id, series_name, edepot_sip_id, dossiers_list, tag_mapping, folder_mapping = result[:9]
@@ -159,12 +165,15 @@ class DigitalSIPDBController(BaseSIPDBController):
 
             if DBColumnName.GRID_VALID.value in columns:
                 conn.execute(
-                    f"UPDATE {DBTableName.SIP.value} SET status = ?, series_name = ?, edepot_sip_id = ?, {DBColumnName.GRID_VALID.value} = ?",
+                    f"UPDATE {DBTableName.SIP.value} SET {DBColumnName.STATUS.value} = ?, "
+                    f"{DBColumnName.SERIES_NAME.value} = ?, {DBColumnName.EDEPOT_SIP_ID.value} = ?, "
+                    f"{DBColumnName.GRID_VALID.value} = ?",
                     (sip.status.name, sip.series.get_full_name(), sip.edepot_sip_id or "", int(sip.grid_valid)),
                 )
             else:
                 conn.execute(
-                    f"UPDATE {DBTableName.SIP.value} SET status = ?, series_name = ?, edepot_sip_id = ?",
+                    f"UPDATE {DBTableName.SIP.value} SET {DBColumnName.STATUS.value} = ?, "
+                    f"{DBColumnName.SERIES_NAME.value} = ?, {DBColumnName.EDEPOT_SIP_ID.value} = ?",
                     (sip.status.name, sip.series.get_full_name(), sip.edepot_sip_id or ""),
                 )
 

@@ -48,18 +48,21 @@ class MigrationSIPDBController(BaseSIPDBController):
 
         def _create(conn: sql.Connection) -> None:
             conn.execute(f"""
-                CREATE TABLE sip (
-                    name text,
-                    status text,
-                    environment_name text,
-                    edepot_sip_id text,
-                    overdrachtslijst_name text,
+                CREATE TABLE {DBTableName.SIP.value} (
+                    {DBColumnName.NAME.value} text,
+                    {DBColumnName.STATUS.value} text,
+                    {DBColumnName.ENVIRONMENT_NAME.value} text,
+                    {DBColumnName.EDEPOT_SIP_ID.value} text,
+                    {DBColumnName.OVERDRACHTSLIJST_NAME.value} text,
                     {DBColumnName.GRID_VALID.value} integer default 0
                 )
             """)
             conn.execute(
                 f"""
-                INSERT INTO sip (name, status, environment_name, edepot_sip_id, overdrachtslijst_name, {DBColumnName.GRID_VALID.value})
+                INSERT INTO {DBTableName.SIP.value}
+                ({DBColumnName.NAME.value}, {DBColumnName.STATUS.value}, {DBColumnName.ENVIRONMENT_NAME.value},
+                 {DBColumnName.EDEPOT_SIP_ID.value}, {DBColumnName.OVERDRACHTSLIJST_NAME.value},
+                 {DBColumnName.GRID_VALID.value})
                 VALUES (?, ?, ?, ?, ?, ?)
             """,
                 (
@@ -77,12 +80,12 @@ class MigrationSIPDBController(BaseSIPDBController):
             sip.main_grid_data.data_as_df.to_sql(DBTableName.OVERDRACHTSLIJST.value, conn, index=False, dtype="text")
 
             conn.execute(f"""
-                CREATE TABLE tables (
-                    table_name text,
-                    "URI Serieregister" text,
-                    edepot_id text,
-                    status text default '{SIPStatus.IN_PROGRESS.name}',
-                    UNIQUE(table_name)
+                CREATE TABLE {DBTableName.TABLES.value} (
+                    {DBColumnName.TABLE_NAME.value} text,
+                    "{DBColumnName.URI_SERIEREGISTER.value}" text,
+                    {DBColumnName.EDEPOT_ID.value} text,
+                    {DBColumnName.STATUS.value} text default '{SIPStatus.IN_PROGRESS.name}',
+                    UNIQUE({DBColumnName.TABLE_NAME.value})
                 )
             """)
 
@@ -94,9 +97,10 @@ class MigrationSIPDBController(BaseSIPDBController):
             has_grid_valid = DBColumnName.GRID_VALID.value in columns
 
             result = conn.execute(
-                "SELECT name, status, environment_name, edepot_sip_id, overdrachtslijst_name"
+                f"SELECT {DBColumnName.NAME.value}, {DBColumnName.STATUS.value}, {DBColumnName.ENVIRONMENT_NAME.value}, "
+                f"{DBColumnName.EDEPOT_SIP_ID.value}, {DBColumnName.OVERDRACHTSLIJST_NAME.value}"
                 + (f", {DBColumnName.GRID_VALID.value}" if has_grid_valid else "")
-                + " FROM sip;"
+                + f" FROM {DBTableName.SIP.value};"
             ).fetchone()
 
             name, status, environment_name, edepot_sip_id, overdrachtslijst_name = result[:5]
@@ -206,12 +210,14 @@ class MigrationSIPDBController(BaseSIPDBController):
 
             if DBColumnName.GRID_VALID.value in columns:
                 conn.execute(
-                    f"UPDATE {DBTableName.SIP.value} SET status = ?, edepot_sip_id = ?, {DBColumnName.GRID_VALID.value} = ?",
+                    f"UPDATE {DBTableName.SIP.value} SET {DBColumnName.STATUS.value} = ?, "
+                    f"{DBColumnName.EDEPOT_SIP_ID.value} = ?, {DBColumnName.GRID_VALID.value} = ?",
                     (sip.status.name, sip.edepot_sip_id or "", int(sip.grid_valid)),
                 )
             else:
                 conn.execute(
-                    f"UPDATE {DBTableName.SIP.value} SET status = ?, edepot_sip_id = ?",
+                    f"UPDATE {DBTableName.SIP.value} SET {DBColumnName.STATUS.value} = ?, "
+                    f"{DBColumnName.EDEPOT_SIP_ID.value} = ?",
                     (sip.status.name, sip.edepot_sip_id or ""),
                 )
 
