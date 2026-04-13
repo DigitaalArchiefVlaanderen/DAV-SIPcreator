@@ -135,7 +135,7 @@
             "tab_loading_text": "Laden...",
             "create_all_sips_success": {
                 "title": "SIPs aangemaakt",
-                "text": "Alle series zijn succesvol klaargezet voor upload."
+                "text": "Alle importsjablonen zijn succesvol klaargezet voor upload."
             },
             "template_retrieval_error": {
                 "title": "Importsjabloon ophalen mislukt",
@@ -164,8 +164,8 @@
             }
         },
         "upload_dialog": {
-            "title": "Upload series",
-            "description": "Selecteer welke series je wilt uploaden:",
+            "title": "Upload importsjablonen",
+            "description": "Selecteer welke importsjablonen je wilt uploaden:",
             "upload_button_text": "Upload geselecteerde",
             "cancel_button_text": "Annuleren",
             "no_selection": {
@@ -175,15 +175,15 @@
         },
         "upload_error": {
             "title": "Upload fout",
-            "text": "De upload van volgende series is mislukt:\n\n{failed_series}"
+            "text": "De upload van volgende importsjablonen is mislukt:\n\n{failed_series}"
         },
         "migration_series_error": {
             "title": "Migratie fout",
             "text": "Serie '{series_name}' kon niet gemigreerd worden uit de oude database."
         },
         "tab_status_dialog": {
-            "title": "Status per serie",
-            "series_column": "Serie",
+            "title": "Status per importsjabloon",
+            "series_column": "Importsjabloon",
             "status_column": "Status"
         },
         "edepot_dialog": {
