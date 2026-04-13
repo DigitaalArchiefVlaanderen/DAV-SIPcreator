@@ -128,9 +128,12 @@ class CommonDataVerificationTable(DataTable):
             )
 
     def _clear_validator_markings(self, cell_range: CellRange, empty_rows: set[int]) -> None:
-        non_empty_range = set(range(cell_range.row_start, cell_range.row_end + 1)) - empty_rows
+        max_row = len(self.raw_data) - 1
+        bounded_range = set(range(cell_range.row_start, min(cell_range.row_end + 1, max_row + 1)))
+        non_empty_range = bounded_range - empty_rows
+        valid_empty_rows = empty_rows & bounded_range
         non_empty_indices = {self.raw_data.index[row] for row in non_empty_range}
-        empty_indices = {self.raw_data.index[row] for row in empty_rows}
+        empty_indices = {self.raw_data.index[row] for row in valid_empty_rows}
 
         keys_to_remove = [
             key

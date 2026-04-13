@@ -626,6 +626,28 @@ class MigrationTabWindow(Window):
             self.series_tabs[table_name] = grid_view
             self.tab_widget.addTab(grid_view, series_name)
 
+    def _find_tab_name_for_series(self, series_name: str, main_df: pd.DataFrame, row_idx: int) -> str | None:
+        """Find the series_tabs key for a given series name, with URI-based fallback."""
+        if series_name in self.series_tabs:
+            return series_name
+
+        # Fallback: match by URI if the name doesn't match any tab
+        if URI_SERIEREGISTER_COLUMN not in main_df.columns:
+            return None
+
+        uri_col = main_df.columns.get_loc(URI_SERIEREGISTER_COLUMN)
+        uri = str(main_df.iat[row_idx, uri_col]).strip()
+
+        if not uri or uri == "nan":
+            return None
+
+        tables = self.application.migration_sip_db_controller.read_tables(self.sip.db_name)
+        for table_name, table_uri, _, _ in tables:
+            if table_uri == uri and table_name in self.series_tabs:
+                return table_name
+
+        return None
+
     def _remove_rows_from_old_series(self, main_df: pd.DataFrame, source_rows: list[int], new_table_name: str) -> None:
         if SERIES_NAME_COLUMN not in main_df.columns:
             return
@@ -639,10 +661,16 @@ class MigrationTabWindow(Window):
             if not old_series or old_series == "nan":
                 continue
 
-            if old_series not in main_ids_by_old_series:
-                main_ids_by_old_series[old_series] = []
+            # Resolve the actual tab key (handles name mismatches via URI fallback)
+            tab_key = self._find_tab_name_for_series(old_series, main_df, row_idx)
 
-            main_ids_by_old_series[old_series].append(str(row_idx))
+            if tab_key is None:
+                continue
+
+            if tab_key not in main_ids_by_old_series:
+                main_ids_by_old_series[tab_key] = []
+
+            main_ids_by_old_series[tab_key].append(str(row_idx))
 
         for old_series_name, main_ids in main_ids_by_old_series.items():
             if old_series_name not in self.series_tabs:
