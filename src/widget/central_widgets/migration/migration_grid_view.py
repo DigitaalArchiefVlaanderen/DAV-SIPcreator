@@ -101,7 +101,6 @@ class MigrationGridView(BaseGridView):
         self.delete_rows_button = QtWidgets.QPushButton(text=UI_TEXT["delete_rows_button_text"])
 
         button_layout = QtWidgets.QHBoxLayout()
-        button_layout.addWidget(self.delete_rows_button, 1)
         button_layout.addWidget(self.save_button, 1)
         button_layout.addWidget(self.create_sip_button, 1)
 
@@ -110,8 +109,9 @@ class MigrationGridView(BaseGridView):
         self.grid_layout.addWidget(self.show_bad_rows_checkbox, 1, 0)
         self.grid_layout.addWidget(self.load_bestandscontrole_button, 1, 1)
         self.grid_layout.addLayout(self.duplication_layout, 1, 2, 1, 3)
-        self.grid_layout.addWidget(self.table_view, 2, 0, 1, 5)
-        self.grid_layout.addLayout(button_layout, 3, 0, 1, 5)
+        self.grid_layout.addWidget(self.delete_rows_button, 2, 0)
+        self.grid_layout.addWidget(self.table_view, 3, 0, 1, 5)
+        self.grid_layout.addLayout(button_layout, 4, 0, 1, 5)
 
     def setup_signals(self) -> None:
         self._connect_common_signals()

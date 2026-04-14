@@ -57,15 +57,15 @@ class MigrationMainTabView(BaseWidget):
         self.create_sip_button = QtWidgets.QPushButton(text=UI_TEXT["create_sip_button_text"])
 
         button_layout = QtWidgets.QHBoxLayout()
-        button_layout.addWidget(self.delete_rows_button, 1)
         button_layout.addWidget(self.save_button, 1)
         button_layout.addWidget(self.create_sip_button, 1)
 
         self.grid_layout.addWidget(self.unassigned_only_checkbox, 0, 0)
         self.grid_layout.addWidget(self.series_dropdown, 0, 1)
         self.grid_layout.addWidget(self.assign_button, 0, 2)
-        self.grid_layout.addWidget(self.table_view, 1, 0, 1, 3)
-        self.grid_layout.addLayout(button_layout, 2, 0, 1, 3)
+        self.grid_layout.addWidget(self.delete_rows_button, 1, 0)
+        self.grid_layout.addWidget(self.table_view, 2, 0, 1, 3)
+        self.grid_layout.addLayout(button_layout, 3, 0, 1, 3)
 
     def setup_signals(self) -> None:
         self.assign_button.clicked.connect(self._assign_button_clicked)

@@ -248,6 +248,15 @@ class SIP(CommonSIP):
         lookup_df = temp_df.set_index(path_metadata_col, drop=False)
         df = self.grid_data.data_as_df
 
+        for _, import_col in self.tag_mapping:
+            if import_col == path_in_sip_col or import_col in df.columns:
+                continue
+            base_col = import_col.rstrip()
+            if base_col not in df.columns:
+                continue
+            insert_pos = max(i for i, c in enumerate(df.columns) if c.rstrip() == base_col) + 1
+            df.insert(insert_pos, import_col, "")
+
         for meta_col, import_col in self.tag_mapping:
             if import_col == path_in_sip_col:
                 continue
