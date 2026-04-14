@@ -14,7 +14,7 @@ from src.utils.data_objects.digital.sip import SIP
 from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.pyside_helper import clear_widget_warning_style, set_widget_warning_style
 
-from src.widget.base_widget import BaseWidget
+from src.widget.components.base_sip_controls_widget import BaseSipControlsWidget
 from src.widget.dialog.yes_no_dialog import YesNoDialog
 
 from src.window.base_window import Window
@@ -130,54 +130,30 @@ class DossiersWidget(QtWidgets.QFrame):
         self.vertical_layout.addWidget(self.dossiers_scrollarea)
 
 
-class ControlsWidget(BaseWidget):
+class ControlsWidget(BaseSipControlsWidget):
     UI_TEXT = UI_TEXT_ELEMENTS["sip"]["controls"]
 
     def __init__(self, parent_window: Window, sip: SIP):
-        super().__init__()
-
-        self.sip = sip
         self.parent_window = parent_window
-
-        self.setup_ui()
-        self.setup_signals()
-        self.sip_status_changed_handler()
-
-    def setup_ui(self) -> None:
-        self.vertical_layout = QtWidgets.QVBoxLayout()
-        self.vertical_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
-        self.setLayout(self.vertical_layout)
-
-        self.open_button = QtWidgets.QPushButton(text=self.UI_TEXT["open_button_text"])
-
-        self.upload_button = QtWidgets.QPushButton(text=self.UI_TEXT["upload_button_text"])
-        self.upload_button.setEnabled(False)
-
-        self.edepot_button = QtWidgets.QPushButton(text=self.UI_TEXT["edepot_button_text"])
-        self.edepot_button.setEnabled(False)
-
-        self.remove_button = QtWidgets.QPushButton(text=self.UI_TEXT["remove_button_text"])
-
-        self.vertical_layout.addWidget(self.open_button)
-        self.vertical_layout.addWidget(self.upload_button)
-        self.vertical_layout.addWidget(self.edepot_button)
-        self.vertical_layout.addWidget(self.remove_button)
-        self.vertical_layout.addStretch()
+        super().__init__(sip)
 
     def setup_signals(self) -> None:
-        # SIP signals
-        self.sip.status_changed_signal.connect(self.sip_status_changed_handler)
-        # NOTE: in case of the series now having been added, we may want to change the button availabilities
+        super().setup_signals()
         self.sip.series_changed_signal.connect(self.sip_status_changed_handler)
-        self.sip.grid_validity_changed_signal.connect(self._on_grid_validity_changed)
 
-        # Control signals
-        self.open_button.clicked.connect(self.open_button_clicked_handler)
-        self.upload_button.clicked.connect(self.upload_button_clicked_handler)
-        self.edepot_button.clicked.connect(self.sip.open_edepot_url)
-        self.remove_button.clicked.connect(self.remove_button_clicked_handler)
+    def _has_edepot_info(self) -> bool:
+        return True  # Digital always shows edepot button when status allows
 
-    # Handlers
+    def _upload_allowed(self) -> bool:
+        return self.sip.series is not None and self.sip.grid_valid
+
+    def _on_status_updated(self) -> None:
+        has_series = self.sip.series is not None
+        if not has_series and self.sip.status == SIPStatus.SIP_CREATED:
+            set_widget_warning_style(self.upload_button, self.UI_TEXT["upload_no_series_tooltip"])
+        else:
+            clear_widget_warning_style(self.upload_button)
+
     def open_button_clicked_handler(self) -> None:
         if (
             self.application.digital_sip_db_controller.is_valid_db(self.sip.db_name)
@@ -190,7 +166,6 @@ class ControlsWidget(BaseWidget):
 
     def upload_button_clicked_handler(self) -> None:
         if self.sip.status == SIPStatus.IN_PROGRESS:
-            # Auto-create SIP first, then upload
             self.application.window_controller.open_digital_grid_signal.emit(self.sip)
             return
 
@@ -201,54 +176,8 @@ class ControlsWidget(BaseWidget):
             is_generator=False,
         )
 
-    def _on_grid_validity_changed(self, valid: bool) -> None:
-        self.sip_status_changed_handler()
-
-    def sip_status_changed_handler(self) -> None:
-        has_series = self.sip.series is not None
-        grid_valid = self.sip.grid_valid
-
-        match self.sip.status:
-            case SIPStatus.IN_PROGRESS:
-                self.open_button.setEnabled(True)
-                self.upload_button.setEnabled(grid_valid)
-                self.edepot_button.setEnabled(False)
-                self.remove_button.setEnabled(True)
-            case SIPStatus.SIP_CREATED:
-                self.open_button.setEnabled(True)
-                self.upload_button.setEnabled(has_series and grid_valid)
-                self.edepot_button.setEnabled(False)
-                self.remove_button.setEnabled(True)
-            case SIPStatus.UPLOADING | SIPStatus.UPLOADED:
-                self.open_button.setEnabled(False)
-                self.upload_button.setEnabled(False)
-                self.edepot_button.setEnabled(False)
-                self.remove_button.setEnabled(True)
-            case SIPStatus.PROCESSING | SIPStatus.ACCEPTED:
-                self.open_button.setEnabled(False)
-                self.upload_button.setEnabled(False)
-                self.edepot_button.setEnabled(True)
-                self.remove_button.setEnabled(True)
-            case SIPStatus.REJECTED:
-                self.open_button.setEnabled(True)
-                self.upload_button.setEnabled(has_series and grid_valid)
-                self.edepot_button.setEnabled(True)
-                self.remove_button.setEnabled(True)
-            case SIPStatus.DELETED:
-                self.open_button.setEnabled(False)
-                self.upload_button.setEnabled(False)
-                self.edepot_button.setEnabled(False)
-                self.remove_button.setEnabled(False)
-            case x:
-                raise ValueError(f"Found unknown SIPStatus: {x}")
-
-        self._update_upload_button_style(has_series)
-
-    def _update_upload_button_style(self, has_series: bool) -> None:
-        if not has_series and self.sip.status == SIPStatus.SIP_CREATED:
-            set_widget_warning_style(self.upload_button, self.UI_TEXT["upload_no_series_tooltip"])
-        else:
-            clear_widget_warning_style(self.upload_button)
+    def edepot_button_clicked_handler(self) -> None:
+        self.sip.open_edepot_url()
 
     def remove_button_clicked_handler(self) -> None:
         dialog = YesNoDialog(

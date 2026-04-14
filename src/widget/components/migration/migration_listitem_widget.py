@@ -8,7 +8,7 @@ from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.workers.worker import Worker
 
-from src.widget.base_widget import BaseWidget
+from src.widget.components.base_sip_controls_widget import BaseSipControlsWidget
 from src.widget.dialog.migration_edepot_dialog import MigrationEdepotDialog
 from src.widget.dialog.migration_tab_status_dialog import MigrationTabStatusDialog
 from src.widget.dialog.migration_upload_dialog import MigrationUploadDialog
@@ -110,49 +110,22 @@ class MigrationNameAndStatusWidget(QtWidgets.QFrame):
         dialog.exec()
 
 
-class MigrationControlsWidget(BaseWidget):
+class MigrationControlsWidget(BaseSipControlsWidget):
     open_overdrachtslijst_signal = QtCore.Signal(MigrationSIP)
 
     def __init__(self, sip: MigrationSIP):
-        super().__init__()
-
-        self.sip = sip
-
-        self.setup_ui()
-        self.setup_signals()
-        self.sip_status_changed_handler()
+        super().__init__(sip)
         self._update_role_visibility()
 
-    def setup_ui(self) -> None:
-        self.vertical_layout = QtWidgets.QVBoxLayout()
-        self.vertical_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
-        self.setLayout(self.vertical_layout)
-
-        self.open_button = QtWidgets.QPushButton(text=UI_TEXT["open_button_text"])
-
-        self.upload_button = QtWidgets.QPushButton(text=UI_TEXT["upload_button_text"])
-        self.upload_button.setEnabled(False)
-
-        self.edepot_button = QtWidgets.QPushButton(text=UI_TEXT["edepot_button_text"])
-        self.edepot_button.setEnabled(False)
-
-        self.remove_button = QtWidgets.QPushButton(text=UI_TEXT["remove_button_text"])
-
-        self.vertical_layout.addWidget(self.open_button)
-        self.vertical_layout.addWidget(self.upload_button)
-        self.vertical_layout.addWidget(self.edepot_button)
-        self.vertical_layout.addWidget(self.remove_button)
-        self.vertical_layout.addStretch()
-
     def setup_signals(self) -> None:
-        self.sip.status_changed_signal.connect(self.sip_status_changed_handler)
-        self.sip.grid_validity_changed_signal.connect(self._on_grid_validity_changed)
+        super().setup_signals()
         self.application.application_role_changed_signal.connect(self._update_role_visibility)
 
-        self.open_button.clicked.connect(self.open_button_clicked_handler)
-        self.upload_button.clicked.connect(self.upload_button_clicked_handler)
-        self.edepot_button.clicked.connect(self.edepot_button_clicked_handler)
-        self.remove_button.clicked.connect(self.remove_button_clicked_handler)
+    def _has_edepot_info(self) -> bool:
+        return bool(getattr(self.sip, "series_edepot_ids", None))
+
+    def _upload_allowed(self) -> bool:
+        return self.sip.grid_valid
 
     def _update_role_visibility(self) -> None:
         is_klant = self.application.configuration.active_role == KLANT_ROLE
@@ -160,8 +133,11 @@ class MigrationControlsWidget(BaseWidget):
         self.upload_button.setHidden(is_klant)
         self.edepot_button.setHidden(is_klant)
 
+    def open_button_clicked_handler(self) -> None:
+        self.open_overdrachtslijst_signal.emit(self.sip)
+
     def edepot_button_clicked_handler(self) -> None:
-        if not self.sip.series_edepot_ids:
+        if not getattr(self.sip, "series_edepot_ids", None):
             return
 
         dialog = MigrationEdepotDialog(
@@ -169,12 +145,6 @@ class MigrationControlsWidget(BaseWidget):
             base_url=self.sip.environment.api_url,
         )
         dialog.exec()
-
-    def open_button_clicked_handler(self) -> None:
-        self.open_overdrachtslijst_signal.emit(self.sip)
-
-    def _on_grid_validity_changed(self, valid: bool) -> None:
-        self.sip_status_changed_handler()
 
     def upload_button_clicked_handler(self) -> None:
         if self.sip.status == SIPStatus.IN_PROGRESS:
@@ -289,53 +259,6 @@ class MigrationControlsWidget(BaseWidget):
             )
 
         self.sip.derive_overall_status()
-
-    def sip_status_changed_handler(self) -> None:
-        grid_valid = self.sip.grid_valid
-
-        match self.sip.status:
-            case SIPStatus.IN_PROGRESS:
-                self.open_button.setEnabled(True)
-                self.upload_button.setEnabled(grid_valid)
-                self.edepot_button.setEnabled(False)
-                self.remove_button.setEnabled(True)
-            case SIPStatus.SIP_CREATED:
-                self.open_button.setEnabled(True)
-                self.upload_button.setEnabled(grid_valid)
-                self.edepot_button.setEnabled(False)
-                self.remove_button.setEnabled(True)
-            case SIPStatus.PARTIALLY_UPLOADED:
-                self.open_button.setEnabled(True)
-                self.upload_button.setEnabled(grid_valid)
-                self.edepot_button.setEnabled(bool(self.sip.series_edepot_ids))
-                self.remove_button.setEnabled(True)
-            case SIPStatus.UPLOADING:
-                self.open_button.setEnabled(False)
-                self.upload_button.setEnabled(False)
-                self.edepot_button.setEnabled(False)
-                self.remove_button.setEnabled(True)
-            case SIPStatus.UPLOADED:
-                self.open_button.setEnabled(False)
-                self.upload_button.setEnabled(False)
-                self.edepot_button.setEnabled(bool(self.sip.series_edepot_ids))
-                self.remove_button.setEnabled(True)
-            case SIPStatus.PROCESSING | SIPStatus.ACCEPTED:
-                self.open_button.setEnabled(False)
-                self.upload_button.setEnabled(False)
-                self.edepot_button.setEnabled(bool(self.sip.series_edepot_ids))
-                self.remove_button.setEnabled(True)
-            case SIPStatus.REJECTED:
-                self.open_button.setEnabled(True)
-                self.upload_button.setEnabled(grid_valid)
-                self.edepot_button.setEnabled(bool(self.sip.series_edepot_ids))
-                self.remove_button.setEnabled(True)
-            case SIPStatus.DELETED:
-                self.open_button.setEnabled(False)
-                self.upload_button.setEnabled(False)
-                self.edepot_button.setEnabled(False)
-                self.remove_button.setEnabled(False)
-            case x:
-                raise ValueError(f"Found unknown SIPStatus: {x}")
 
     def remove_button_clicked_handler(self) -> None:
         dialog = YesNoDialog(
