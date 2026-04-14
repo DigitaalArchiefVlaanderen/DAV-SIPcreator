@@ -38,23 +38,23 @@ class AnalogSIPDBController(BaseSIPDBController):
 
         def _create(conn: sql.Connection) -> None:
             conn.execute(f"""
-                CREATE TABLE {DBTableName.SIP.value} (
-                    {DBColumnName.NAME.value} text,
-                    {DBColumnName.STATUS.value} text,
-                    {DBColumnName.ENVIRONMENT_NAME.value} text,
-                    {DBColumnName.SERIES_ID.value} text,
-                    {DBColumnName.SERIES_NAME.value} text,
-                    {DBColumnName.EDEPOT_SIP_ID.value} text,
-                    {DBColumnName.UPLOADED.value} integer default 0,
-                    {DBColumnName.GRID_VALID.value} integer default 0
+                CREATE TABLE {DBTableName.SIP} (
+                    {DBColumnName.NAME} text,
+                    {DBColumnName.STATUS} text,
+                    {DBColumnName.ENVIRONMENT_NAME} text,
+                    {DBColumnName.SERIES_ID} text,
+                    {DBColumnName.SERIES_NAME} text,
+                    {DBColumnName.EDEPOT_SIP_ID} text,
+                    {DBColumnName.UPLOADED} integer default 0,
+                    {DBColumnName.GRID_VALID} integer default 0
                 )
             """)
             conn.execute(
                 f"""
-                INSERT INTO {DBTableName.SIP.value}
-                ({DBColumnName.NAME.value}, {DBColumnName.STATUS.value}, {DBColumnName.ENVIRONMENT_NAME.value},
-                 {DBColumnName.SERIES_ID.value}, {DBColumnName.SERIES_NAME.value},
-                 {DBColumnName.EDEPOT_SIP_ID.value}, {DBColumnName.UPLOADED.value}, {DBColumnName.GRID_VALID.value})
+                INSERT INTO {DBTableName.SIP}
+                ({DBColumnName.NAME}, {DBColumnName.STATUS}, {DBColumnName.ENVIRONMENT_NAME},
+                 {DBColumnName.SERIES_ID}, {DBColumnName.SERIES_NAME},
+                 {DBColumnName.EDEPOT_SIP_ID}, {DBColumnName.UPLOADED}, {DBColumnName.GRID_VALID})
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
@@ -73,7 +73,7 @@ class AnalogSIPDBController(BaseSIPDBController):
 
             df = pd.DataFrame(columns=columns)
             df.loc[0] = [""] * len(columns)
-            df.to_sql(DBTableName.DATA.value, conn, index=False, dtype="text")
+            df.to_sql(DBTableName.DATA, conn, index=False, dtype="text")
 
         self._execute_with_conn(sip.db_name, _create)
 
@@ -82,21 +82,21 @@ class AnalogSIPDBController(BaseSIPDBController):
     def read_sip_db(self, db_file_name: str) -> tuple[AnalogSIP, str, str]:
         def _read(conn: sql.Connection) -> tuple[AnalogSIP, str, str]:
             result = conn.execute(
-                f"SELECT {DBColumnName.NAME.value}, {DBColumnName.STATUS.value}, {DBColumnName.ENVIRONMENT_NAME.value}, "
-                f"{DBColumnName.SERIES_ID.value}, {DBColumnName.SERIES_NAME.value}, "
-                f"{DBColumnName.EDEPOT_SIP_ID.value}, {DBColumnName.UPLOADED.value} "
-                f"FROM {DBTableName.SIP.value};"
+                f"SELECT {DBColumnName.NAME}, {DBColumnName.STATUS}, {DBColumnName.ENVIRONMENT_NAME}, "
+                f"{DBColumnName.SERIES_ID}, {DBColumnName.SERIES_NAME}, "
+                f"{DBColumnName.EDEPOT_SIP_ID}, {DBColumnName.UPLOADED} "
+                f"FROM {DBTableName.SIP};"
             ).fetchone()
 
             columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()]
-            has_grid_valid = DBColumnName.GRID_VALID.value in columns
+            has_grid_valid = DBColumnName.GRID_VALID in columns
 
             result = conn.execute(
-                f"SELECT {DBColumnName.NAME.value}, {DBColumnName.STATUS.value}, {DBColumnName.ENVIRONMENT_NAME.value}, "
-                f"{DBColumnName.SERIES_ID.value}, {DBColumnName.SERIES_NAME.value}, "
-                f"{DBColumnName.EDEPOT_SIP_ID.value}, {DBColumnName.UPLOADED.value}"
-                + (f", {DBColumnName.GRID_VALID.value}" if has_grid_valid else "")
-                + f" FROM {DBTableName.SIP.value};"
+                f"SELECT {DBColumnName.NAME}, {DBColumnName.STATUS}, {DBColumnName.ENVIRONMENT_NAME}, "
+                f"{DBColumnName.SERIES_ID}, {DBColumnName.SERIES_NAME}, "
+                f"{DBColumnName.EDEPOT_SIP_ID}, {DBColumnName.UPLOADED}"
+                + (f", {DBColumnName.GRID_VALID}" if has_grid_valid else "")
+                + f" FROM {DBTableName.SIP};"
             ).fetchone()
 
             name, status, environment_name, series_id, series_name, edepot_sip_id, uploaded = result[:7]
@@ -120,13 +120,13 @@ class AnalogSIPDBController(BaseSIPDBController):
     def read_data(self, db_file_name: str) -> pd.DataFrame:
         return self._execute_with_conn(
             db_file_name,
-            lambda conn: pd.read_sql(f"SELECT * FROM {DBTableName.DATA.value}", conn, dtype=str).fillna(""),
+            lambda conn: pd.read_sql(f"SELECT * FROM {DBTableName.DATA}", conn, dtype=str).fillna(""),
         )
 
     def save_data(self, sip: AnalogSIP, df: pd.DataFrame) -> None:
         self._execute_with_conn(
             sip.db_name,
-            lambda conn: df.to_sql(DBTableName.DATA.value, conn, if_exists="replace", index=False, dtype="text"),
+            lambda conn: df.to_sql(DBTableName.DATA, conn, if_exists="replace", index=False, dtype="text"),
         )
 
     def persist_sip(self, sip: AnalogSIP) -> None:
@@ -137,18 +137,18 @@ class AnalogSIPDBController(BaseSIPDBController):
             series_name = sip.series.get_full_name() if sip.series else (sip.saved_series_name or "")
             columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()]
 
-            if DBColumnName.GRID_VALID.value in columns:
+            if DBColumnName.GRID_VALID in columns:
                 conn.execute(
-                    f"UPDATE {DBTableName.SIP.value} SET {DBColumnName.STATUS.value} = ?, "
-                    f"{DBColumnName.SERIES_NAME.value} = ?, {DBColumnName.EDEPOT_SIP_ID.value} = ?, "
-                    f"{DBColumnName.UPLOADED.value} = ?, {DBColumnName.GRID_VALID.value} = ?",
+                    f"UPDATE {DBTableName.SIP} SET {DBColumnName.STATUS} = ?, "
+                    f"{DBColumnName.SERIES_NAME} = ?, {DBColumnName.EDEPOT_SIP_ID} = ?, "
+                    f"{DBColumnName.UPLOADED} = ?, {DBColumnName.GRID_VALID} = ?",
                     (sip.status.name, series_name, sip.edepot_sip_id or "", int(sip.uploaded), int(sip.grid_valid)),
                 )
             else:
                 conn.execute(
-                    f"UPDATE {DBTableName.SIP.value} SET {DBColumnName.STATUS.value} = ?, "
-                    f"{DBColumnName.SERIES_NAME.value} = ?, {DBColumnName.EDEPOT_SIP_ID.value} = ?, "
-                    f"{DBColumnName.UPLOADED.value} = ?",
+                    f"UPDATE {DBTableName.SIP} SET {DBColumnName.STATUS} = ?, "
+                    f"{DBColumnName.SERIES_NAME} = ?, {DBColumnName.EDEPOT_SIP_ID} = ?, "
+                    f"{DBColumnName.UPLOADED} = ?",
                     (sip.status.name, series_name, sip.edepot_sip_id or "", int(sip.uploaded)),
                 )
 
@@ -164,9 +164,9 @@ class AnalogSIPDBController(BaseSIPDBController):
                 return "needs_transition"
 
             return (
-                DBTableName.SIP.value in tables
-                and DBTableName.DATA.value in tables
-                and DBTableName.SIP_CREATOR.value in tables
+                DBTableName.SIP in tables
+                and DBTableName.DATA in tables
+                and DBTableName.SIP_CREATOR in tables
             )
 
         result = self._execute_with_conn(db_file_name, _validate)

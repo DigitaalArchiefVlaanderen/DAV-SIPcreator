@@ -39,7 +39,7 @@ class ConfigController:
 
                 if not is_path_exists_or_creatable(values[CONFIG_KEY_SIP_STORAGE]):
                     configuration[environment][CONFIG_KEY_SIP_STORAGE] = os.path.join(
-                        root_path, SaveLocations.DEFAULT_BASE_SAVE_LOCATION.value
+                        root_path, SaveLocations.DEFAULT_BASE_SAVE_LOCATION
                     )
 
                 if version == ConfigurationVersion.V1:
@@ -77,25 +77,25 @@ class ConfigController:
                 continue
 
             # NOTE: connection details need both API and FTPS for their environment
-            if ConfigKey.API.value not in values or ConfigKey.FTPS.value not in values:
+            if ConfigKey.API not in values or ConfigKey.FTPS not in values:
                 return False
 
             if any(
-                argument not in values[ConfigKey.API.value]
+                argument not in values[ConfigKey.API]
                 for argument in (
-                    ConfigKey.URL.value,
-                    ConfigKey.USERNAME.value,
-                    ConfigKey.PASSWORD.value,
-                    ConfigKey.CLIENT_ID.value,
-                    ConfigKey.CLIENT_SECRET.value,
+                    ConfigKey.URL,
+                    ConfigKey.USERNAME,
+                    ConfigKey.PASSWORD,
+                    ConfigKey.CLIENT_ID,
+                    ConfigKey.CLIENT_SECRET,
                 )
             ) or any(
-                argument not in values[ConfigKey.FTPS.value]
+                argument not in values[ConfigKey.FTPS]
                 for argument in (
-                    ConfigKey.URL.value,
-                    ConfigKey.USERNAME.value,
-                    ConfigKey.PASSWORD.value,
-                    ConfigKey.PORT.value,
+                    ConfigKey.URL,
+                    ConfigKey.USERNAME,
+                    ConfigKey.PASSWORD,
+                    ConfigKey.PORT,
                 )
             ):
                 return False

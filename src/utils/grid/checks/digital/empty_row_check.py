@@ -7,12 +7,12 @@ UI_TEXT = UI_TEXT_ELEMENTS["grid_checks"]["digital"]
 def mark_empty_rows(table: DataTable) -> None:
     raw_data = table.raw_data
 
-    if ColumnName.TYPE.value not in raw_data.columns:
+    if ColumnName.TYPE not in raw_data.columns:
         return
 
-    type_col = raw_data.columns.get_loc(ColumnName.TYPE.value)
+    type_col = raw_data.columns.get_loc(ColumnName.TYPE)
     empty_mask = raw_data.iloc[:, type_col] == RowType.GEEN
-    path_col_name = ColumnName.PATH_IN_SIP.value
+    path_col_name = ColumnName.PATH_IN_SIP
     has_path = path_col_name in raw_data.columns
 
     for row_pos in range(len(raw_data)):

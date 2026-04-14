@@ -64,16 +64,16 @@ class FileController(BaseObject):
         folder_paths = set()
 
         for row in sip_folder_structure.values():
-            path_in_sip, path = row[ColumnName.PATH_IN_SIP.value], row["path"]
+            path_in_sip, path = row[ColumnName.PATH_IN_SIP], row["path"]
 
-            if sum(df[ColumnName.PATH_IN_SIP.value] == path_in_sip) == 0:
+            if sum(df[ColumnName.PATH_IN_SIP] == path_in_sip) == 0:
                 self.application.notify_user_signal.emit(
                     UI_TEXT["folder_structure_new_path_error"]["title"],
                     UI_TEXT["folder_structure_new_path_error"]["text"].format(path=path),
                 )
                 return False
 
-            elif sum(df[ColumnName.PATH_IN_SIP.value] == path_in_sip) > 1:
+            elif sum(df[ColumnName.PATH_IN_SIP] == path_in_sip) > 1:
                 self.application.notify_user_signal.emit(
                     UI_TEXT["folder_structure_duplicate_path_error"]["title"],
                     UI_TEXT["folder_structure_duplicate_path_error"]["text"].format(path_in_sip=path_in_sip),
@@ -83,11 +83,11 @@ class FileController(BaseObject):
             folder_paths.add(path_in_sip)
 
         for _, row in df.iterrows():
-            if row[ColumnName.PATH_IN_SIP.value] not in folder_paths:
+            if row[ColumnName.PATH_IN_SIP] not in folder_paths:
                 self.application.notify_user_signal.emit(
                     UI_TEXT["folder_structure_missing_path_error"]["title"],
                     UI_TEXT["folder_structure_missing_path_error"]["text"].format(
-                        path_in_sip=row[ColumnName.PATH_IN_SIP.value]
+                        path_in_sip=row[ColumnName.PATH_IN_SIP]
                     ),
                 )
                 return False
@@ -96,11 +96,11 @@ class FileController(BaseObject):
 
     @staticmethod
     def _filter_df(df: pd.DataFrame, strip_name_extensions: bool = False) -> pd.DataFrame:
-        filtered = df.loc[df[ColumnName.TYPE.value] != RowType.GEEN].copy()
+        filtered = df.loc[df[ColumnName.TYPE] != RowType.GEEN].copy()
         filtered.reset_index(drop=True, inplace=True)
 
-        if strip_name_extensions and ColumnName.NAAM.value in filtered.columns:
-            filtered[ColumnName.NAAM.value] = filtered[ColumnName.NAAM.value].apply(
+        if strip_name_extensions and ColumnName.NAAM in filtered.columns:
+            filtered[ColumnName.NAAM] = filtered[ColumnName.NAAM].apply(
                 lambda v: v.rsplit(".", 1)[0] if v else v
             )
 
@@ -122,7 +122,7 @@ class FileController(BaseObject):
 
         sip_folder_structure = sip._get_folder_structure()
         filtered_folder_structure = {
-            k: v for k, v in sip_folder_structure.items() if v[ColumnName.TYPE.value] != RowType.GEEN
+            k: v for k, v in sip_folder_structure.items() if v[ColumnName.TYPE] != RowType.GEEN
         }
 
         df = FileController._filter_df(sip.grid_data.data_as_df, strip_name_extensions)
@@ -154,7 +154,7 @@ class FileController(BaseObject):
                 zfile.write(temp_excel_location, "Metadata.xlsx")
 
                 for location in filtered_folder_structure.values():
-                    zfile.write(location["path"], location[ColumnName.PATH_IN_SIP.value])
+                    zfile.write(location["path"], location[ColumnName.PATH_IN_SIP])
 
             with open(sip_location, "rb") as f:
                 md5 = hashlib.md5(f.read()).hexdigest()

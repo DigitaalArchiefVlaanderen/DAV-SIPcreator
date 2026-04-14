@@ -73,18 +73,24 @@ class BaseSIPDBController(BaseObject):
         def _read(conn: sql.Connection) -> tuple[str, str] | None:
             db_tables = [r for r, *_ in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
 
-            if DBTableName.SIP_CREATOR.value not in db_tables:
+            if DBTableName.SIP_CREATOR not in db_tables:
                 return None
 
-            columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip_creator);").fetchall()]
+            columns = [col_name for _, col_name, *_ in conn.execute(
+                f"PRAGMA table_info({DBTableName.SIP_CREATOR});"
+            ).fetchall()]
 
-            row = conn.execute("SELECT * FROM sip_creator").fetchone()
+            row = conn.execute(f"SELECT * FROM {DBTableName.SIP_CREATOR}").fetchone()
 
             if row is None:
                 return None
 
-            version = row[0] if "version" in columns else ""
-            transformed = row[columns.index("transformed")] if "transformed" in columns else ""
+            version = row[0] if DBColumnName.VERSION in columns else ""
+            transformed = (
+                row[columns.index(DBColumnName.TRANSFORMED)]
+                if DBColumnName.TRANSFORMED in columns
+                else ""
+            )
 
             return version, transformed
 
@@ -95,22 +101,22 @@ class BaseSIPDBController(BaseObject):
 
     def _create_sip_creator_table(self, conn: sql.Connection, transformed: str = "") -> None:
         conn.execute(f"""
-            CREATE TABLE {DBTableName.SIP_CREATOR.value} (
-                {DBColumnName.VERSION.value} text,
-                {DBColumnName.TRANSFORMED.value} text,
-                {DBColumnName.LAST_OPENED.value} text
+            CREATE TABLE {DBTableName.SIP_CREATOR} (
+                {DBColumnName.VERSION} text,
+                {DBColumnName.TRANSFORMED} text,
+                {DBColumnName.LAST_OPENED} text
             )
         """)
         conn.execute(
-            f"INSERT INTO {DBTableName.SIP_CREATOR.value} "
-            f"({DBColumnName.VERSION.value}, {DBColumnName.TRANSFORMED.value}, {DBColumnName.LAST_OPENED.value}) "
+            f"INSERT INTO {DBTableName.SIP_CREATOR} "
+            f"({DBColumnName.VERSION}, {DBColumnName.TRANSFORMED}, {DBColumnName.LAST_OPENED}) "
             f"VALUES (?, ?, ?)",
             (SIP_CREATOR_VERSION, transformed, SIP_CREATOR_VERSION),
         )
 
     def _update_sip_creator_version(self, conn: sql.Connection) -> None:
         conn.execute(
-            f"UPDATE {DBTableName.SIP_CREATOR.value} SET {DBColumnName.LAST_OPENED.value} = ?",
+            f"UPDATE {DBTableName.SIP_CREATOR} SET {DBColumnName.LAST_OPENED} = ?",
             (SIP_CREATOR_VERSION,),
         )
 

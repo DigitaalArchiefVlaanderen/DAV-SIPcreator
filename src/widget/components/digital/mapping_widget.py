@@ -104,7 +104,7 @@ class TagMappingWidget(QtWidgets.QFrame):
             [
                 t
                 for t in tags
-                if t not in (ColumnName.TYPE.value, ColumnName.DOSSIER_REF.value, ColumnName.ANALOOG.value)
+                if t not in (ColumnName.TYPE, ColumnName.DOSSIER_REF, ColumnName.ANALOOG)
             ]
         )
 

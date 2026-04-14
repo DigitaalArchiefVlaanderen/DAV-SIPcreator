@@ -78,12 +78,12 @@ class SIP(CommonSIP):
         return {
             (path_in_sip := self._map_file_location_to_sip_location(dossier_name)): {
                 "path": dossier.path,
-                ColumnName.PATH_IN_SIP.value: path_in_sip,
-                ColumnName.TYPE.value: RowType.DOSSIER,
-                ColumnName.NAAM.value: os.path.basename(path_in_sip),
-                ColumnName.DOSSIER_REF.value: path_in_sip.split("/")[0],
-                ColumnName.OPENINGSDATUM.value: None,
-                ColumnName.SLUITINGSDATUM.value: None,
+                ColumnName.PATH_IN_SIP: path_in_sip,
+                ColumnName.TYPE: RowType.DOSSIER,
+                ColumnName.NAAM: os.path.basename(path_in_sip),
+                ColumnName.DOSSIER_REF: path_in_sip.split("/")[0],
+                ColumnName.OPENINGSDATUM: None,
+                ColumnName.SLUITINGSDATUM: None,
             }
         }
 
@@ -122,25 +122,25 @@ class SIP(CommonSIP):
         return {
             (path_in_sip := self._map_file_location_to_sip_location(f"{dossier_name}/{relative_location}")): {
                 "path": (real_path := os.path.join(dossier.path, relative_location)),
-                ColumnName.PATH_IN_SIP.value: path_in_sip,
-                ColumnName.TYPE.value: (
+                ColumnName.PATH_IN_SIP: path_in_sip,
+                ColumnName.TYPE: (
                     RowType.GEEN
                     if not os.path.isfile(real_path)
                     or os.path.getsize(real_path) == 0
                     or any(re.match(p, file_name) is not None for p in FILE_REGEXES_TO_IGNORE)
                     else RowType.STUK
                 ),
-                ColumnName.NAAM.value: os.path.basename(path_in_sip),
-                ColumnName.DOSSIER_REF.value: path_in_sip.split("/")[0],
+                ColumnName.NAAM: os.path.basename(path_in_sip),
+                ColumnName.DOSSIER_REF: path_in_sip.split("/")[0],
                 # Openingsdatum will be the creation dates of the file
                 # There is no cross-platform way of doing this sadly
                 # nt is Windows
-                ColumnName.OPENINGSDATUM.value: (
+                ColumnName.OPENINGSDATUM: (
                     os.path.getctime(real_path) if os.name == "nt" else os.stat(real_path).st_birthtime
                 ),
                 # Sluitingsdatum will be the last edited time of the file
                 # This works as a cross-platform way of getting modification time
-                ColumnName.SLUITINGSDATUM.value: os.path.getmtime(real_path),
+                ColumnName.SLUITINGSDATUM: os.path.getmtime(real_path),
             }
             for file_name, relative_location in self._get_dossier_folder_structure(dossier.path, dossier.path).items()
         }
@@ -154,8 +154,8 @@ class SIP(CommonSIP):
 
             dossier_key = next(iter(dossier_structure))
 
-            if not file_structure or all(f[ColumnName.TYPE.value] == RowType.GEEN for f in file_structure.values()):
-                dossier_structure[dossier_key][ColumnName.TYPE.value] = RowType.GEEN
+            if not file_structure or all(f[ColumnName.TYPE] == RowType.GEEN for f in file_structure.values()):
+                dossier_structure[dossier_key][ColumnName.TYPE] = RowType.GEEN
 
             folder_structure = {
                 **folder_structure,
@@ -179,21 +179,21 @@ class SIP(CommonSIP):
         folder_structure = self._get_folder_structure()
 
         main_columns = (
-            ColumnName.PATH_IN_SIP.value,
-            ColumnName.TYPE.value,
-            ColumnName.DOSSIER_REF.value,
-            ColumnName.NAAM.value,
-            ColumnName.OPENINGSDATUM.value,
-            ColumnName.SLUITINGSDATUM.value,
+            ColumnName.PATH_IN_SIP,
+            ColumnName.TYPE,
+            ColumnName.DOSSIER_REF,
+            ColumnName.NAAM,
+            ColumnName.OPENINGSDATUM,
+            ColumnName.SLUITINGSDATUM,
         )
 
         for column in main_columns:
             df[column] = [s[column] for s in folder_structure.values()]
 
-        type_col = ColumnName.TYPE.value
-        dossier_ref_col = ColumnName.DOSSIER_REF.value
-        opening_col = ColumnName.OPENINGSDATUM.value
-        closing_col = ColumnName.SLUITINGSDATUM.value
+        type_col = ColumnName.TYPE
+        dossier_ref_col = ColumnName.DOSSIER_REF
+        opening_col = ColumnName.OPENINGSDATUM
+        closing_col = ColumnName.SLUITINGSDATUM
 
         open_dates_df = df.loc[df[type_col] == RowType.DOSSIER][[dossier_ref_col]].join(
             df.loc[df[type_col] == RowType.STUK]
@@ -231,7 +231,7 @@ class SIP(CommonSIP):
         if metadata_df is None:
             return
 
-        path_in_sip_col = ColumnName.PATH_IN_SIP.value
+        path_in_sip_col = ColumnName.PATH_IN_SIP
         path_metadata_col = next(
             (meta_col for meta_col, import_col in self.tag_mapping if import_col == path_in_sip_col),
             None,

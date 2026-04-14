@@ -4,10 +4,10 @@ from src.utils.constants import UI_TEXT_ELEMENTS, ColumnName
 from src.utils.grid.checks.base_check import BaseCheck, BulkResult, CellRange
 
 LOCATION_COLUMNS = (
-    ColumnName.ORIGINEEL_DOOSNUMMER.value,
-    ColumnName.LEGACY_LOCATIE_ID.value,
-    ColumnName.LEGACY_RANGE.value,
-    ColumnName.VERPAKKINGSTYPE.value,
+    ColumnName.ORIGINEEL_DOOSNUMMER,
+    ColumnName.LEGACY_LOCATIE_ID,
+    ColumnName.LEGACY_RANGE,
+    ColumnName.VERPAKKINGSTYPE,
 )
 
 UI_TEXT = UI_TEXT_ELEMENTS["grid_checks"]["migration"]

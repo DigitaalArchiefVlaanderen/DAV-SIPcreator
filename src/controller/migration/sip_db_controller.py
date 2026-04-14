@@ -48,21 +48,21 @@ class MigrationSIPDBController(BaseSIPDBController):
 
         def _create(conn: sql.Connection) -> None:
             conn.execute(f"""
-                CREATE TABLE {DBTableName.SIP.value} (
-                    {DBColumnName.NAME.value} text,
-                    {DBColumnName.STATUS.value} text,
-                    {DBColumnName.ENVIRONMENT_NAME.value} text,
-                    {DBColumnName.EDEPOT_SIP_ID.value} text,
-                    {DBColumnName.OVERDRACHTSLIJST_NAME.value} text,
-                    {DBColumnName.GRID_VALID.value} integer default 0
+                CREATE TABLE {DBTableName.SIP} (
+                    {DBColumnName.NAME} text,
+                    {DBColumnName.STATUS} text,
+                    {DBColumnName.ENVIRONMENT_NAME} text,
+                    {DBColumnName.EDEPOT_SIP_ID} text,
+                    {DBColumnName.OVERDRACHTSLIJST_NAME} text,
+                    {DBColumnName.GRID_VALID} integer default 0
                 )
             """)
             conn.execute(
                 f"""
-                INSERT INTO {DBTableName.SIP.value}
-                ({DBColumnName.NAME.value}, {DBColumnName.STATUS.value}, {DBColumnName.ENVIRONMENT_NAME.value},
-                 {DBColumnName.EDEPOT_SIP_ID.value}, {DBColumnName.OVERDRACHTSLIJST_NAME.value},
-                 {DBColumnName.GRID_VALID.value})
+                INSERT INTO {DBTableName.SIP}
+                ({DBColumnName.NAME}, {DBColumnName.STATUS}, {DBColumnName.ENVIRONMENT_NAME},
+                 {DBColumnName.EDEPOT_SIP_ID}, {DBColumnName.OVERDRACHTSLIJST_NAME},
+                 {DBColumnName.GRID_VALID})
                 VALUES (?, ?, ?, ?, ?, ?)
             """,
                 (
@@ -77,15 +77,15 @@ class MigrationSIPDBController(BaseSIPDBController):
 
             self._create_sip_creator_table(conn, transformed)
 
-            sip.main_grid_data.data_as_df.to_sql(DBTableName.OVERDRACHTSLIJST.value, conn, index=False, dtype="text")
+            sip.main_grid_data.data_as_df.to_sql(DBTableName.OVERDRACHTSLIJST, conn, index=False, dtype="text")
 
             conn.execute(f"""
-                CREATE TABLE {DBTableName.TABLES.value} (
-                    {DBColumnName.TABLE_NAME.value} text,
-                    "{DBColumnName.URI_SERIEREGISTER.value}" text,
-                    {DBColumnName.EDEPOT_ID.value} text,
-                    {DBColumnName.STATUS.value} text default '{SIPStatus.IN_PROGRESS.name}',
-                    UNIQUE({DBColumnName.TABLE_NAME.value})
+                CREATE TABLE {DBTableName.TABLES} (
+                    {DBColumnName.TABLE_NAME} text,
+                    "{DBColumnName.URI_SERIEREGISTER}" text,
+                    {DBColumnName.EDEPOT_ID} text,
+                    {DBColumnName.STATUS} text default '{SIPStatus.IN_PROGRESS.name}',
+                    UNIQUE({DBColumnName.TABLE_NAME})
                 )
             """)
 
@@ -94,13 +94,13 @@ class MigrationSIPDBController(BaseSIPDBController):
     def read_sip_db(self, sip_db_file_name: str) -> MigrationSIP:
         def _read(conn: sql.Connection) -> MigrationSIP:
             columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()]
-            has_grid_valid = DBColumnName.GRID_VALID.value in columns
+            has_grid_valid = DBColumnName.GRID_VALID in columns
 
             result = conn.execute(
-                f"SELECT {DBColumnName.NAME.value}, {DBColumnName.STATUS.value}, {DBColumnName.ENVIRONMENT_NAME.value}, "
-                f"{DBColumnName.EDEPOT_SIP_ID.value}, {DBColumnName.OVERDRACHTSLIJST_NAME.value}"
-                + (f", {DBColumnName.GRID_VALID.value}" if has_grid_valid else "")
-                + f" FROM {DBTableName.SIP.value};"
+                f"SELECT {DBColumnName.NAME}, {DBColumnName.STATUS}, {DBColumnName.ENVIRONMENT_NAME}, "
+                f"{DBColumnName.EDEPOT_SIP_ID}, {DBColumnName.OVERDRACHTSLIJST_NAME}"
+                + (f", {DBColumnName.GRID_VALID}" if has_grid_valid else "")
+                + f" FROM {DBTableName.SIP};"
             ).fetchone()
 
             name, status, environment_name, edepot_sip_id, overdrachtslijst_name = result[:5]
@@ -121,14 +121,16 @@ class MigrationSIPDBController(BaseSIPDBController):
     def read_main_data(self, sip_db_file_name: str) -> pd.DataFrame:
         return self._execute_with_conn(
             sip_db_file_name,
-            lambda conn: pd.read_sql(f"SELECT * FROM {DBTableName.OVERDRACHTSLIJST.value}", conn, dtype=str).fillna(""),
+            lambda conn: pd.read_sql(f"SELECT * FROM {DBTableName.OVERDRACHTSLIJST}", conn, dtype=str).fillna(""),
         )
 
     def read_tables(self, sip_db_file_name: str) -> list[tuple[str, str, str, str]]:
         return self._execute_with_conn(
             sip_db_file_name,
             lambda conn: conn.execute(
-                'SELECT table_name, "URI Serieregister", edepot_id, status FROM tables'
+                f'SELECT {DBColumnName.TABLE_NAME}, "{DBColumnName.URI_SERIEREGISTER}", '
+                f'{DBColumnName.EDEPOT_ID}, {DBColumnName.STATUS} '
+                f'FROM {DBTableName.TABLES}'
             ).fetchall(),
         )
 
@@ -140,7 +142,9 @@ class MigrationSIPDBController(BaseSIPDBController):
     def create_series_table(self, sip: MigrationSIP, uri_serieregister: str, table_name: str, df: pd.DataFrame) -> None:
         def _create(conn: sql.Connection) -> None:
             conn.execute(
-                'INSERT INTO tables (table_name, "URI Serieregister", edepot_id, status) VALUES (?, ?, ?, ?)',
+                f'INSERT INTO {DBTableName.TABLES} ({DBColumnName.TABLE_NAME}, '
+                f'"{DBColumnName.URI_SERIEREGISTER}", {DBColumnName.EDEPOT_ID}, '
+                f'{DBColumnName.STATUS}) VALUES (?, ?, ?, ?)',
                 (table_name, uri_serieregister, "", SIPStatus.IN_PROGRESS.name),
             )
 
@@ -151,14 +155,19 @@ class MigrationSIPDBController(BaseSIPDBController):
     def update_series_status(self, sip: MigrationSIP, table_name: str, status: SIPStatus, edepot_id: str = "") -> None:
         def _update(conn: sql.Connection) -> None:
             conn.execute(
-                "UPDATE tables SET status = ?, edepot_id = ? WHERE table_name = ?", (status.name, edepot_id, table_name)
+                f"UPDATE {DBTableName.TABLES} SET {DBColumnName.STATUS} = ?, "
+                f"{DBColumnName.EDEPOT_ID} = ? WHERE {DBColumnName.TABLE_NAME} = ?",
+                (status.name, edepot_id, table_name),
             )
 
         self._execute_with_conn(sip.db_name, _update)
 
     def read_series_statuses(self, sip_db_file_name: str) -> dict[str, tuple[str, str]]:
         def _read(conn: sql.Connection) -> dict[str, tuple[str, str]]:
-            rows = conn.execute("SELECT table_name, status, edepot_id FROM tables").fetchall()
+            rows = conn.execute(
+                f"SELECT {DBColumnName.TABLE_NAME}, {DBColumnName.STATUS}, "
+                f"{DBColumnName.EDEPOT_ID} FROM {DBTableName.TABLES}"
+            ).fetchall()
 
             return {name: (status, edepot_id) for name, status, edepot_id in rows}
 
@@ -172,7 +181,10 @@ class MigrationSIPDBController(BaseSIPDBController):
     def delete_series_table(self, sip: MigrationSIP, table_name: str) -> None:
         def _delete(conn: sql.Connection) -> None:
             conn.execute(f"DROP TABLE IF EXISTS [{table_name}]")
-            conn.execute("DELETE FROM tables WHERE table_name = ?", (table_name,))
+            conn.execute(
+                f"DELETE FROM {DBTableName.TABLES} WHERE {DBColumnName.TABLE_NAME} = ?",
+                (table_name,),
+            )
 
         self._execute_with_conn(sip.db_name, _delete)
 
@@ -180,7 +192,7 @@ class MigrationSIPDBController(BaseSIPDBController):
         self._execute_with_conn(
             sip.db_name,
             lambda conn: df.to_sql(
-                DBTableName.OVERDRACHTSLIJST.value, conn, if_exists="replace", index=False, dtype="text"
+                DBTableName.OVERDRACHTSLIJST, conn, if_exists="replace", index=False, dtype="text"
             ),
         )
 
@@ -208,16 +220,16 @@ class MigrationSIPDBController(BaseSIPDBController):
         def _persist(conn: sql.Connection) -> None:
             columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()]
 
-            if DBColumnName.GRID_VALID.value in columns:
+            if DBColumnName.GRID_VALID in columns:
                 conn.execute(
-                    f"UPDATE {DBTableName.SIP.value} SET {DBColumnName.STATUS.value} = ?, "
-                    f"{DBColumnName.EDEPOT_SIP_ID.value} = ?, {DBColumnName.GRID_VALID.value} = ?",
+                    f"UPDATE {DBTableName.SIP} SET {DBColumnName.STATUS} = ?, "
+                    f"{DBColumnName.EDEPOT_SIP_ID} = ?, {DBColumnName.GRID_VALID} = ?",
                     (sip.status.name, sip.edepot_sip_id or "", int(sip.grid_valid)),
                 )
             else:
                 conn.execute(
-                    f"UPDATE {DBTableName.SIP.value} SET {DBColumnName.STATUS.value} = ?, "
-                    f"{DBColumnName.EDEPOT_SIP_ID.value} = ?",
+                    f"UPDATE {DBTableName.SIP} SET {DBColumnName.STATUS} = ?, "
+                    f"{DBColumnName.EDEPOT_SIP_ID} = ?",
                     (sip.status.name, sip.edepot_sip_id or ""),
                 )
 
@@ -226,7 +238,8 @@ class MigrationSIPDBController(BaseSIPDBController):
             for series_name, series_status in sip.series_statuses.items():
                 edepot_id = sip.series_edepot_ids.get(series_name, "")
                 conn.execute(
-                    "UPDATE tables SET status = ?, edepot_id = ? WHERE table_name = ?",
+                    f"UPDATE {DBTableName.TABLES} SET {DBColumnName.STATUS} = ?, "
+                    f"{DBColumnName.EDEPOT_ID} = ? WHERE {DBColumnName.TABLE_NAME} = ?",
                     (series_status.name, edepot_id, series_name),
                 )
 
@@ -236,15 +249,15 @@ class MigrationSIPDBController(BaseSIPDBController):
         def _validate(conn: sql.Connection) -> bool | str:
             db_tables = [r for r, *_ in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
 
-            has_old_format = DBTableName.TABLES.value in db_tables and self.old_sip_db_controller.is_valid_db(
+            has_old_format = DBTableName.TABLES in db_tables and self.old_sip_db_controller.is_valid_db(
                 sip_db_file_name
             )
             has_current_format = (
-                DBTableName.SIP.value in db_tables
-                and DBTableName.OVERDRACHTSLIJST.value in db_tables
-                and DBTableName.TABLES.value in db_tables
+                DBTableName.SIP in db_tables
+                and DBTableName.OVERDRACHTSLIJST in db_tables
+                and DBTableName.TABLES in db_tables
             )
-            has_intermediate_format = DBTableName.SIP.value in db_tables and "main_data" in db_tables
+            has_intermediate_format = DBTableName.SIP in db_tables and "main_data" in db_tables
 
             if has_old_format and not has_current_format:
                 return "needs_transition"
@@ -382,7 +395,7 @@ class MigrationSIPDBController(BaseSIPDBController):
                 for table_name, uri, _ in series_entries:
                     clean_name = table_name.strip('"')
 
-                    if clean_name == DBTableName.OVERDRACHTSLIJST.value:
+                    if clean_name == DBTableName.OVERDRACHTSLIJST:
                         continue
 
                     try:
@@ -478,18 +491,18 @@ class OldMigrationSIPDBController(BaseObject):
         def _validate(conn: sql.Connection) -> bool:
             db_tables = [r for r, *_ in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
 
-            if DBTableName.TABLES.value not in db_tables:
+            if DBTableName.TABLES not in db_tables:
                 return False
 
             columns = [
                 col_name
-                for _, col_name, *_ in conn.execute(f"PRAGMA table_info({DBTableName.TABLES.value});").fetchall()
+                for _, col_name, *_ in conn.execute(f"PRAGMA table_info({DBTableName.TABLES});").fetchall()
             ]
 
-            if DBColumnName.TABLE_NAME.value not in columns:
+            if DBColumnName.TABLE_NAME not in columns:
                 return False
 
-            if DBColumnName.URI_SERIEREGISTER.value not in columns:
+            if DBColumnName.URI_SERIEREGISTER not in columns:
                 return False
 
             return True

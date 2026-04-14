@@ -91,8 +91,8 @@ class APIController:
         ).json()
 
         for group in response["Groups"]:
-            if group[APIResponseKey.TYPE.value] == APIResponseKey.ORGANISATION.value:
-                return group[APIResponseKey.ID.value]
+            if group[APIResponseKey.TYPE] == APIResponseKey.ORGANISATION:
+                return group[APIResponseKey.ID]
 
     @staticmethod
     def _get_organisation_id(access_token: str, environment: Environment) -> str:
@@ -110,7 +110,7 @@ class APIController:
             headers=headers,
         ).json()
 
-        return response[APIResponseKey.ORGANISATION.value][APIResponseKey.ID.value]
+        return response[APIResponseKey.ORGANISATION][APIResponseKey.ID]
 
     @staticmethod
     def get_series(environment: Environment, search: str = None) -> Iterable[list[Series]]:
@@ -144,7 +144,7 @@ class APIController:
                 params=params,
             ).json()
 
-            yield Series.from_list(response[APIResponseKey.CONTENT.value])
+            yield Series.from_list(response[APIResponseKey.CONTENT])
 
             if (response["Page"] + 1) * params["size"] >= response["Total"]:
                 break
@@ -221,7 +221,7 @@ class APIController:
                 params=params,
             ).json()
 
-            sip_objects = response[APIResponseKey.CONTENT.value]
+            sip_objects = response[APIResponseKey.CONTENT]
 
             for sip_object in sip_objects:
                 if sip_object["OriginalFilename"] == sip.file_name:
@@ -257,7 +257,7 @@ class APIController:
                 params=params,
             ).json()
 
-            sip_objects = response[APIResponseKey.CONTENT.value]
+            sip_objects = response[APIResponseKey.CONTENT]
 
             # NOTE: we just have to assume the sip name will be unique, since the API is not supporting searching by name/time
             for sip_object in sip_objects:

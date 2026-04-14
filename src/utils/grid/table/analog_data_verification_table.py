@@ -9,19 +9,19 @@ from src.utils.grid.table.common import CellColor, CommonDataVerificationTable, 
 from src.utils.workers.worker import Worker
 
 DISABLED_COLUMNS = [
-    ColumnName.TYPE.value,
-    ColumnName.DOSSIER_REF.value,
-    ColumnName.ANALOOG.value,
+    ColumnName.TYPE,
+    ColumnName.DOSSIER_REF,
+    ColumnName.ANALOOG,
 ]
 
 NON_DUPLICATABLE_COLUMNS = {
-    ColumnName.PATH_IN_SIP.value,
-    ColumnName.TYPE.value,
-    ColumnName.DOSSIER_REF.value,
-    ColumnName.ANALOOG.value,
-    ColumnName.NAAM.value,
-    ColumnName.OPENINGSDATUM.value,
-    ColumnName.SLUITINGSDATUM.value,
+    ColumnName.PATH_IN_SIP,
+    ColumnName.TYPE,
+    ColumnName.DOSSIER_REF,
+    ColumnName.ANALOOG,
+    ColumnName.NAAM,
+    ColumnName.OPENINGSDATUM,
+    ColumnName.SLUITINGSDATUM,
 }
 
 
@@ -55,24 +55,6 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
     def count_data_rows(self) -> int:
         return sum(1 for row in range(self.raw_data.shape[0]) if not self._is_row_empty(row))
 
-    def is_data_valid(self) -> bool:
-        has_data_row = False
-
-        for row in range(self.raw_data.shape[0]):
-            if self._is_row_empty(row):
-                continue
-
-            has_data_row = True
-            row_idx = self.raw_data.index[row]
-
-            for col in range(self.raw_data.shape[1]):
-                for source in (MarkingSource.CELL, MarkingSource.WIDE):
-                    marking = self.markings.get((row_idx, col, source))
-
-                    if marking and marking[0] == CellColor.RED:
-                        return False
-
-        return has_data_row
 
     def _ensure_empty_bottom_row(self) -> None:
         if self.raw_data.shape[0] == 0 or not self._is_row_empty(self.raw_data.shape[0] - 1):
@@ -108,7 +90,7 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
         value = self._sanitize_value(value)
         col_name = self.raw_data.columns[index.column()]
 
-        if col_name == ColumnName.PATH_IN_SIP.value:
+        if col_name == ColumnName.PATH_IN_SIP:
             self._auto_fill_from_path(index.row(), value)
 
         self.raw_data.iat[index.row(), index.column()] = value
@@ -148,7 +130,7 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
             auto_fill_rows: list[tuple[int, str]] = []
 
             for row, col, value in raw_changes:
-                if columns[col] == ColumnName.PATH_IN_SIP.value:
+                if columns[col] == ColumnName.PATH_IN_SIP:
                     auto_fill_rows.append((row, value))
 
                 df_copy.iat[row, col] = value
@@ -225,14 +207,14 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
 
     @staticmethod
     def _background_bulk_auto_fill(df: "pd.DataFrame", rows: list[tuple[int, str]]) -> None:
-        if ColumnName.TYPE.value not in df.columns:
+        if ColumnName.TYPE not in df.columns:
             return
 
-        type_col = df.columns.get_loc(ColumnName.TYPE.value)
-        dossier_ref_col = df.columns.get_loc(ColumnName.DOSSIER_REF.value)
-        analoog_col = df.columns.get_loc(ColumnName.ANALOOG.value)
-        has_naam = ColumnName.NAAM.value in df.columns
-        naam_col = df.columns.get_loc(ColumnName.NAAM.value) if has_naam else None
+        type_col = df.columns.get_loc(ColumnName.TYPE)
+        dossier_ref_col = df.columns.get_loc(ColumnName.DOSSIER_REF)
+        analoog_col = df.columns.get_loc(ColumnName.ANALOOG)
+        has_naam = ColumnName.NAAM in df.columns
+        naam_col = df.columns.get_loc(ColumnName.NAAM) if has_naam else None
 
         for row, value in rows:
             if value:
@@ -252,13 +234,13 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
                 df.iat[row, naam_col] = value
 
     def _auto_fill_from_path(self, row: int, value: str) -> None:
-        if ColumnName.TYPE.value not in self.raw_data.columns:
+        if ColumnName.TYPE not in self.raw_data.columns:
             return
 
         self._background_bulk_auto_fill(self.raw_data, [(row, value)])
 
-        type_col = self.raw_data.columns.get_loc(ColumnName.TYPE.value)
-        analoog_col = self.raw_data.columns.get_loc(ColumnName.ANALOOG.value)
+        type_col = self.raw_data.columns.get_loc(ColumnName.TYPE)
+        analoog_col = self.raw_data.columns.get_loc(ColumnName.ANALOOG)
         self.dataChanged.emit(
             self.index(row, type_col),
             self.index(row, analoog_col),

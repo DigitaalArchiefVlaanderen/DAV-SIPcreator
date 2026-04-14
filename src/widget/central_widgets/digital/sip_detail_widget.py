@@ -78,7 +78,7 @@ class SipDetailWidget(CentralWidget):
         self._update_tag_mapping()
 
         has_path_in_sip = any(
-            import_col == ColumnName.PATH_IN_SIP.value for _, import_col in self.sip.tag_mapping
+            import_col == ColumnName.PATH_IN_SIP for _, import_col in self.sip.tag_mapping
         )
 
         if not has_path_in_sip:

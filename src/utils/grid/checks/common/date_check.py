@@ -4,14 +4,14 @@ import numpy as np
 import pandas as pd
 from pandas import DataFrame
 
-from src.utils.constants import UI_TEXT_ELEMENTS, ColumnName
+from src.utils.constants import UI_TEXT_ELEMENTS, ColumnName, RowType
 from src.utils.grid.checks.base_check import BaseCheck, BulkResult, CellRange
 
 UI_TEXT = UI_TEXT_ELEMENTS["grid_checks"]["common"]
 
 DATE_FORMAT = "%Y-%m-%d"
-OPENING_COL = ColumnName.OPENINGSDATUM.value
-CLOSING_COL = ColumnName.SLUITINGSDATUM.value
+OPENING_COL = ColumnName.OPENINGSDATUM
+CLOSING_COL = ColumnName.SLUITINGSDATUM
 
 
 def parse_date(value: str) -> datetime | None:
@@ -74,7 +74,7 @@ class DateCheck(BaseCheck):
         is_opening = col_name == OPENING_COL
         paired_col_name = CLOSING_COL if is_opening else OPENING_COL
         has_paired = paired_col_name in raw_data.columns
-        has_type = ColumnName.TYPE.value in raw_data.columns
+        has_type = ColumnName.TYPE in raw_data.columns
 
         values = raw_data.iloc[row_list, col].fillna("").astype(str)
         cell_tooltips = np.full(len(values), None, dtype=object)
@@ -96,10 +96,10 @@ class DateCheck(BaseCheck):
         cell_tooltips[is_future] = UI_TEXT["date_future_error"]
 
         if has_type:
-            type_col = raw_data.columns.get_loc(ColumnName.TYPE.value)
+            type_col = raw_data.columns.get_loc(ColumnName.TYPE)
             types = raw_data.iloc[row_list, type_col].astype(str).values
 
-            is_dossier = types == "dossier"
+            is_dossier = types == RowType.DOSSIER
             empty_val = ~has_value
 
             dossier_empty = is_dossier & empty_val
@@ -169,7 +169,7 @@ class DateCheck(BaseCheck):
                 above_end = still_ok & no_error & (dates > pd.Timestamp(series_end)).values
                 cell_tooltips[above_end] = UI_TEXT["date_after_series_end_error"]
 
-        if has_type and has_paired and ColumnName.DOSSIER_REF.value in raw_data.columns:
+        if has_type and has_paired and ColumnName.DOSSIER_REF in raw_data.columns:
             self._check_hierarchy_bulk(
                 raw_data,
                 row_list,
@@ -198,8 +198,8 @@ class DateCheck(BaseCheck):
         series_start: datetime | None,
         series_end: datetime | None,
     ) -> None:
-        type_col = raw_data.columns.get_loc(ColumnName.TYPE.value)
-        dossier_ref_col = raw_data.columns.get_loc(ColumnName.DOSSIER_REF.value)
+        type_col = raw_data.columns.get_loc(ColumnName.TYPE)
+        dossier_ref_col = raw_data.columns.get_loc(ColumnName.DOSSIER_REF)
         opening_col = raw_data.columns.get_loc(OPENING_COL)
         closing_col = raw_data.columns.get_loc(CLOSING_COL)
 
@@ -236,7 +236,7 @@ class DateCheck(BaseCheck):
         for i, row in enumerate(row_list):
             row_type = raw_data.iat[row, type_col]
 
-            if row_type not in ("dossier", "stuk"):
+            if row_type not in (RowType.DOSSIER, RowType.STUK):
                 continue
 
             if cell_tooltips[i] is not None or wide_tooltips[i] is not None:
@@ -249,8 +249,8 @@ class DateCheck(BaseCheck):
 
             unique_refs.add(ref)
 
-            dossier_mask = (all_types == "dossier") & (all_refs == ref)
-            stuk_mask = (all_types == "stuk") & (all_refs == ref)
+            dossier_mask = (all_types == RowType.DOSSIER) & (all_refs == ref)
+            stuk_mask = (all_types == RowType.STUK) & (all_refs == ref)
 
             dossier_rows = raw_data.index[dossier_mask]
 

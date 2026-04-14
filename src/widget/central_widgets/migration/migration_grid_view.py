@@ -19,24 +19,24 @@ UI_TEXT = UI_TEXT_ELEMENTS["migration"]["grid"]
 
 NON_DUPLICATABLE_COLUMNS = {
     MIGRATION_MAIN_ID_COLUMN,
-    ColumnName.PATH_IN_SIP.value,
-    ColumnName.TYPE.value,
-    ColumnName.DOSSIER_REF.value,
-    ColumnName.ANALOOG.value,
-    ColumnName.NAAM.value,
-    ColumnName.OPENINGSDATUM.value,
-    ColumnName.SLUITINGSDATUM.value,
-    ColumnName.ORIGINEEL_DOOSNUMMER.value,
-    ColumnName.LEGACY_LOCATIE_ID.value,
-    ColumnName.LEGACY_RANGE.value,
-    ColumnName.VERPAKKINGSTYPE.value,
+    ColumnName.PATH_IN_SIP,
+    ColumnName.TYPE,
+    ColumnName.DOSSIER_REF,
+    ColumnName.ANALOOG,
+    ColumnName.NAAM,
+    ColumnName.OPENINGSDATUM,
+    ColumnName.SLUITINGSDATUM,
+    ColumnName.ORIGINEEL_DOOSNUMMER,
+    ColumnName.LEGACY_LOCATIE_ID,
+    ColumnName.LEGACY_RANGE,
+    ColumnName.VERPAKKINGSTYPE,
 }
 
 LOCATION_COLUMN_BASES = {
-    ColumnName.ORIGINEEL_DOOSNUMMER.value,
-    ColumnName.LEGACY_LOCATIE_ID.value,
-    ColumnName.LEGACY_RANGE.value,
-    ColumnName.VERPAKKINGSTYPE.value,
+    ColumnName.ORIGINEEL_DOOSNUMMER,
+    ColumnName.LEGACY_LOCATIE_ID,
+    ColumnName.LEGACY_RANGE,
+    ColumnName.VERPAKKINGSTYPE,
 }
 
 

@@ -14,13 +14,13 @@ from src.widget.central_widgets.base_grid_view import BaseGridView
 UI_TEXT = UI_TEXT_ELEMENTS["digital"]["grid"]
 
 NON_DUPLICATABLE_COLUMNS = {
-    ColumnName.PATH_IN_SIP.value,
-    ColumnName.TYPE.value,
-    ColumnName.DOSSIER_REF.value,
-    ColumnName.ANALOOG.value,
-    ColumnName.NAAM.value,
-    ColumnName.OPENINGSDATUM.value,
-    ColumnName.SLUITINGSDATUM.value,
+    ColumnName.PATH_IN_SIP,
+    ColumnName.TYPE,
+    ColumnName.DOSSIER_REF,
+    ColumnName.ANALOOG,
+    ColumnName.NAAM,
+    ColumnName.OPENINGSDATUM,
+    ColumnName.SLUITINGSDATUM,
 }
 
 

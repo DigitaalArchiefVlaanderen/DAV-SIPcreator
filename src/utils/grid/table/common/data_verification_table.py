@@ -7,7 +7,7 @@ from src.utils.grid.checks.common.date_check import _check_format, _check_series
 from src.utils.grid.table.common.data_table import CellColor, DataTable, MarkingSource
 from src.utils.workers.worker import Worker
 
-DATE_COLUMNS = {ColumnName.OPENINGSDATUM.value, ColumnName.SLUITINGSDATUM.value}
+DATE_COLUMNS = {ColumnName.OPENINGSDATUM, ColumnName.SLUITINGSDATUM}
 
 
 class CommonDataVerificationTable(DataTable):
@@ -40,10 +40,10 @@ class CommonDataVerificationTable(DataTable):
         return str(value).encode(encoding="utf-8", errors="replace").decode("utf-8")
 
     def _get_empty_rows(self) -> set[int]:
-        if ColumnName.TYPE.value not in self.raw_data.columns:
+        if ColumnName.TYPE not in self.raw_data.columns:
             return set()
 
-        type_col = self.raw_data.columns.get_loc(ColumnName.TYPE.value)
+        type_col = self.raw_data.columns.get_loc(ColumnName.TYPE)
 
         return {
             row
@@ -267,16 +267,16 @@ class CommonDataVerificationTable(DataTable):
                 self.setData(self.index(dossier_row_pos, col), value)
 
     def _compute_auto_updates(self, date_rows: set[int]) -> list[tuple[int, int, str]]:
-        if ColumnName.TYPE.value not in self.raw_data.columns:
+        if ColumnName.TYPE not in self.raw_data.columns:
             return []
 
-        if ColumnName.DOSSIER_REF.value not in self.raw_data.columns:
+        if ColumnName.DOSSIER_REF not in self.raw_data.columns:
             return []
 
-        type_col = self.raw_data.columns.get_loc(ColumnName.TYPE.value)
-        dossier_ref_col = self.raw_data.columns.get_loc(ColumnName.DOSSIER_REF.value)
-        opening_col = self.raw_data.columns.get_loc(ColumnName.OPENINGSDATUM.value)
-        closing_col = self.raw_data.columns.get_loc(ColumnName.SLUITINGSDATUM.value)
+        type_col = self.raw_data.columns.get_loc(ColumnName.TYPE)
+        dossier_ref_col = self.raw_data.columns.get_loc(ColumnName.DOSSIER_REF)
+        opening_col = self.raw_data.columns.get_loc(ColumnName.OPENINGSDATUM)
+        closing_col = self.raw_data.columns.get_loc(ColumnName.SLUITINGSDATUM)
 
         series = self.sip.series
         series_start = series.valid_from if series else None
@@ -320,12 +320,12 @@ class CommonDataVerificationTable(DataTable):
 
             stuk_openings = [
                 d
-                for v in self.raw_data.loc[stuk_mask, ColumnName.OPENINGSDATUM.value]
+                for v in self.raw_data.loc[stuk_mask, ColumnName.OPENINGSDATUM]
                 if is_valid(s := str(v)) and (d := parse_date(s)) is not None
             ]
             stuk_closings = [
                 d
-                for v in self.raw_data.loc[stuk_mask, ColumnName.SLUITINGSDATUM.value]
+                for v in self.raw_data.loc[stuk_mask, ColumnName.SLUITINGSDATUM]
                 if is_valid(s := str(v)) and (d := parse_date(s)) is not None
             ]
 
@@ -348,23 +348,23 @@ class CommonDataVerificationTable(DataTable):
         return updates
 
     def _auto_update_dossier_dates(self, index) -> None:
-        if ColumnName.TYPE.value not in self.raw_data.columns:
+        if ColumnName.TYPE not in self.raw_data.columns:
             return
 
-        if ColumnName.DOSSIER_REF.value not in self.raw_data.columns:
+        if ColumnName.DOSSIER_REF not in self.raw_data.columns:
             return
 
-        type_col = self.raw_data.columns.get_loc(ColumnName.TYPE.value)
+        type_col = self.raw_data.columns.get_loc(ColumnName.TYPE)
         row_type = self.raw_data.iat[index.row(), type_col]
 
         if row_type != RowType.STUK:
             return
 
-        dossier_ref_col = self.raw_data.columns.get_loc(ColumnName.DOSSIER_REF.value)
+        dossier_ref_col = self.raw_data.columns.get_loc(ColumnName.DOSSIER_REF)
         dossier_ref = self.raw_data.iat[index.row(), dossier_ref_col]
 
-        opening_col = self.raw_data.columns.get_loc(ColumnName.OPENINGSDATUM.value)
-        closing_col = self.raw_data.columns.get_loc(ColumnName.SLUITINGSDATUM.value)
+        opening_col = self.raw_data.columns.get_loc(ColumnName.OPENINGSDATUM)
+        closing_col = self.raw_data.columns.get_loc(ColumnName.SLUITINGSDATUM)
 
         dossier_mask = (self.raw_data.iloc[:, type_col] == RowType.DOSSIER) & (
             self.raw_data.iloc[:, dossier_ref_col] == dossier_ref
@@ -392,12 +392,12 @@ class CommonDataVerificationTable(DataTable):
 
         stuk_openings = [
             d
-            for v in self.raw_data.loc[stuk_mask, ColumnName.OPENINGSDATUM.value]
+            for v in self.raw_data.loc[stuk_mask, ColumnName.OPENINGSDATUM]
             if is_valid(s := str(v)) and (d := parse_date(s)) is not None
         ]
         stuk_closings = [
             d
-            for v in self.raw_data.loc[stuk_mask, ColumnName.SLUITINGSDATUM.value]
+            for v in self.raw_data.loc[stuk_mask, ColumnName.SLUITINGSDATUM]
             if is_valid(s := str(v)) and (d := parse_date(s)) is not None
         ]
 

@@ -2,7 +2,7 @@ import json
 import os
 import re
 import sys
-from enum import Enum, StrEnum
+from enum import Enum, IntEnum, StrEnum
 
 from PySide6 import QtGui
 
@@ -11,7 +11,7 @@ from src.utils.data_objects.sip_status import SIPStatus
 SIP_CREATOR_VERSION = "3.0.0.4"
 
 
-class SaveLocations(Enum):
+class SaveLocations(StrEnum):
     CONFIGURATION_FILE = "configuration.json"
 
     DEFAULT_BASE_SAVE_LOCATION = "SIP_Creator"
@@ -26,7 +26,7 @@ class SaveLocations(Enum):
     ANALOOG_FOLDER = "analoog"
 
 
-class ColumnName(Enum):
+class ColumnName(StrEnum):
     PATH_IN_SIP = "Path in SIP"
     TYPE = "Type"
     DOSSIER_REF = "DossierRef"
@@ -43,14 +43,14 @@ class ColumnName(Enum):
     VERPAKKINGSTYPE = "Verpakkingstype"
 
 
-class OverdrachtslijstColumnName(Enum):
+class OverdrachtslijstColumnName(StrEnum):
     BESCHRIJVING = "Beschrijving"
     BEGINDATUM = "Begindatum"
     EINDDATUM = "Einddatum"
     DOOSNR = "Doosnr"
 
 
-class DBTableName(Enum):
+class DBTableName(StrEnum):
     DATA = "data"
     SIP = "sip"
     OVERDRACHTSLIJST = "Overdrachtslijst"
@@ -59,7 +59,7 @@ class DBTableName(Enum):
     DOSSIER = "dossier"
 
 
-class DBColumnName(Enum):
+class DBColumnName(StrEnum):
     NAME = "name"
     PATH = "path"
     STATUS = "status"
@@ -83,7 +83,7 @@ class DBColumnName(Enum):
     GRID_VALID = "grid_valid"
 
 
-class ConfigKey(Enum):
+class ConfigKey(StrEnum):
     API = "API"
     FTPS = "FTPS"
     URL = "url"
@@ -94,7 +94,7 @@ class ConfigKey(Enum):
     PORT = "port"
 
 
-class APIResponseKey(Enum):
+class APIResponseKey(StrEnum):
     ID = "Id"
     CONTENT = "Content"
     STATUS = "Status"
@@ -113,15 +113,15 @@ class SIPType(StrEnum):
     ANALOOG = "analoog"
 
 
-class RowType:
+class RowType(StrEnum):
     DOSSIER = "dossier"
     STUK = "stuk"
     GEEN = "geen"
 
 
-class BusinessRules:
-    SIP_TITLE_MAX_LENGTH: int = 185
-    MAX_ROWS_PER_SERIES: int = 9998
+class BusinessRules(IntEnum):
+    SIP_TITLE_MAX_LENGTH = 185
+    MAX_ROWS_PER_SERIES = 9998
 
 
 KLANT_ROLE = "klant"

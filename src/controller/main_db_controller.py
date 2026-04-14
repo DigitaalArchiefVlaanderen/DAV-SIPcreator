@@ -15,7 +15,7 @@ from src.utils.constants import (
 
 
 class MainDBController(BaseObject):
-    TABLES = dict(dossier=DBTableName.DOSSIER.value)
+    TABLES = dict(dossier=DBTableName.DOSSIER)
 
     def __init__(self):
         super().__init__()
@@ -69,10 +69,10 @@ class MainDBController(BaseObject):
         self._execute_with_conn(
             lambda conn: conn.execute(
                 f"""
-                CREATE TABLE IF NOT EXISTS {DBTableName.SIP_CREATOR.value} (
-                    {DBColumnName.VERSION.value} text,
-                    {DBColumnName.TRANSFORMED.value} text,
-                    {DBColumnName.LAST_OPENED.value} text
+                CREATE TABLE IF NOT EXISTS {DBTableName.SIP_CREATOR} (
+                    {DBColumnName.VERSION} text,
+                    {DBColumnName.TRANSFORMED} text,
+                    {DBColumnName.LAST_OPENED} text
                 )
             """
             )
@@ -81,14 +81,14 @@ class MainDBController(BaseObject):
     def initialize_version_info(self) -> None:
         def _initialize(conn: sql.Connection) -> None:
             row = conn.execute(
-                f"SELECT {DBColumnName.VERSION.value}, {DBColumnName.TRANSFORMED.value} "
-                f"FROM {DBTableName.SIP_CREATOR.value}"
+                f"SELECT {DBColumnName.VERSION}, {DBColumnName.TRANSFORMED} "
+                f"FROM {DBTableName.SIP_CREATOR}"
             ).fetchone()
 
             if row is None:
                 conn.execute(
-                    f"INSERT INTO {DBTableName.SIP_CREATOR.value} "
-                    f"({DBColumnName.VERSION.value}, {DBColumnName.TRANSFORMED.value}, {DBColumnName.LAST_OPENED.value}) "
+                    f"INSERT INTO {DBTableName.SIP_CREATOR} "
+                    f"({DBColumnName.VERSION}, {DBColumnName.TRANSFORMED}, {DBColumnName.LAST_OPENED}) "
                     f"VALUES (?, ?, ?)",
                     (SIP_CREATOR_VERSION, "", SIP_CREATOR_VERSION),
                 )
@@ -101,14 +101,14 @@ class MainDBController(BaseObject):
                     transformed = db_version
 
                 conn.execute(
-                    f"UPDATE {DBTableName.SIP_CREATOR.value} SET "
-                    f"{DBColumnName.VERSION.value} = ?, {DBColumnName.TRANSFORMED.value} = ?, "
-                    f"{DBColumnName.LAST_OPENED.value} = ?",
+                    f"UPDATE {DBTableName.SIP_CREATOR} SET "
+                    f"{DBColumnName.VERSION} = ?, {DBColumnName.TRANSFORMED} = ?, "
+                    f"{DBColumnName.LAST_OPENED} = ?",
                     (SIP_CREATOR_VERSION, transformed, SIP_CREATOR_VERSION),
                 )
             else:
                 conn.execute(
-                    f"UPDATE {DBTableName.SIP_CREATOR.value} SET {DBColumnName.LAST_OPENED.value} = ?",
+                    f"UPDATE {DBTableName.SIP_CREATOR} SET {DBColumnName.LAST_OPENED} = ?",
                     (SIP_CREATOR_VERSION,),
                 )
 

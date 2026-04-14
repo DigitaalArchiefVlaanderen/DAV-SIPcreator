@@ -58,7 +58,7 @@ class SortFilterProxyModel(QtCore.QSortFilterProxyModel):
 
                 case TableFilter.DOSSIERS_ONLY:
                     if (
-                        model.raw_data.iloc[source_row, model.raw_data.columns.get_loc(ColumnName.TYPE.value)]
+                        model.raw_data.iloc[source_row, model.raw_data.columns.get_loc(ColumnName.TYPE)]
                         != RowType.DOSSIER
                     ):
                         return False

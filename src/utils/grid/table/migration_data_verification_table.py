@@ -7,9 +7,9 @@ from src.utils.grid.checks.migration import LocationGroupCheck, PathInSipCheck
 from src.utils.grid.table.common import CommonDataVerificationTable
 
 DISABLED_COLUMNS = [
-    ColumnName.TYPE.value,
-    ColumnName.DOSSIER_REF.value,
-    ColumnName.ANALOOG.value,
+    ColumnName.TYPE,
+    ColumnName.DOSSIER_REF,
+    ColumnName.ANALOOG,
 ]
 
 
@@ -43,21 +43,21 @@ class MigrationDataVerificationTable(CommonDataVerificationTable):
 
         col_name = self.raw_data.columns[index.column()]
 
-        if col_name == ColumnName.PATH_IN_SIP.value:
+        if col_name == ColumnName.PATH_IN_SIP:
             self._auto_update_type_and_dossier_ref(index, str(value))
 
         return super().setData(index, value, role)
 
     def _auto_update_type_and_dossier_ref(self, index: QtCore.QModelIndex, value: str) -> None:
-        if ColumnName.TYPE.value not in self.raw_data.columns:
+        if ColumnName.TYPE not in self.raw_data.columns:
             return
 
-        if ColumnName.DOSSIER_REF.value not in self.raw_data.columns:
+        if ColumnName.DOSSIER_REF not in self.raw_data.columns:
             return
 
         row = index.row()
-        type_col = self.raw_data.columns.get_loc(ColumnName.TYPE.value)
-        dossier_ref_col = self.raw_data.columns.get_loc(ColumnName.DOSSIER_REF.value)
+        type_col = self.raw_data.columns.get_loc(ColumnName.TYPE)
+        dossier_ref_col = self.raw_data.columns.get_loc(ColumnName.DOSSIER_REF)
 
         value = value.strip()
 

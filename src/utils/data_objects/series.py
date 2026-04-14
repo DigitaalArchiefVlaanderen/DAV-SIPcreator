@@ -32,41 +32,41 @@ class Series:
 
     @staticmethod
     def from_dict(series: dict):
-        validity_period = series[APIResponseKey.VALIDITY_PERIOD.value]
+        validity_period = series[APIResponseKey.VALIDITY_PERIOD]
 
         valid_from = (
-            Series.datetime_from_str(validity_period[APIResponseKey.FROM.value])
-            if APIResponseKey.FROM.value in validity_period
+            Series.datetime_from_str(validity_period[APIResponseKey.FROM])
+            if APIResponseKey.FROM in validity_period
             else None
         )
         valid_to = (
-            Series.datetime_from_str(validity_period[APIResponseKey.TO.value])
-            if APIResponseKey.TO.value in validity_period
+            Series.datetime_from_str(validity_period[APIResponseKey.TO])
+            if APIResponseKey.TO in validity_period
             else None
         )
 
         return Series(
-            _id=series[APIResponseKey.ID.value],
-            name=series[APIResponseKey.CONTENT.value][APIResponseKey.NAME.value],
-            status=SeriesStatus(series[APIResponseKey.STATUS.value][APIResponseKey.STATUS.value]),
+            _id=series[APIResponseKey.ID],
+            name=series[APIResponseKey.CONTENT][APIResponseKey.NAME],
+            status=SeriesStatus(series[APIResponseKey.STATUS][APIResponseKey.STATUS]),
             valid_from=valid_from,
             valid_to=valid_to,
         )
 
     def to_dict(self) -> dict:
         data = {
-            APIResponseKey.ID.value: self._id,
-            APIResponseKey.CONTENT.value: {APIResponseKey.NAME.value: self.name},
-            APIResponseKey.STATUS.value: {APIResponseKey.STATUS.value: self.status.value},
-            APIResponseKey.VALIDITY_PERIOD.value: {},
+            APIResponseKey.ID: self._id,
+            APIResponseKey.CONTENT: {APIResponseKey.NAME: self.name},
+            APIResponseKey.STATUS: {APIResponseKey.STATUS: self.status.value},
+            APIResponseKey.VALIDITY_PERIOD: {},
         }
 
         if self.valid_from is not None:
-            data[APIResponseKey.VALIDITY_PERIOD.value][APIResponseKey.FROM.value] = self.str_from_datetime(
+            data[APIResponseKey.VALIDITY_PERIOD][APIResponseKey.FROM] = self.str_from_datetime(
                 self.valid_from
             )
         if self.valid_to is not None:
-            data[APIResponseKey.VALIDITY_PERIOD.value][APIResponseKey.TO.value] = self.str_from_datetime(self.valid_to)
+            data[APIResponseKey.VALIDITY_PERIOD][APIResponseKey.TO] = self.str_from_datetime(self.valid_to)
 
         return data
 

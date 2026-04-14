@@ -103,7 +103,7 @@ class Environment:
         )
 
     def to_json(self) -> dict:
-        return {ConfigKey.API.value: self.get_api_info(), ConfigKey.FTPS.value: self.get_ftps_info()}
+        return {ConfigKey.API: self.get_api_info(), ConfigKey.FTPS: self.get_ftps_info()}
 
     def get_serie_register_uri(self) -> str:
         return self.api_url.replace("digitaalarchief", "serieregister") + "/id/serie"
@@ -134,7 +134,7 @@ class Misc:
                 SIPType.ONROEREND_ERFGOED: False,
                 SIPType.ANALOOG: False,
             },
-            save_location=os.path.join(root_path, SaveLocations.DEFAULT_BASE_SAVE_LOCATION.value),
+            save_location=os.path.join(root_path, SaveLocations.DEFAULT_BASE_SAVE_LOCATION),
             bestandscontrole_lijst_location="",
         )
 
@@ -164,7 +164,7 @@ class Configuration:
         os.makedirs(self.grid_location, exist_ok=True)
 
     def save(self) -> None:
-        configuration_path = os.path.join(self.root_path, SaveLocations.CONFIGURATION_FILE.value)
+        configuration_path = os.path.join(self.root_path, SaveLocations.CONFIGURATION_FILE)
 
         with open(configuration_path, "w", encoding="utf-8") as f:
             json.dump(self.to_json(), f, indent=4)
@@ -251,21 +251,21 @@ class Configuration:
                         bestandscontrole_lijst_location=v[CONFIG_KEY_BESTANDSCONTROLE],
                     )
             else:
-                api = v[ConfigKey.API.value]
-                ftps = v[ConfigKey.FTPS.value]
+                api = v[ConfigKey.API]
+                ftps = v[ConfigKey.FTPS]
 
                 environments.append(
                     Environment(
                         name=k,
-                        api_url=api[ConfigKey.URL.value],
-                        api_username=api[ConfigKey.USERNAME.value],
-                        api_password=api[ConfigKey.PASSWORD.value],
-                        api_client_id=api[ConfigKey.CLIENT_ID.value],
-                        api_client_secret=api[ConfigKey.CLIENT_SECRET.value],
-                        ftps_url=ftps[ConfigKey.URL.value],
-                        ftps_username=ftps[ConfigKey.USERNAME.value],
-                        ftps_password=ftps[ConfigKey.PASSWORD.value],
-                        ftps_port=ftps[ConfigKey.PORT.value],
+                        api_url=api[ConfigKey.URL],
+                        api_username=api[ConfigKey.USERNAME],
+                        api_password=api[ConfigKey.PASSWORD],
+                        api_client_id=api[ConfigKey.CLIENT_ID],
+                        api_client_secret=api[ConfigKey.CLIENT_SECRET],
+                        ftps_url=ftps[ConfigKey.URL],
+                        ftps_username=ftps[ConfigKey.USERNAME],
+                        ftps_password=ftps[ConfigKey.PASSWORD],
+                        ftps_port=ftps[ConfigKey.PORT],
                     )
                 )
 
@@ -302,24 +302,24 @@ class Configuration:
 
     @property
     def import_templates_location(self) -> str:
-        return os.path.join(self.misc.save_location, SaveLocations.IMPORT_TEMPLATES_FOLDER.value)
+        return os.path.join(self.misc.save_location, SaveLocations.IMPORT_TEMPLATES_FOLDER)
 
     @property
     def overdrachtslijsten_location(self) -> str:
-        return os.path.join(self.misc.save_location, SaveLocations.OVERDRACHTSLIJSTEN_FOLDER.value)
+        return os.path.join(self.misc.save_location, SaveLocations.OVERDRACHTSLIJSTEN_FOLDER)
 
     @property
     def analoog_location(self) -> str:
-        return os.path.join(self.misc.save_location, SaveLocations.ANALOOG_FOLDER.value)
+        return os.path.join(self.misc.save_location, SaveLocations.ANALOOG_FOLDER)
 
     @property
     def grid_location(self) -> str:
-        return os.path.join(self.misc.save_location, SaveLocations.GRID_FOLDER.value)
+        return os.path.join(self.misc.save_location, SaveLocations.GRID_FOLDER)
 
     @property
     def sips_location(self) -> str:
-        return os.path.join(self.misc.save_location, SaveLocations.SIPS_FOLDER.value)
+        return os.path.join(self.misc.save_location, SaveLocations.SIPS_FOLDER)
 
     @property
     def sip_db_location(self) -> str:
-        return os.path.join(self.misc.save_location, SaveLocations.SIP_DB_FOLDER.value)
+        return os.path.join(self.misc.save_location, SaveLocations.SIP_DB_FOLDER)

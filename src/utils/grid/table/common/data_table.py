@@ -49,8 +49,8 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
 
             if (
                 self.should_filter_name_column
-                and ColumnName.NAAM.value in self.raw_data.columns
-                and index.column() == self.raw_data.columns.get_loc(ColumnName.NAAM.value)
+                and ColumnName.NAAM in self.raw_data.columns
+                and index.column() == self.raw_data.columns.get_loc(ColumnName.NAAM)
             ):
                 value, *_ = value.rsplit(".", 1)
 
@@ -139,10 +139,10 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
     def filter_name_column(self, active: bool) -> None:
         self.should_filter_name_column = active
 
-        if ColumnName.NAAM.value not in self.raw_data.columns:
+        if ColumnName.NAAM not in self.raw_data.columns:
             return
 
-        name_column = self.raw_data.columns.get_loc(ColumnName.NAAM.value)
+        name_column = self.raw_data.columns.get_loc(ColumnName.NAAM)
 
         self.dataChanged.emit(
             self.index(0, name_column),

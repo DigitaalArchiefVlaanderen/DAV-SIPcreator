@@ -74,26 +74,26 @@ class DigitalSIPDBController(BaseSIPDBController):
 
         def _create(conn: sql.Connection) -> None:
             conn.execute(f"""
-                CREATE TABLE {DBTableName.SIP.value} (
-                    {DBColumnName.NAME.value} text,
-                    {DBColumnName.STATUS.value} text,
-                    {DBColumnName.ENVIRONMENT_NAME.value} text,
-                    {DBColumnName.SERIES_ID.value} text,
-                    {DBColumnName.SERIES_NAME.value} text,
-                    {DBColumnName.EDEPOT_SIP_ID.value} text,
-                    {DBColumnName.DOSSIERS_LIST.value} text,
-                    {DBColumnName.TAG_MAPPING.value} text,
-                    {DBColumnName.FOLDER_MAPPING.value} text,
-                    {DBColumnName.GRID_VALID.value} integer default 0
+                CREATE TABLE {DBTableName.SIP} (
+                    {DBColumnName.NAME} text,
+                    {DBColumnName.STATUS} text,
+                    {DBColumnName.ENVIRONMENT_NAME} text,
+                    {DBColumnName.SERIES_ID} text,
+                    {DBColumnName.SERIES_NAME} text,
+                    {DBColumnName.EDEPOT_SIP_ID} text,
+                    {DBColumnName.DOSSIERS_LIST} text,
+                    {DBColumnName.TAG_MAPPING} text,
+                    {DBColumnName.FOLDER_MAPPING} text,
+                    {DBColumnName.GRID_VALID} integer default 0
                 )
             """)
             conn.execute(
                 f"""
-                INSERT INTO {DBTableName.SIP.value}
-                ({DBColumnName.NAME.value}, {DBColumnName.STATUS.value}, {DBColumnName.ENVIRONMENT_NAME.value},
-                 {DBColumnName.SERIES_ID.value}, {DBColumnName.SERIES_NAME.value}, {DBColumnName.EDEPOT_SIP_ID.value},
-                 {DBColumnName.DOSSIERS_LIST.value}, {DBColumnName.TAG_MAPPING.value}, {DBColumnName.FOLDER_MAPPING.value},
-                 {DBColumnName.GRID_VALID.value})
+                INSERT INTO {DBTableName.SIP}
+                ({DBColumnName.NAME}, {DBColumnName.STATUS}, {DBColumnName.ENVIRONMENT_NAME},
+                 {DBColumnName.SERIES_ID}, {DBColumnName.SERIES_NAME}, {DBColumnName.EDEPOT_SIP_ID},
+                 {DBColumnName.DOSSIERS_LIST}, {DBColumnName.TAG_MAPPING}, {DBColumnName.FOLDER_MAPPING},
+                 {DBColumnName.GRID_VALID})
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
@@ -112,7 +112,7 @@ class DigitalSIPDBController(BaseSIPDBController):
 
             self._create_sip_creator_table(conn, transformed)
 
-            sip.grid_data.data_as_df.to_sql(DBTableName.DATA.value, conn, index=False, dtype="text")
+            sip.grid_data.data_as_df.to_sql(DBTableName.DATA, conn, index=False, dtype="text")
 
         self._execute_with_conn(sip.db_name, _create)
 
@@ -124,14 +124,14 @@ class DigitalSIPDBController(BaseSIPDBController):
 
         def _read(conn: sql.Connection) -> tuple[SIP, str, str]:
             columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()]
-            has_grid_valid = DBColumnName.GRID_VALID.value in columns
+            has_grid_valid = DBColumnName.GRID_VALID in columns
 
             result = conn.execute(
-                f"SELECT {DBColumnName.NAME.value}, {DBColumnName.STATUS.value}, {DBColumnName.ENVIRONMENT_NAME.value}, "
-                f"{DBColumnName.SERIES_ID.value}, {DBColumnName.SERIES_NAME.value}, {DBColumnName.EDEPOT_SIP_ID.value}, "
-                f"{DBColumnName.DOSSIERS_LIST.value}, {DBColumnName.TAG_MAPPING.value}, {DBColumnName.FOLDER_MAPPING.value}"
-                + (f", {DBColumnName.GRID_VALID.value}" if has_grid_valid else "")
-                + f" FROM {DBTableName.SIP.value};"
+                f"SELECT {DBColumnName.NAME}, {DBColumnName.STATUS}, {DBColumnName.ENVIRONMENT_NAME}, "
+                f"{DBColumnName.SERIES_ID}, {DBColumnName.SERIES_NAME}, {DBColumnName.EDEPOT_SIP_ID}, "
+                f"{DBColumnName.DOSSIERS_LIST}, {DBColumnName.TAG_MAPPING}, {DBColumnName.FOLDER_MAPPING}"
+                + (f", {DBColumnName.GRID_VALID}" if has_grid_valid else "")
+                + f" FROM {DBTableName.SIP};"
             ).fetchone()
 
             name, status, environment_name, series_id, series_name, edepot_sip_id, dossiers_list, tag_mapping, folder_mapping = result[:9]
@@ -163,17 +163,17 @@ class DigitalSIPDBController(BaseSIPDBController):
         def _persist(conn: sql.Connection) -> None:
             columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()]
 
-            if DBColumnName.GRID_VALID.value in columns:
+            if DBColumnName.GRID_VALID in columns:
                 conn.execute(
-                    f"UPDATE {DBTableName.SIP.value} SET {DBColumnName.STATUS.value} = ?, "
-                    f"{DBColumnName.SERIES_NAME.value} = ?, {DBColumnName.EDEPOT_SIP_ID.value} = ?, "
-                    f"{DBColumnName.GRID_VALID.value} = ?",
+                    f"UPDATE {DBTableName.SIP} SET {DBColumnName.STATUS} = ?, "
+                    f"{DBColumnName.SERIES_NAME} = ?, {DBColumnName.EDEPOT_SIP_ID} = ?, "
+                    f"{DBColumnName.GRID_VALID} = ?",
                     (sip.status.name, sip.series.get_full_name(), sip.edepot_sip_id or "", int(sip.grid_valid)),
                 )
             else:
                 conn.execute(
-                    f"UPDATE {DBTableName.SIP.value} SET {DBColumnName.STATUS.value} = ?, "
-                    f"{DBColumnName.SERIES_NAME.value} = ?, {DBColumnName.EDEPOT_SIP_ID.value} = ?",
+                    f"UPDATE {DBTableName.SIP} SET {DBColumnName.STATUS} = ?, "
+                    f"{DBColumnName.SERIES_NAME} = ?, {DBColumnName.EDEPOT_SIP_ID} = ?",
                     (sip.status.name, sip.series.get_full_name(), sip.edepot_sip_id or ""),
                 )
 
@@ -185,14 +185,14 @@ class DigitalSIPDBController(BaseSIPDBController):
         self._execute_with_conn(
             sip.db_name,
             lambda conn: sip.grid_data.data_as_df.to_sql(
-                DBTableName.DATA.value, conn, if_exists="replace", index=False, dtype="text"
+                DBTableName.DATA, conn, if_exists="replace", index=False, dtype="text"
             ),
         )
 
     def read_sip_data(self, sip_db_file_name: str) -> pd.DataFrame:
         return self._execute_with_conn(
             sip_db_file_name,
-            lambda conn: pd.read_sql(f"SELECT * FROM {DBTableName.DATA.value}", conn, dtype=str).fillna(""),
+            lambda conn: pd.read_sql(f"SELECT * FROM {DBTableName.DATA}", conn, dtype=str).fillna(""),
         )
 
     def _validate_db(self, sip_db_file_name: str) -> bool:
@@ -200,7 +200,7 @@ class DigitalSIPDBController(BaseSIPDBController):
             db_tables = [r for r, *_ in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
 
             # Check for old format and transition if needed
-            if DBTableName.DATA.value not in db_tables or DBTableName.SIP.value not in db_tables:
+            if DBTableName.DATA not in db_tables or DBTableName.SIP not in db_tables:
                 if self.old_sip_db_controller.is_valid_db(sip_db_file_name):
                     return "needs_transition"
 
@@ -357,8 +357,8 @@ class OldDigitalSIPDBController(BaseObject):
 
             return (
                 sip,
-                json.loads(series_json)[APIResponseKey.ID.value],
-                json.loads(series_json)[APIResponseKey.CONTENT.value][APIResponseKey.NAME.value],
+                json.loads(series_json)[APIResponseKey.ID],
+                json.loads(series_json)[APIResponseKey.CONTENT][APIResponseKey.NAME],
             )
 
         return self._execute_with_conn(sip_db_file_name, _read)

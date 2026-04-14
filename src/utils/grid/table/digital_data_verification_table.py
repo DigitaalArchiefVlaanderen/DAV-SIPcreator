@@ -4,10 +4,10 @@ from src.utils.grid.checks.digital.empty_row_check import mark_empty_rows
 from src.utils.grid.table.common import CommonDataVerificationTable
 
 DISABLED_COLUMNS = [
-    ColumnName.PATH_IN_SIP.value,
-    ColumnName.TYPE.value,
-    ColumnName.DOSSIER_REF.value,
-    ColumnName.ANALOOG.value,
+    ColumnName.PATH_IN_SIP,
+    ColumnName.TYPE,
+    ColumnName.DOSSIER_REF,
+    ColumnName.ANALOOG,
 ]
 
 

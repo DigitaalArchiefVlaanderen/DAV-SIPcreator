@@ -25,7 +25,7 @@ class FolderMappingWindow(Window):
         self.setCentralWidget(self.folder_structure_widget)
 
         path_in_sip_map_column = next(
-            meta_col for meta_col, import_col in self.sip.tag_mapping if import_col == ColumnName.PATH_IN_SIP.value
+            meta_col for meta_col, import_col in self.sip.tag_mapping if import_col == ColumnName.PATH_IN_SIP
         )
         # Only allow columns where not all fields are empty
         columns_without_empty_fields = [

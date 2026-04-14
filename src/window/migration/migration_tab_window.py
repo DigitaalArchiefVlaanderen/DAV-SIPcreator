@@ -37,27 +37,27 @@ from src.window.base_window import Window
 UI_TEXT = UI_TEXT_ELEMENTS["migration"]["tab_window"]
 
 MAIN_TO_SERIES_COLUMN_MAPPING = {
-    OverdrachtslijstColumnName.BESCHRIJVING.value: [ColumnName.NAAM.value, ColumnName.PATH_IN_SIP.value],
-    OverdrachtslijstColumnName.BEGINDATUM.value: [ColumnName.OPENINGSDATUM.value],
-    OverdrachtslijstColumnName.EINDDATUM.value: [ColumnName.SLUITINGSDATUM.value],
-    OverdrachtslijstColumnName.DOOSNR.value: [ColumnName.ORIGINEEL_DOOSNUMMER.value],
+    OverdrachtslijstColumnName.BESCHRIJVING: [ColumnName.NAAM, ColumnName.PATH_IN_SIP],
+    OverdrachtslijstColumnName.BEGINDATUM: [ColumnName.OPENINGSDATUM],
+    OverdrachtslijstColumnName.EINDDATUM: [ColumnName.SLUITINGSDATUM],
+    OverdrachtslijstColumnName.DOOSNR: [ColumnName.ORIGINEEL_DOOSNUMMER],
 }
 
 FIXED_VALUE_COLUMNS = {
-    ColumnName.ANALOOG.value: ANALOOG_DEFAULT_VALUE,
+    ColumnName.ANALOOG: ANALOOG_DEFAULT_VALUE,
 }
 
 AUTO_MAP_BLOCKED_COLUMNS = {
-    ColumnName.TYPE.value,
-    ColumnName.DOSSIER_REF.value,
-    ColumnName.ANALOOG.value,
+    ColumnName.TYPE,
+    ColumnName.DOSSIER_REF,
+    ColumnName.ANALOOG,
 }
 
-URI_SERIEREGISTER_COLUMN = DBColumnName.URI_SERIEREGISTER.value
+URI_SERIEREGISTER_COLUMN = DBColumnName.URI_SERIEREGISTER
 
 
 def _format_origineel_doosnummer(mapped_data: dict[str, list], overdrachtslijst_name: str) -> None:
-    col = ColumnName.ORIGINEEL_DOOSNUMMER.value
+    col = ColumnName.ORIGINEEL_DOOSNUMMER
 
     if col not in mapped_data:
         return
@@ -76,7 +76,7 @@ def _format_origineel_doosnummer(mapped_data: dict[str, list], overdrachtslijst_
 
 
 def _derive_type_and_dossier_ref(mapped_data: dict[str, list], row_count: int) -> None:
-    path_col = ColumnName.PATH_IN_SIP.value
+    path_col = ColumnName.PATH_IN_SIP
 
     if path_col not in mapped_data:
         return
@@ -97,13 +97,13 @@ def _derive_type_and_dossier_ref(mapped_data: dict[str, list], row_count: int) -
             types.append(RowType.DOSSIER)
             refs.append(value)
 
-    mapped_data[ColumnName.TYPE.value] = types
-    mapped_data[ColumnName.DOSSIER_REF.value] = refs
+    mapped_data[ColumnName.TYPE] = types
+    mapped_data[ColumnName.DOSSIER_REF] = refs
 
 
 def _derive_naam_from_path(mapped_data: dict[str, list]) -> None:
-    naam_col = ColumnName.NAAM.value
-    path_col = ColumnName.PATH_IN_SIP.value
+    naam_col = ColumnName.NAAM
+    path_col = ColumnName.PATH_IN_SIP
 
     if naam_col not in mapped_data or path_col not in mapped_data:
         return
@@ -210,7 +210,7 @@ def map_main_to_series(
     _derive_type_and_dossier_ref(mapped_data, row_count)
 
     # Only derive Naam from Path in SIP if it wasn't explicitly auto-mapped
-    if ColumnName.NAAM.value not in auto_mapped_columns:
+    if ColumnName.NAAM not in auto_mapped_columns:
         _derive_naam_from_path(mapped_data)
 
     ordered_columns = [MIGRATION_MAIN_ID_COLUMN]
@@ -219,7 +219,7 @@ def map_main_to_series(
         location_base_set = set(LOCATION_COLUMNS) if extra_location_groups else set()
 
         for col in template_columns:
-            if col not in ordered_columns and col != DBColumnName.URI_SERIEREGISTER.value:
+            if col not in ordered_columns and col != DBColumnName.URI_SERIEREGISTER:
                 ordered_columns.append(col)
                 # Insert regular duplicate columns right after their base column
                 if col.rstrip() not in location_base_set:
@@ -228,14 +228,14 @@ def map_main_to_series(
                             ordered_columns.append(dup_col)
 
             # After the last location column (Verpakkingstype), insert all location groups
-            if col == ColumnName.VERPAKKINGSTYPE.value:
+            if col == ColumnName.VERPAKKINGSTYPE:
                 for group in extra_location_groups:
                     for loc_col in group:
                         if loc_col not in ordered_columns:
                             ordered_columns.append(loc_col)
 
-        if DBColumnName.URI_SERIEREGISTER.value in template_columns:
-            ordered_columns.append(DBColumnName.URI_SERIEREGISTER.value)
+        if DBColumnName.URI_SERIEREGISTER in template_columns:
+            ordered_columns.append(DBColumnName.URI_SERIEREGISTER)
 
     series_df = pd.DataFrame()
 
