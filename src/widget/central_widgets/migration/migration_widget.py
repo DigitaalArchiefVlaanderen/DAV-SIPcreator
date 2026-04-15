@@ -1,4 +1,5 @@
 import os
+import sqlite3
 from collections.abc import Iterable
 
 from natsort import natsort_keygen
@@ -138,7 +139,10 @@ class MigrationWidget(CentralWidget):
         sip.set_name(overdrachtslijst_name)
         sip.overdrachtslijst_name = overdrachtslijst_name
 
-        df = ExcelController.read_excel(file_path)
+        df = ExcelController.read_overdrachtslijst(file_path)
+
+        if df is None:
+            return
 
         location_error = validate_location_columns(list(df.columns))
         if location_error:
@@ -152,7 +156,27 @@ class MigrationWidget(CentralWidget):
         sip.main_grid_data.data_as_df = df.fillna("")
         sip.grid_data = sip.main_grid_data
 
-        self.application.migration_sip_db_controller.create_sip_db(sip)
+        try:
+            self.application.migration_sip_db_controller.create_sip_db(sip)
+        except PermissionError:
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_permission_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_permission_error"]["text"],
+            )
+            return
+        except sqlite3.OperationalError:
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_locked_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_locked_error"]["text"],
+            )
+            return
+        except OSError as e:
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_filesystem_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_filesystem_error"]["text"].format(details=e),
+            )
+            return
+
         self.application.add_sip(sip)
 
         self.migration_sip_loaded_handler(sip)

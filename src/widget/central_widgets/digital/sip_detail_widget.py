@@ -118,16 +118,7 @@ class SipDetailWidget(CentralWidget):
         self.parent_window.worker.result_ready_signal.connect(self.series_retrieval.import_template_downloaded_handler)
 
     def import_template_downloaded_handler(self) -> None:
-        from src.controller.excel_controller import ExcelReadError
-
-        try:
-            import_df = self.sip.read_import_template()
-        except ExcelReadError:
-            self.application.notify_user_signal.emit(
-                UI_TEXT_ELEMENTS["errors"]["excel"]["read_error"]["title"],
-                UI_TEXT_ELEMENTS["errors"]["excel"]["read_error"]["text"].format(path=self.sip.import_template_path),
-            )
-            return
+        import_df = self.sip.read_import_template()
 
         if import_df is None:
             return
@@ -136,18 +127,9 @@ class SipDetailWidget(CentralWidget):
         self.tag_mapping_widget.add_to_import_template(import_df.columns)
 
     def metadata_file_selected_handler(self, path: str) -> None:
-        from src.controller.excel_controller import ExcelReadError
-
         self.sip.metadata_path = path
 
-        try:
-            metadata_df = self.sip.read_metadata()
-        except ExcelReadError:
-            self.application.notify_user_signal.emit(
-                UI_TEXT_ELEMENTS["errors"]["excel"]["read_error"]["title"],
-                UI_TEXT_ELEMENTS["errors"]["excel"]["read_error"]["text"].format(path=path),
-            )
-            return
+        metadata_df = self.sip.read_metadata()
 
         if metadata_df is None:
             return

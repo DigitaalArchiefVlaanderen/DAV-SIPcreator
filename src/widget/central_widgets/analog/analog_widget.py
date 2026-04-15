@@ -134,9 +134,11 @@ class AnalogWidget(CentralWidget):
             )
 
             template_df = ExcelController.read_excel(import_template_loc)
-            columns = template_df.columns.tolist()
 
-            return columns
+            if template_df is None:
+                return None
+
+            return template_df.columns.tolist()
 
         self._template_worker = Worker.start(
             background_create,

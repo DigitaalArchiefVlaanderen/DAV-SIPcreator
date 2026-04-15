@@ -366,6 +366,18 @@
                 "title": "Fout bij het aanmaken van sip database",
                 "text": "Probeerde een sip db aan te maken zonder een gelinkt importsjabloon te hebben"
             },
+            "db_creation_permission_error": {
+                "title": "Fout bij het aanmaken van sip database",
+                "text": "Geen schrijfrechten op de opslaglocatie. Controleer de machtigingen van de map."
+            },
+            "db_creation_locked_error": {
+                "title": "Fout bij het aanmaken van sip database",
+                "text": "De database is vergrendeld door een ander proces. Sluit andere programma's die het bestand gebruiken en probeer opnieuw."
+            },
+            "db_creation_filesystem_error": {
+                "title": "Fout bij het aanmaken van sip database",
+                "text": "De database kon niet aangemaakt worden: {details}"
+            },
             "mapping_error": {
                 "title": "Mapping fout",
                 "text": "Een mapping naar 'Path in SIP' in het importsjabloon moet opgegeven worden"
@@ -422,6 +434,22 @@
         "migration": {
             "location_validation_error": {
                 "title": "Overdrachtslijst kan niet geïmporteerd worden"
+            },
+            "sheet_not_found": {
+                "title": "Overdrachtslijst kan niet geïmporteerd worden",
+                "text": "Tab '{sheet_name}' niet gevonden in het bestand. Beschikbare tabs: {available_sheets}"
+            },
+            "sheet_empty": {
+                "title": "Overdrachtslijst kan niet geïmporteerd worden",
+                "text": "Tab '{sheet_name}' is leeg."
+            },
+            "anchor_not_found": {
+                "title": "Overdrachtslijst kan niet geïmporteerd worden",
+                "text": "Kolom '{anchor}' niet gevonden in tab '{sheet_name}'."
+            },
+            "no_columns": {
+                "title": "Overdrachtslijst kan niet geïmporteerd worden",
+                "text": "Geen kolommen gevonden vanaf '{anchor}'."
             }
         },
         "file_system": {

@@ -173,12 +173,10 @@ class DigitalWidget(CentralWidget):
         self.digital_sip_loaded_handler(sip)
 
     def open_grid_handler(self, sip: SIP) -> None:
-        from src.controller.excel_controller import ExcelReadError
-
         if not self.application.digital_sip_db_controller.db_exists(sip.db_name):
             try:
                 sip.set_data_from_dossiers()
-            except (ExcelReadError, FileNotFoundError, PermissionError) as e:
+            except (FileNotFoundError, PermissionError) as e:
                 self.application.notify_user_signal.emit(
                     UI_TEXT_ELEMENTS["errors"]["file_system"]["path_not_found_error"]["title"],
                     str(e),
