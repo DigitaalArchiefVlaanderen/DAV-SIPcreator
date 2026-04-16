@@ -50,6 +50,9 @@ class UploadController(BaseObject):
         return True
 
     def _perform_upload(self, sip: SIP, sip_location: str, sidecar_location: str) -> None:
+        print(f"Uploading {sip_location} and {sidecar_location} with {sip.name}")
+        return
+
         sip_remote_name = os.path.basename(sip_location)
         sidecar_remote_name = os.path.basename(sidecar_location)
 

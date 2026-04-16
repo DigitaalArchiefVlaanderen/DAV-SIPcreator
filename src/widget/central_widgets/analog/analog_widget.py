@@ -17,7 +17,7 @@ from src.utils.workers.worker import Worker
 
 from src.widget.central_widgets.analog.analog_grid_creation_dialog import AnalogGridCreationDialog
 from src.widget.central_widgets.central_widget import CentralWidget
-from src.widget.components.migration.migration_listitem_widget import MigrationSipListitemWidget
+from src.widget.components.analog.analog_listitem_widget import AnalogSipListitemWidget
 from src.widget.components.searchable_list_widget import SearchableListWidgetWithDropdown
 
 from src.window.analog.analog_grid_window import AnalogGridWindow
@@ -84,16 +84,16 @@ class AnalogWidget(CentralWidget):
         if sip.environment != self.application.configuration.active_environment:
             return
 
-        listitem = MigrationSipListitemWidget(sip=sip)
-        listitem.open_overdrachtslijst_signal.connect(self._open_grid_handler)
+        listitem = AnalogSipListitemWidget(parent_window=self.parent_window, sip=sip)
+        listitem.open_grid_signal.connect(self._open_grid_handler)
         self.sip_list_widget.add_widgets([listitem])
 
     def environment_changed_handler(self) -> None:
         self.sip_list_widget.clear_widgets(delete=True)
 
         for sip in self.application.get_sips(AnalogSIP):
-            listitem = MigrationSipListitemWidget(sip=sip)
-            listitem.open_overdrachtslijst_signal.connect(self._open_grid_handler)
+            listitem = AnalogSipListitemWidget(parent_window=self.parent_window, sip=sip)
+            listitem.open_grid_signal.connect(self._open_grid_handler)
             self.sip_list_widget.add_widgets([listitem])
 
     def _open_grid_handler(self, sip: AnalogSIP) -> None:

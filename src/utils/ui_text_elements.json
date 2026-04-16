@@ -512,7 +512,8 @@
             "startup_loading_items_text": "Overdrachtslijsten aan het inladen"
         },
         "analog": {
-            "startup_loading_items_text": "Analoog SIPs aan het inladen"
+            "startup_loading_items_text": "Analoog SIPs aan het inladen",
+            "upload_right_text": "SIP uploaden..."
         }
     },
     "grid_checks": {
