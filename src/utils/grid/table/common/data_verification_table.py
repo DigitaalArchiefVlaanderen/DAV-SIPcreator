@@ -13,6 +13,7 @@ DATE_COLUMNS = {ColumnName.OPENINGSDATUM, ColumnName.SLUITINGSDATUM}
 class CommonDataVerificationTable(DataTable):
     validation_started_signal = QtCore.Signal()
     validation_finished_signal = QtCore.Signal()
+    data_edited_signal = QtCore.Signal()
 
     COLUMN_VALIDATORS: dict[ColumnName, BaseCheck] = {
         ColumnName.ID_RIJKSREGISTERNUMMER: RRNCheck(),
@@ -202,6 +203,7 @@ class CommonDataVerificationTable(DataTable):
 
         self.raw_data.iat[index.row(), index.column()] = value
         self.dataChanged.emit(index, index)
+        self.data_edited_signal.emit()
 
         self._validate_single_row(index.row())
 
@@ -235,6 +237,7 @@ class CommonDataVerificationTable(DataTable):
             self.index(0, 0),
             self.index(self.raw_data.shape[0] - 1, self.raw_data.shape[1] - 1),
         )
+        self.data_edited_signal.emit()
 
         # Run validation in background on the current raw_data
         cell_range = CellRange(
