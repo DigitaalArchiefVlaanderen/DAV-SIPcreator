@@ -137,7 +137,6 @@ class MigrationWidget(CentralWidget):
 
         sip = MigrationSIP()
         sip.set_name(overdrachtslijst_name)
-        sip.overdrachtslijst_name = overdrachtslijst_name
 
         df = ExcelController.read_overdrachtslijst(file_path)
 

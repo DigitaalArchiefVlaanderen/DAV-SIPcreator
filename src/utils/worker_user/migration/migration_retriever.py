@@ -29,7 +29,7 @@ class MigrationRetriever(BaseRetriever):
             for table_name, uri_serieregister, _, _ in tables:
                 series_id = uri_serieregister.rsplit("/", 1)[-1] if uri_serieregister else ""
                 if series_id:
-                    sip.series_zip_names[table_name] = f"{series_id}-{sip.overdrachtslijst_name}-SIPC.zip"
+                    sip.series_zip_names[table_name] = f"{series_id}-{sip.name}-SIPC.zip"
 
             sip.derive_overall_status()
 

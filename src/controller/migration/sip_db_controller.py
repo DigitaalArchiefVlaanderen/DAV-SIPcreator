@@ -52,8 +52,6 @@ class MigrationSIPDBController(BaseSIPDBController):
                     {DBColumnName.NAME} text,
                     {DBColumnName.STATUS} text,
                     {DBColumnName.ENVIRONMENT_NAME} text,
-                    {DBColumnName.EDEPOT_SIP_ID} text,
-                    {DBColumnName.OVERDRACHTSLIJST_NAME} text,
                     {DBColumnName.GRID_VALID} integer default 0
                 )
             """)
@@ -61,16 +59,13 @@ class MigrationSIPDBController(BaseSIPDBController):
                 f"""
                 INSERT INTO {DBTableName.SIP}
                 ({DBColumnName.NAME}, {DBColumnName.STATUS}, {DBColumnName.ENVIRONMENT_NAME},
-                 {DBColumnName.EDEPOT_SIP_ID}, {DBColumnName.OVERDRACHTSLIJST_NAME},
                  {DBColumnName.GRID_VALID})
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?)
             """,
                 (
                     sip.name,
                     sip.status.name,
                     sip.environment.name,
-                    sip.edepot_sip_id or "",
-                    sip.overdrachtslijst_name,
                     int(sip.grid_valid),
                 ),
             )
@@ -97,21 +92,18 @@ class MigrationSIPDBController(BaseSIPDBController):
             has_grid_valid = DBColumnName.GRID_VALID in columns
 
             result = conn.execute(
-                f"SELECT {DBColumnName.NAME}, {DBColumnName.STATUS}, {DBColumnName.ENVIRONMENT_NAME}, "
-                f"{DBColumnName.EDEPOT_SIP_ID}, {DBColumnName.OVERDRACHTSLIJST_NAME}"
+                f"SELECT {DBColumnName.NAME}, {DBColumnName.STATUS}, {DBColumnName.ENVIRONMENT_NAME}"
                 + (f", {DBColumnName.GRID_VALID}" if has_grid_valid else "")
                 + f" FROM {DBTableName.SIP};"
             ).fetchone()
 
-            name, status, environment_name, edepot_sip_id, overdrachtslijst_name = result[:5]
-            grid_valid = bool(result[5]) if has_grid_valid else False
+            name, status, environment_name = result[:3]
+            grid_valid = bool(result[3]) if has_grid_valid else False
 
             sip = MigrationSIP()
             sip.force_set_name(name)
             sip.set_status(SIPStatus[status])
             sip.environment = self.application.configuration.get_environment(environment_name)
-            sip.edepot_sip_id = edepot_sip_id
-            sip.overdrachtslijst_name = overdrachtslijst_name
             sip.set_grid_valid(grid_valid)
 
             return sip
@@ -223,14 +215,13 @@ class MigrationSIPDBController(BaseSIPDBController):
             if DBColumnName.GRID_VALID in columns:
                 conn.execute(
                     f"UPDATE {DBTableName.SIP} SET {DBColumnName.STATUS} = ?, "
-                    f"{DBColumnName.EDEPOT_SIP_ID} = ?, {DBColumnName.GRID_VALID} = ?",
-                    (sip.status.name, sip.edepot_sip_id or "", int(sip.grid_valid)),
+                    f"{DBColumnName.GRID_VALID} = ?",
+                    (sip.status.name, int(sip.grid_valid)),
                 )
             else:
                 conn.execute(
-                    f"UPDATE {DBTableName.SIP} SET {DBColumnName.STATUS} = ?, "
-                    f"{DBColumnName.EDEPOT_SIP_ID} = ?",
-                    (sip.status.name, sip.edepot_sip_id or ""),
+                    f"UPDATE {DBTableName.SIP} SET {DBColumnName.STATUS} = ?",
+                    (sip.status.name,),
                 )
 
             self._update_sip_creator_version(conn)
@@ -277,8 +268,6 @@ class MigrationSIPDBController(BaseSIPDBController):
                 "name": "text",
                 "status": "text",
                 "environment_name": "text",
-                "edepot_sip_id": "text",
-                "overdrachtslijst_name": "text",
             }
 
             for column, data_type in expected_columns.items():
@@ -543,7 +532,6 @@ class OldMigrationSIPDBController(BaseObject):
 
             sip = MigrationSIP()
             sip.force_set_name(overdrachtslijst_name)
-            sip.overdrachtslijst_name = overdrachtslijst_name
             sip.environment = self.application.configuration.get_environment(environment_name)
 
             if main_table_name:

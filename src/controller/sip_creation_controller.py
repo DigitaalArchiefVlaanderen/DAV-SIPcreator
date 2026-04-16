@@ -133,7 +133,7 @@ def create_migration_series_sips(sip, configuration, series_data: list) -> bool:
     from src.utils.constants import BusinessRules
 
     configuration.create_locations()
-    ol_name = sip.overdrachtslijst_name[:BusinessRules.SIP_TITLE_MAX_LENGTH]
+    ol_name = sip.name[:BusinessRules.SIP_TITLE_MAX_LENGTH]
 
     for _, series_id, df in series_data:
         import_template_loc = APIController.get_import_template(

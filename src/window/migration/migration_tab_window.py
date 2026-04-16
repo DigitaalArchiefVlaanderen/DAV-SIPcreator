@@ -52,7 +52,7 @@ AUTO_MAP_BLOCKED_COLUMNS = {
 URI_SERIEREGISTER_COLUMN = DBColumnName.URI_SERIEREGISTER
 
 
-def _format_origineel_doosnummer(mapped_data: dict[str, list], overdrachtslijst_name: str) -> None:
+def _format_origineel_doosnummer(mapped_data: dict[str, list], sip_name: str) -> None:
     col = ColumnName.ORIGINEEL_DOOSNUMMER
 
     if col not in mapped_data:
@@ -68,7 +68,7 @@ def _format_origineel_doosnummer(mapped_data: dict[str, list], overdrachtslijst_
         if re.match(r"^\d+$", raw):
             raw = raw.zfill(4)
 
-        mapped_data[col][i] = f"{raw}/{overdrachtslijst_name}"
+        mapped_data[col][i] = f"{raw}/{sip_name}"
 
 
 def _derive_type_and_dossier_ref(mapped_data: dict[str, list], row_count: int) -> None:
@@ -113,7 +113,7 @@ def _derive_naam_from_path(mapped_data: dict[str, list]) -> None:
 def map_main_to_series(
     selected_data: pd.DataFrame,
     template_columns: list[str] | None = None,
-    overdrachtslijst_name: str = "",
+    sip_name: str = "",
     all_data: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     if all_data is None:
@@ -135,7 +135,7 @@ def map_main_to_series(
     for col_name, fixed_value in FIXED_VALUE_COLUMNS.items():
         mapped_data[col_name] = [fixed_value] * row_count
 
-    _format_origineel_doosnummer(mapped_data, overdrachtslijst_name)
+    _format_origineel_doosnummer(mapped_data, sip_name)
 
     # Auto-map: carry over columns from the Overdrachtslijst that match template columns.
     # This can overwrite earlier mappings (e.g. Naam, Origineel Doosnummer).
@@ -525,7 +525,7 @@ class MigrationTabWindow(Window):
     def _assign_rows_to_series(self, source_rows: list[int], series_id: str, series_name: str) -> None:
         table_name = series_name
         uri_serieregister = f"{self.sip.environment.get_serie_register_uri()}/{series_id}"
-        self.sip.series_zip_names[table_name] = f"{series_id}-{self.sip.overdrachtslijst_name}-SIPC.zip"
+        self.sip.series_zip_names[table_name] = f"{series_id}-{self.sip.name}-SIPC.zip"
         main_df = self.sip.main_grid_data.data_as_df
 
         existing_count = 0
@@ -708,7 +708,7 @@ class MigrationTabWindow(Window):
         return map_main_to_series(
             selected_data,
             template_columns,
-            self.sip.overdrachtslijst_name,
+            self.sip.name,
             all_data=self.sip.main_grid_data.data_as_df,
         )
 

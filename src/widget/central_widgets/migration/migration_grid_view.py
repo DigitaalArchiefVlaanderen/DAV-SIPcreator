@@ -247,7 +247,7 @@ class MigrationGridView(BaseGridView):
 
             return
 
-        values = controller.get_values(overdrachtslijst_name=self.sip.overdrachtslijst_name)
+        values = controller.get_values(overdrachtslijst_name=self.sip.name)
 
         if values is None:
             return

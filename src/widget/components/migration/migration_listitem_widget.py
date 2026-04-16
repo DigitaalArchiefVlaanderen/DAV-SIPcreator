@@ -227,8 +227,8 @@ class MigrationControlsWidget(BaseSipControlsWidget):
 
         for series_name in series_names:
             series_id = series_id_map.get(series_name, "")
-            sip_file_name = f"{series_id}-{self.sip.overdrachtslijst_name}-SIPC.zip"
-            sidecar_file_name = f"{series_id}-{self.sip.overdrachtslijst_name}-SIPC.xml"
+            sip_file_name = f"{series_id}-{self.sip.name}-SIPC.zip"
+            sidecar_file_name = f"{series_id}-{self.sip.name}-SIPC.xml"
 
             sip_location = os.path.join(configuration.sips_location, sip_file_name)
             sidecar_location = os.path.join(configuration.sips_location, sidecar_file_name)
