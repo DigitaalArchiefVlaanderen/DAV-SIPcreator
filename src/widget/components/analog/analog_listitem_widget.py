@@ -104,16 +104,22 @@ class AnalogControlsWidget(BaseSipControlsWidget):
         self.open_grid_signal.emit(self.sip)
 
     def upload_button_clicked_handler(self) -> None:
-        if self.sip.status == SIPStatus.IN_PROGRESS:
-            self.open_grid_signal.emit(self.sip)
-            return
+        self.application.window_controller.close_windows_for_sip(self.sip)
 
-        from src.controller.upload_controller import UploadController
+        def create_and_upload():
+            from src.controller.sip_creation_controller import create_simple_sip
+            from src.controller.upload_controller import UploadController
+
+            if self.sip.status != SIPStatus.SIP_CREATED:
+                create_simple_sip(self.sip, self.application.configuration)
+                self.sip.set_status(SIPStatus.SIP_CREATED)
+
+            UploadController().upload_sip(sip=self.sip)
 
         self.application.start_task(
             window=self.parent_window,
             description=UI_TEXT_ELEMENTS["toolbar_info"]["analog"]["upload_right_text"],
-            function=lambda: UploadController().upload_sip(sip=self.sip),
+            function=create_and_upload,
             is_generator=False,
         )
 

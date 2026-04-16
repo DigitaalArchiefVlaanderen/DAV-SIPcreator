@@ -1,14 +1,11 @@
-import hashlib
 import os
-import re
 import shutil
-import zipfile
 from contextlib import suppress
 
 import pandas as pd
-from openpyxl import load_workbook
 
 from src.controller.api_controller import APIController
+from src.controller.sip_creation_controller import create_sip_zip, fill_import_template
 
 from src.utils.base_object import BaseObject
 from src.utils.constants import UI_TEXT_ELEMENTS, ColumnName, RowType
@@ -17,49 +14,7 @@ from src.utils.data_objects.digital.sip import SIP
 UI_TEXT = UI_TEXT_ELEMENTS["errors"]["sip"]
 
 
-SIDECAR_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
-<mhs:Sidecar xmlns:mhs="https://zeticon.mediahaven.com/metadata/20.3/mhs/" version="20.3" xmlns:mh="https://zeticon.mediahaven.com/metadata/20.3/mh/">
-     <mhs:Technical>
-              <mh:Md5>{md5}</mh:Md5>
-     </mhs:Technical>
-</mhs:Sidecar>"""
-
-
 class FileController(BaseObject):
-    @staticmethod
-    def _col_index_to_xlsx_col(col_index: int) -> str:
-        result = ""
-        index = col_index
-
-        while index >= 0:
-            result = chr(65 + index % 26) + result
-            index = index // 26 - 1
-
-        return result
-
-    @staticmethod
-    def _fill_import_template(df: pd.DataFrame, path: str) -> None:
-        wb = load_workbook(path)
-
-        try:
-            ws = wb["Details"]
-
-            for i, col in enumerate(df.columns):
-                re_match = re.match(r"(.*)(\.\d+| +)$", col)
-
-                if re_match:
-                    col = re_match.group(1)
-
-                ws[f"{FileController._col_index_to_xlsx_col(i)}1"] = col
-
-            for row_index, row_info in df.iterrows():
-                for col_index, value in enumerate(row_info.values):
-                    ws[f"{FileController._col_index_to_xlsx_col(col_index)}{row_index + 2}"] = value
-
-            wb.save(path)
-        finally:
-            wb.close()
-
     def _is_sip_folder_structure_valid(self, sip_folder_structure: dict, df: pd.DataFrame) -> bool:
         folder_paths = set()
 
@@ -144,24 +99,18 @@ class FileController(BaseObject):
         temp_excel_location = os.path.join(configuration.import_templates_location, "temp.xlsx")
         shutil.copy(src=import_template_location, dst=temp_excel_location)
 
-        FileController._fill_import_template(df, temp_excel_location)
+        fill_import_template(df, import_template_location, temp_excel_location)
 
         sip_location = os.path.join(storage_location, sip.file_name)
         sidecar_location = os.path.join(storage_location, sip.sidecar_file_name)
 
+        additional_files = {
+            location[ColumnName.PATH_IN_SIP]: location["path"]
+            for location in filtered_folder_structure.values()
+        }
+
         try:
-            with zipfile.ZipFile(sip_location, "w", compression=zipfile.ZIP_DEFLATED) as zfile:
-                zfile.write(temp_excel_location, "Metadata.xlsx")
-
-                for location in filtered_folder_structure.values():
-                    zfile.write(location["path"], location[ColumnName.PATH_IN_SIP])
-
-            with open(sip_location, "rb") as f:
-                md5 = hashlib.md5(f.read()).hexdigest()
-
-            with open(sidecar_location, "w", encoding="utf-8") as f:
-                f.write(SIDECAR_TEMPLATE.format(md5=md5))
-
+            create_sip_zip(temp_excel_location, sip_location, sidecar_location, additional_files)
         except OSError as e:
             self.application.notify_user_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["file_system"]["disk_error"]["title"],

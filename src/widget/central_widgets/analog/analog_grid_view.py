@@ -1,12 +1,9 @@
-import hashlib
 import os
-import re
-import zipfile
 
-from openpyxl import load_workbook
 from PySide6 import QtWidgets
 
 from src.controller.api_controller import APIController
+from src.controller.sip_creation_controller import create_sip_zip, fill_import_template
 
 from src.utils.constants import UI_TEXT_ELEMENTS, BusinessRules
 from src.utils.data_objects.analog.sip import AnalogSIP
@@ -20,13 +17,6 @@ from src.utils.workers.worker import Worker
 from src.widget.central_widgets.base_grid_view import BaseGridView
 
 UI_TEXT = UI_TEXT_ELEMENTS["analog"]["grid"]
-
-SIDECAR_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
-<mhs:Sidecar xmlns:mhs="https://zeticon.mediahaven.com/metadata/20.3/mhs/" version="20.3" xmlns:mh="https://zeticon.mediahaven.com/metadata/20.3/mh/">
-<mhs:Technical>
-        <mh:Md5>{md5}</mh:Md5>
-</mhs:Technical>
-</mhs:Sidecar>"""
 
 
 class AnalogGridView(BaseGridView):
@@ -138,54 +128,27 @@ class AnalogGridView(BaseGridView):
                     max_rows=BusinessRules.MAX_ROWS_PER_SERIES, found_rows=len(non_empty_df)
                 ),
             )
-
             return False
 
-        self.application.configuration.create_locations()
+        configuration = self.application.configuration
+        configuration.create_locations()
 
         import_template_loc = APIController.get_import_template(
-            configuration=self.application.configuration,
+            configuration=configuration,
             environment=self.sip.environment,
             series_id=self.sip.series._id,
         )
 
-        temp_loc = os.path.join(self.application.configuration.grid_location, f"temp_{self.sip.series._id}.xlsx")
+        temp_loc = os.path.join(configuration.grid_location, f"temp_{self.sip.series._id}.xlsx")
+        sip_location = os.path.join(configuration.sips_location, self.sip.file_name)
+        sidecar_location = os.path.join(configuration.sips_location, self.sip.sidecar_file_name)
 
-        wb = load_workbook(import_template_loc)
+        fill_import_template(non_empty_df, import_template_loc, temp_loc)
 
         try:
-            ws = wb["Details"]
-
-            for col_index, col_name in enumerate(non_empty_df.columns):
-                clean_name = col_name.strip()
-                matches = re.match(r"(.+)\.\d+$", clean_name)
-
-                if matches is not None:
-                    clean_name = matches.group(1)
-
-                ws.cell(row=1, column=col_index + 1, value=clean_name)
-
-            for row_index in range(len(non_empty_df)):
-                for col_index in range(len(non_empty_df.columns)):
-                    ws.cell(row=row_index + 2, column=col_index + 1, value=str(non_empty_df.iat[row_index, col_index]))
-
-            wb.save(temp_loc)
+            create_sip_zip(temp_loc, sip_location, sidecar_location)
         finally:
-            wb.close()
-
-        sip_location = os.path.join(self.application.configuration.sips_location, self.sip.file_name)
-        md5_location = os.path.join(self.application.configuration.sips_location, self.sip.sidecar_file_name)
-
-        with zipfile.ZipFile(sip_location, "w", compression=zipfile.ZIP_DEFLATED) as zfile:
-            zfile.write(temp_loc, "Metadata.xlsx")
-
-        with open(sip_location, "rb") as f:
-            md5 = hashlib.md5(f.read()).hexdigest()
-
-        with open(md5_location, "w", encoding="utf-8") as f:
-            f.write(SIDECAR_TEMPLATE.format(md5=md5))
-
-        os.remove(temp_loc)
+            os.remove(temp_loc)
 
         return True
 

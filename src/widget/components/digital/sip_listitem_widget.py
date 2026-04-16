@@ -165,14 +165,25 @@ class ControlsWidget(BaseSipControlsWidget):
         self.application.window_controller.open_window(self.sip, SipDetailWindow)
 
     def upload_button_clicked_handler(self) -> None:
-        if self.sip.status == SIPStatus.IN_PROGRESS:
-            self.application.window_controller.open_digital_grid_signal.emit(self.sip)
-            return
+        self.application.window_controller.close_windows_for_sip(self.sip)
+
+        def create_and_upload():
+            if self.sip.status != SIPStatus.SIP_CREATED:
+                from src.controller.file_controller import FileController
+
+                success = FileController().create_sip(sip=self.sip)
+
+                if not success:
+                    return
+
+                self.sip.set_status(SIPStatus.SIP_CREATED)
+
+            UploadController().upload_sip(sip=self.sip)
 
         self.application.start_task(
             window=self.parent_window,
             description=UI_TEXT_ELEMENTS["toolbar_info"]["digital"]["upload_right_text"],
-            function=lambda: UploadController().upload_sip(sip=self.sip),
+            function=create_and_upload,
             is_generator=False,
         )
 

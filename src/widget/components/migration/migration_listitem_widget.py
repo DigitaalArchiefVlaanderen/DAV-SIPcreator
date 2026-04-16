@@ -3,7 +3,7 @@ from contextlib import suppress
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from src.utils.constants import KLANT_ROLE, UI_TEXT_ELEMENTS
+from src.utils.constants import KLANT_ROLE, MIGRATION_MAIN_ID_COLUMN, UI_TEXT_ELEMENTS
 from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.workers.worker import Worker
@@ -147,12 +147,7 @@ class MigrationControlsWidget(BaseSipControlsWidget):
         dialog.exec()
 
     def upload_button_clicked_handler(self) -> None:
-        if self.sip.status == SIPStatus.IN_PROGRESS:
-            # Auto-open the tab window so the user can create SIPs
-            self.open_overdrachtslijst_signal.emit(self.sip)
-            return
-
-        uploadable = [name for name, status in self.sip.series_statuses.items() if status == SIPStatus.SIP_CREATED]
+        uploadable = list(self.sip.series_statuses.keys())
 
         if not uploadable:
             return
@@ -165,7 +160,47 @@ class MigrationControlsWidget(BaseSipControlsWidget):
 
         selected = dialog.selected_series
 
-        for series_name in selected:
+        self.application.window_controller.close_windows_for_sip(self.sip)
+
+        self._create_all_and_upload(selected)
+
+    def _create_all_and_upload(self, selected_for_upload: list[str]) -> None:
+        from src.controller.sip_creation_controller import create_migration_series_sips
+
+        db_controller = self.application.migration_sip_db_controller
+        configuration = self.application.configuration
+        tables = db_controller.read_tables(self.sip.db_name)
+
+        series_data: list = []
+
+        for table_name, uri_serieregister, _, _ in tables:
+            series_id = uri_serieregister.rsplit("/", 1)[-1] if uri_serieregister else ""
+            df = db_controller.read_series_data(self.sip.db_name, table_name)
+
+            if MIGRATION_MAIN_ID_COLUMN in df.columns:
+                df = df.drop(columns=[MIGRATION_MAIN_ID_COLUMN])
+
+            series_data.append((table_name, series_id, df))
+
+        def background_create_and_upload():
+            create_migration_series_sips(self.sip, configuration, series_data)
+
+            for series_name, _, _ in series_data:
+                self.sip.series_statuses[series_name] = SIPStatus.SIP_CREATED
+                db_controller.update_series_status(self.sip, series_name, SIPStatus.SIP_CREATED)
+
+            self.sip.derive_overall_status()
+
+            return selected_for_upload
+
+        Worker.start(
+            background_create_and_upload,
+            on_result=self._on_creation_complete_start_uploads,
+            on_error=lambda e: self.application.error_handler(e),
+        )
+
+    def _on_creation_complete_start_uploads(self, selected_for_upload: list[str]) -> None:
+        for series_name in selected_for_upload:
             self.sip.series_statuses[series_name] = SIPStatus.UPLOADING
 
             self.application.migration_sip_db_controller.update_series_status(
@@ -173,8 +208,7 @@ class MigrationControlsWidget(BaseSipControlsWidget):
             )
 
         self.sip.derive_overall_status()
-
-        self._start_series_uploads(selected)
+        self._start_series_uploads(selected_for_upload)
 
     def _start_series_uploads(self, series_names: list[str]) -> None:
         from src.controller.upload_controller import UploadController

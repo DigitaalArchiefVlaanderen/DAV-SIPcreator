@@ -1,15 +1,11 @@
-import hashlib
 import os
 import re
-import zipfile
 
 import pandas as pd
-from openpyxl import load_workbook
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from src.controller.api_controller import APIController
 from src.controller.excel_controller import ExcelController
-from src.controller.file_controller import SIDECAR_TEMPLATE
 
 from src.utils.constants import (
     ANALOOG_DEFAULT_VALUE,
@@ -876,57 +872,9 @@ class MigrationTabWindow(Window):
         self._set_controls_busy(True)
 
         def background_create_sips():
-            self.application.configuration.create_locations()
-            configuration = self.application.configuration
-            ol_name = self.sip.overdrachtslijst_name[:BusinessRules.SIP_TITLE_MAX_LENGTH]
+            from src.controller.sip_creation_controller import create_migration_series_sips
 
-            for _, series_id, df in series_data:
-                import_template_loc = APIController.get_import_template(
-                    configuration=configuration,
-                    environment=self.sip.environment,
-                    series_id=series_id,
-                )
-
-                temp_loc = os.path.join(configuration.grid_location, f"temp_{series_id}.xlsx")
-
-                wb = load_workbook(import_template_loc)
-
-                try:
-                    ws = wb["Details"]
-
-                    for col_index, col_name in enumerate(df.columns):
-                        clean_name = col_name.strip()
-                        matches = re.match(r"(.+)\.\d+$", clean_name)
-
-                        if matches is not None:
-                            clean_name = matches.group(1)
-
-                        ws.cell(row=1, column=col_index + 1, value=clean_name)
-
-                    for row_index in range(len(df)):
-                        for col_index in range(len(df.columns)):
-                            ws.cell(row=row_index + 2, column=col_index + 1, value=str(df.iat[row_index, col_index]))
-
-                    wb.save(temp_loc)
-                finally:
-                    wb.close()
-
-                sip_file_name = f"{series_id}-{ol_name}-SIPC.zip"
-                sidecar_file_name = f"{series_id}-{ol_name}-SIPC.xml"
-
-                sip_location = os.path.join(configuration.sips_location, sip_file_name)
-                sidecar_location = os.path.join(configuration.sips_location, sidecar_file_name)
-
-                with zipfile.ZipFile(sip_location, "w", compression=zipfile.ZIP_DEFLATED) as zfile:
-                    zfile.write(temp_loc, "Metadata.xlsx")
-
-                with open(sip_location, "rb") as f:
-                    md5 = hashlib.md5(f.read()).hexdigest()
-
-                with open(sidecar_location, "w", encoding="utf-8") as f:
-                    f.write(SIDECAR_TEMPLATE.format(md5=md5))
-
-                os.remove(temp_loc)
+            create_migration_series_sips(self.sip, self.application.configuration, series_data)
 
             return True
 
