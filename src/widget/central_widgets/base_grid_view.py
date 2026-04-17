@@ -19,6 +19,7 @@ class BaseGridView(BaseWidget):
 
         self.sip = sip
         self.has_unsaved_changes = False
+        self._active_workers: list = []
 
     def _create_common_widgets(self, ui_text: dict) -> None:
         self.grid_layout = QtWidgets.QGridLayout()

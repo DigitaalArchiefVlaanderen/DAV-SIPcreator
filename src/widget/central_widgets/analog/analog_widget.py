@@ -30,6 +30,7 @@ class AnalogWidget(CentralWidget):
     def __init__(self, parent_window: Window):
         super().__init__(parent_window)
 
+        self._active_workers: list = []
         self.setup_ui()
         self.setup_signals()
 
@@ -140,11 +141,12 @@ class AnalogWidget(CentralWidget):
 
             return template_df.columns.tolist()
 
-        self._template_worker = Worker.start(
+        Worker.start(
             background_create,
             on_result=lambda columns: self._on_template_downloaded(sip_name, series_id, columns),
             on_error=lambda e: self.application.error_handler(e),
             on_finished=lambda: self.start_sip_button.setEnabled(True),
+            track_in=self._active_workers,
         )
 
     def _on_template_downloaded(self, sip_name: str, series_id: str, columns: list[str]) -> None:

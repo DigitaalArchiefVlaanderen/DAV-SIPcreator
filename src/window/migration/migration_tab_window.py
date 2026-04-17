@@ -9,6 +9,7 @@ from src.controller.excel_controller import ExcelController
 
 from src.utils.constants import (
     ANALOOG_DEFAULT_VALUE,
+    MIGRATION_ID_COLUMN,
     MIGRATION_MAIN_ID_COLUMN,
     SERIES_NAME_COLUMN,
     UI_TEXT_ELEMENTS,
@@ -44,6 +45,7 @@ FIXED_VALUE_COLUMNS = {
 }
 
 AUTO_MAP_BLOCKED_COLUMNS = {
+    MIGRATION_ID_COLUMN,
     ColumnName.TYPE,
     ColumnName.DOSSIER_REF,
     ColumnName.ANALOOG,
@@ -121,7 +123,7 @@ def map_main_to_series(
     mapped_data: dict[str, list] = {}
     row_count = len(selected_data)
 
-    mapped_data[MIGRATION_MAIN_ID_COLUMN] = selected_data.index.astype(str).tolist()
+    mapped_data[MIGRATION_MAIN_ID_COLUMN] = selected_data[MIGRATION_ID_COLUMN].astype(str).tolist()
 
     for main_col, series_cols in MAIN_TO_SERIES_COLUMN_MAPPING.items():
         if main_col in selected_data.columns:
@@ -174,10 +176,7 @@ def map_main_to_series(
             if not present:
                 break
             # Check if any of the 4 columns have data in the selected rows
-            has_data = any(
-                selected_data[col].astype(str).str.strip().any()
-                for col in present
-            )
+            has_data = any(selected_data[col].astype(str).str.strip().any() for col in present)
             if has_data and len(present) == 4:
                 for col in group:
                     mapped_data[col] = selected_data[col].values.tolist()
@@ -385,7 +384,9 @@ class MigrationTabWindow(Window):
             grid_data.data_as_df = df
             self.sip.series_grid_data[table_name] = grid_data
 
-            grid_view = MigrationGridView(sip=self.sip, series_name=table_name, grid_data=grid_data, series_id=series_id)
+            grid_view = MigrationGridView(
+                sip=self.sip, series_name=table_name, grid_data=grid_data, series_id=series_id
+            )
             grid_view.table_model.validation_finished_signal.connect(self.update_global_create_sip_button)
             grid_view.create_sip_signal.connect(self._create_all_sips)
             grid_view.delete_series_rows_signal.connect(self._delete_rows_from_series)
@@ -472,8 +473,11 @@ class MigrationTabWindow(Window):
             self.application.migration_sip_db_controller.create_series_table(
                 self.sip, uri_serieregister=uri_serieregister, table_name=series_name, df=series_df
             )
+            self.sip.series_statuses[series_name] = SIPStatus.IN_PROGRESS
 
-            grid_view = MigrationGridView(sip=self.sip, series_name=series_name, grid_data=grid_data, series_id=series_id)
+            grid_view = MigrationGridView(
+                sip=self.sip, series_name=series_name, grid_data=grid_data, series_id=series_id
+            )
             grid_view.table_model.validation_finished_signal.connect(self.update_global_create_sip_button)
             grid_view.create_sip_signal.connect(self._create_all_sips)
             grid_view.delete_series_rows_signal.connect(self._delete_rows_from_series)
@@ -617,9 +621,12 @@ class MigrationTabWindow(Window):
             self.application.migration_sip_db_controller.create_series_table(
                 self.sip, uri_serieregister=uri_serieregister, table_name=table_name, df=series_df
             )
+            self.sip.series_statuses[table_name] = SIPStatus.IN_PROGRESS
 
             series_id = uri_serieregister.rsplit("/", 1)[-1] if uri_serieregister else ""
-            grid_view = MigrationGridView(sip=self.sip, series_name=series_name, grid_data=grid_data, series_id=series_id)
+            grid_view = MigrationGridView(
+                sip=self.sip, series_name=series_name, grid_data=grid_data, series_id=series_id
+            )
             grid_view.table_model.validation_finished_signal.connect(self.update_global_create_sip_button)
             grid_view.create_sip_signal.connect(self._create_all_sips)
             grid_view.delete_series_rows_signal.connect(self._delete_rows_from_series)
@@ -653,6 +660,7 @@ class MigrationTabWindow(Window):
             return
 
         name_col = main_df.columns.get_loc(SERIES_NAME_COLUMN)
+        id_col = main_df.columns.get_loc(MIGRATION_ID_COLUMN)
         main_ids_by_old_series: dict[str, list[str]] = {}
 
         for row_idx in source_rows:
@@ -670,7 +678,7 @@ class MigrationTabWindow(Window):
             if tab_key not in main_ids_by_old_series:
                 main_ids_by_old_series[tab_key] = []
 
-            main_ids_by_old_series[tab_key].append(str(row_idx))
+            main_ids_by_old_series[tab_key].append(str(main_df.iat[row_idx, id_col]))
 
         for old_series_name, main_ids in main_ids_by_old_series.items():
             if old_series_name not in self.series_tabs:
@@ -715,7 +723,8 @@ class MigrationTabWindow(Window):
     def _delete_rows_from_main(self, source_rows: list[int]) -> None:
         """Delete rows from the Overdrachtslijst and cascade to series tabs."""
         main_df = self.sip.main_grid_data.data_as_df
-        main_ids = [str(row) for row in source_rows]
+        id_col = main_df.columns.get_loc(MIGRATION_ID_COLUMN)
+        main_ids = [str(main_df.iat[row, id_col]) for row in source_rows]
         main_id_set = set(main_ids)
 
         # Remove matching rows from all series tabs
@@ -726,9 +735,9 @@ class MigrationTabWindow(Window):
             if MIGRATION_MAIN_ID_COLUMN not in series_df.columns:
                 continue
 
-            remaining_df = series_df[
-                ~series_df[MIGRATION_MAIN_ID_COLUMN].astype(str).isin(main_id_set)
-            ].reset_index(drop=True)
+            remaining_df = series_df[~series_df[MIGRATION_MAIN_ID_COLUMN].astype(str).isin(main_id_set)].reset_index(
+                drop=True
+            )
 
             if remaining_df.empty:
                 tab_index = self.tab_widget.indexOf(grid_view)
@@ -775,16 +784,16 @@ class MigrationTabWindow(Window):
 
         # Clear series_name and URI in the main DataFrame for matching rows
         main_df = self.sip.main_grid_data.data_as_df
-        if SERIES_NAME_COLUMN in main_df.columns:
+        if SERIES_NAME_COLUMN in main_df.columns and MIGRATION_ID_COLUMN in main_df.columns:
             name_col = main_df.columns.get_loc(SERIES_NAME_COLUMN)
             uri_col = main_df.columns.get_loc(URI_SERIEREGISTER_COLUMN)
+            id_col = main_df.columns.get_loc(MIGRATION_ID_COLUMN)
 
             for main_id in deleted_main_ids:
-                if main_id.isdigit():
-                    row_idx = int(main_id)
-                    if row_idx < len(main_df):
-                        main_df.iat[row_idx, name_col] = ""
-                        main_df.iat[row_idx, uri_col] = ""
+                matches = main_df.index[main_df.iloc[:, id_col].astype(str) == str(main_id)]
+                for row_idx in matches:
+                    main_df.iat[row_idx, name_col] = ""
+                    main_df.iat[row_idx, uri_col] = ""
 
             self.sip.main_grid_data.data_as_df = main_df
 

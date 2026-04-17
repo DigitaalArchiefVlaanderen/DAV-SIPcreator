@@ -1,6 +1,6 @@
 from PySide6 import QtCore, QtWidgets
 
-from src.utils.constants import KLANT_ROLE, SERIES_NAME_COLUMN, UI_TEXT_ELEMENTS
+from src.utils.constants import KLANT_ROLE, MIGRATION_ID_COLUMN, SERIES_NAME_COLUMN, UI_TEXT_ELEMENTS
 from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.grid.table.common.data_table import DataTable, MarkingSource
 from src.utils.grid.table.common.grid_table_view import GridTableView
@@ -66,6 +66,13 @@ class MigrationMainTabView(BaseWidget):
         self.grid_layout.addWidget(self.delete_rows_button, 1, 0)
         self.grid_layout.addWidget(self.table_view, 2, 0, 1, 3)
         self.grid_layout.addLayout(button_layout, 3, 0, 1, 3)
+
+        self._hide_id_column()
+
+    def _hide_id_column(self) -> None:
+        columns = list(self.table_model.raw_data.columns)
+        if MIGRATION_ID_COLUMN in columns:
+            self.table_view.hideColumn(columns.index(MIGRATION_ID_COLUMN))
 
     def setup_signals(self) -> None:
         self.assign_button.clicked.connect(self._assign_button_clicked)
@@ -178,9 +185,9 @@ class MigrationMainTabView(BaseWidget):
 
             return
 
-        source_rows = sorted({
-            self.proxy_model.mapToSource(self.proxy_model.index(row, 0)).row() for row in selected_rows
-        })
+        source_rows = sorted(
+            {self.proxy_model.mapToSource(self.proxy_model.index(row, 0)).row() for row in selected_rows}
+        )
 
         self.assign_to_series_signal.emit(source_rows, series._id, series.get_full_name())
 
@@ -207,9 +214,9 @@ class MigrationMainTabView(BaseWidget):
         if not selected_rows:
             return
 
-        source_rows = sorted({
-            self.proxy_model.mapToSource(self.proxy_model.index(row, 0)).row() for row in selected_rows
-        })
+        source_rows = sorted(
+            {self.proxy_model.mapToSource(self.proxy_model.index(row, 0)).row() for row in selected_rows}
+        )
 
         self.delete_rows_signal.emit(source_rows)
 

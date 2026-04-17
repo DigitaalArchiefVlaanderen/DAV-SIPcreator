@@ -1,15 +1,14 @@
-import json
 import os
 import sqlite3 as sql
 
 import pandas as pd
 
+from src.controller.analog.db_versioning import run_db_migrations
 from src.controller.base_sip_db_controller import BaseSIPDBController
 
 from src.utils.constants import (
     PROD_ENVIRONMENT_NAME,
     TI_ENVIRONMENT_NAME,
-    UNKNOWN_TRANSFORMED,
     DBColumnName,
     DBTableName,
 )
@@ -157,86 +156,23 @@ class AnalogSIPDBController(BaseSIPDBController):
         self._execute_with_conn(sip.db_name, _persist)
 
     def _validate_db(self, db_file_name: str) -> bool:
-        def _validate(conn: sql.Connection) -> bool | str:
+        def _validate(conn: sql.Connection) -> bool:
+            db_path = os.path.join(self.db_location, db_file_name)
+            run_db_migrations(conn, db_path, environment_resolver=self._resolve_environment)
+
+            # Ensure the SIP name is set (migration creates it empty)
+            name_row = conn.execute("SELECT name FROM sip").fetchone()
+            if name_row and not name_row[0]:
+                sip_name = os.path.splitext(db_file_name)[0]
+                conn.execute("UPDATE sip SET name = ?", (sip_name,))
+
             tables = [r for r, *_ in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
 
-            if "extra" in tables:
-                return "needs_transition"
+            return DBTableName.SIP in tables and DBTableName.DATA in tables and DBTableName.SIP_CREATOR in tables
 
-            return (
-                DBTableName.SIP in tables
-                and DBTableName.DATA in tables
-                and DBTableName.SIP_CREATOR in tables
-            )
+        return self._execute_with_conn(db_file_name, _validate)
 
-        result = self._execute_with_conn(db_file_name, _validate)
-
-        if result == "needs_transition":
-            return self._transition_old_analog_db(db_file_name)
-
-        return result
-
-    def _transition_old_analog_db(self, db_file_name: str) -> bool:
-        try:
-            conn = self.conn(db_file_name)
-
-            series_json_str, edepot_id, data_changed = conn.execute("SELECT * FROM extra").fetchone()
-            df = pd.read_sql("SELECT * FROM data", conn, dtype=str).fillna("")
-
-            if "_id" in df.columns:
-                df = df.drop(columns=["_id"])
-
-            conn.close()
-        except Exception:
-            return False
-
-        series_dict = json.loads(series_json_str)
-        series_id = series_dict.get("_id", "")
-        series_name = series_dict.get("name", "")
-
-        environment_name = self._infer_environment_from_series(series_id)
-
-        if environment_name is None:
-            return False
-
-        if edepot_id and not data_changed:
-            status = SIPStatus.ACCEPTED
-        elif edepot_id:
-            status = SIPStatus.SIP_CREATED
-        else:
-            status = SIPStatus.IN_PROGRESS
-
-        location = self.db_location
-        old_path = os.path.join(location, db_file_name)
-        renamed_path = os.path.join(location, f"old_{db_file_name}")
-
-        os.rename(old_path, renamed_path)
-
-        sip = AnalogSIP()
-        sip.force_set_name(os.path.splitext(db_file_name)[0])
-        sip.set_status(status)
-        sip.environment = self.application.configuration.get_environment(environment_name)
-        sip.uploaded = bool(edepot_id)
-
-        if edepot_id:
-            sip.edepot_sip_id = edepot_id
-
-        columns = list(df.columns)
-
-        self.create_sip_db(
-            sip=sip,
-            columns=columns,
-            series_id=series_id,
-            series_name=series_name,
-            transformed=UNKNOWN_TRANSFORMED,
-        )
-
-        if not df.empty:
-            self.save_data(sip, df)
-
-        return True
-
-    def _infer_environment_from_series(self, series_id: str) -> str | None:
+    def _resolve_environment(self, series_id: str) -> str | None:
         all_series = self.application.sneaky_series()
 
         for env_name in (TI_ENVIRONMENT_NAME, PROD_ENVIRONMENT_NAME):

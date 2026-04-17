@@ -124,7 +124,6 @@ class BusinessRules(IntEnum):
     MAX_ROWS_PER_SERIES = 9998
 
 
-
 def resource_path(relative_path):
     if hasattr(sys, "_MEIPASS"):
         return os.path.join(sys._MEIPASS, relative_path)
@@ -183,6 +182,7 @@ with open(resource_path("src/utils/ui_text_elements.json")) as f:
 
 KLANT_ROLE = "klant"
 ROLE_DEPOTMEDEWERKER = "depotmedewerker"
+MIGRATION_ID_COLUMN = "_id"
 MIGRATION_MAIN_ID_COLUMN = "main_id"
 SERIES_NAME_COLUMN = "series_name"
 ANALOOG_DEFAULT_VALUE = "ja"
@@ -222,6 +222,14 @@ FILE_REGEXES_TO_IGNORE = [
 MAIN_DB_NAME = "sip_creator.db"
 OLD_MAIN_DB_NAME = "sqlite.db"
 UNKNOWN_TRANSFORMED = "<3.0"
+
+# Ordered list of versions where DB schema changes were introduced.
+# Only major.minor matters — patch/build numbers are ignored.
+# Used by the migration runner to determine which migrations to apply.
+DB_SCHEMA_CHANGE_VERSIONS: list[str] = [
+    "3.0",
+    # Future: "3.1", "3.2", etc.
+]
 BASE_SIP_NAME = "SIP {number}"
 
 CHECKABLE_SIP_STATUSES = (SIPStatus.UPLOADED, SIPStatus.PROCESSING)

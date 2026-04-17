@@ -46,6 +46,12 @@ class UploadController(BaseObject):
                 UI_TEXT["ftps_url_error"]["text"].format(environment_name=sip.environment.name),
             )
             return False
+        except Exception as e:
+            self.application.notify_user_signal.emit(
+                UI_TEXT["ftps_connection_error"]["title"],
+                UI_TEXT["ftps_connection_error"]["text"].format(environment_name=sip.environment.name, error=e),
+            )
+            return False
 
         return True
 

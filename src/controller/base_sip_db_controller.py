@@ -76,9 +76,10 @@ class BaseSIPDBController(BaseObject):
             if DBTableName.SIP_CREATOR not in db_tables:
                 return None
 
-            columns = [col_name for _, col_name, *_ in conn.execute(
-                f"PRAGMA table_info({DBTableName.SIP_CREATOR});"
-            ).fetchall()]
+            columns = [
+                col_name
+                for _, col_name, *_ in conn.execute(f"PRAGMA table_info({DBTableName.SIP_CREATOR});").fetchall()
+            ]
 
             row = conn.execute(f"SELECT * FROM {DBTableName.SIP_CREATOR}").fetchone()
 
@@ -86,11 +87,7 @@ class BaseSIPDBController(BaseObject):
                 return None
 
             version = row[0] if DBColumnName.VERSION in columns else ""
-            transformed = (
-                row[columns.index(DBColumnName.TRANSFORMED)]
-                if DBColumnName.TRANSFORMED in columns
-                else ""
-            )
+            transformed = row[columns.index(DBColumnName.TRANSFORMED)] if DBColumnName.TRANSFORMED in columns else ""
 
             return version, transformed
 
@@ -150,7 +147,7 @@ class BaseSIPDBController(BaseObject):
             return
 
         for file in os.listdir(self.db_location):
-            if file.startswith("old_"):
+            if file.startswith("old_") or ".original" in file:
                 continue
 
             if not self.is_valid_db(file):

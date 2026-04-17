@@ -4,7 +4,7 @@ from PySide6 import QtCore, QtWidgets
 
 from src.controller.migration.bestandscontrole_controller import VALUE_TO_COLUMN
 
-from src.utils.constants import KLANT_ROLE, MIGRATION_MAIN_ID_COLUMN, UI_TEXT_ELEMENTS, ColumnName
+from src.utils.constants import KLANT_ROLE, MIGRATION_ID_COLUMN, MIGRATION_MAIN_ID_COLUMN, UI_TEXT_ELEMENTS, ColumnName
 from src.utils.data_objects.grid_data import GridData
 from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.series import Series
@@ -19,6 +19,7 @@ from src.widget.central_widgets.base_grid_view import COMMON_GRID_TEXT, BaseGrid
 UI_TEXT = UI_TEXT_ELEMENTS["migration"]["grid"]
 
 NON_DUPLICATABLE_COLUMNS = {
+    MIGRATION_ID_COLUMN,
     MIGRATION_MAIN_ID_COLUMN,
     ColumnName.PATH_IN_SIP,
     ColumnName.TYPE,
@@ -296,9 +297,9 @@ class MigrationGridView(BaseGridView):
         if not selected_rows:
             return
 
-        source_rows = sorted({
-            self.proxy_model.mapToSource(self.proxy_model.index(row, 0)).row() for row in selected_rows
-        })
+        source_rows = sorted(
+            {self.proxy_model.mapToSource(self.proxy_model.index(row, 0)).row() for row in selected_rows}
+        )
 
         self.delete_series_rows_signal.emit(self.series_name, source_rows)
 

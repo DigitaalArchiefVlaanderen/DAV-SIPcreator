@@ -115,6 +115,7 @@ class MigrationControlsWidget(BaseSipControlsWidget):
 
     def __init__(self, sip: MigrationSIP):
         super().__init__(sip)
+        self._active_workers: list = []
         self._update_role_visibility()
 
     def setup_signals(self) -> None:
@@ -169,6 +170,7 @@ class MigrationControlsWidget(BaseSipControlsWidget):
 
         db_controller = self.application.migration_sip_db_controller
         configuration = self.application.configuration
+
         tables = db_controller.read_tables(self.sip.db_name)
 
         series_data: list = []
@@ -197,6 +199,7 @@ class MigrationControlsWidget(BaseSipControlsWidget):
             background_create_and_upload,
             on_result=self._on_creation_complete_start_uploads,
             on_error=lambda e: self.application.error_handler(e),
+            track_in=self._active_workers,
         )
 
     def _on_creation_complete_start_uploads(self, selected_for_upload: list[str]) -> None:
@@ -265,6 +268,7 @@ class MigrationControlsWidget(BaseSipControlsWidget):
             background_upload,
             on_result=self._on_upload_complete,
             on_error=lambda e: self.application.error_handler(e),
+            track_in=self._active_workers,
         )
 
     def _on_upload_complete(self, results: list[tuple[str, bool, str]]) -> None:

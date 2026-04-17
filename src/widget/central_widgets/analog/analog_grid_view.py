@@ -111,11 +111,12 @@ class AnalogGridView(BaseGridView):
         self.save_button.setEnabled(False)
         self.create_sip_button.setEnabled(False)
 
-        self._create_sip_worker = Worker.start(
+        Worker.start(
             self._background_create_sip,
             on_result=self._on_sip_created,
             on_error=lambda e: self.application.error_handler(e),
             on_finished=self._on_create_sip_finished,
+            track_in=self._active_workers,
         )
 
     def _background_create_sip(self) -> bool:

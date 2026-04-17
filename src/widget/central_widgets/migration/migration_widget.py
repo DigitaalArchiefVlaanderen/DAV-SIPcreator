@@ -7,7 +7,7 @@ from PySide6 import QtWidgets
 
 from src.controller.excel_controller import ExcelController
 
-from src.utils.constants import KLANT_ROLE, UI_TEXT_ELEMENTS
+from src.utils.constants import KLANT_ROLE, MIGRATION_ID_COLUMN, UI_TEXT_ELEMENTS
 from src.utils.data_objects.grid_data import GridData
 from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.sip_status import SIPStatus
@@ -152,7 +152,9 @@ class MigrationWidget(CentralWidget):
             return
 
         sip.main_grid_data = GridData()
-        sip.main_grid_data.data_as_df = df.fillna("")
+        df = df.fillna("")
+        df.insert(0, MIGRATION_ID_COLUMN, [str(i) for i in range(len(df))])
+        sip.main_grid_data.data_as_df = df
         sip.grid_data = sip.main_grid_data
 
         try:

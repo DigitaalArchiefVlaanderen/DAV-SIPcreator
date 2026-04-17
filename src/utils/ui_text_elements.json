@@ -423,6 +423,10 @@
             "ftps_url_error": {
                 "title": "Connectie fout",
                 "text": "Je FTPS connectie url staat niet in orde voor omgeving '{environment_name}'"
+            },
+            "ftps_connection_error": {
+                "title": "Connectie fout",
+                "text": "Er kon geen FTPS verbinding gemaakt worden voor omgeving '{environment_name}': {error}"
             }
         },
         "excel": {
