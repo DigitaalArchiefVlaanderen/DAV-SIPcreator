@@ -55,7 +55,6 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
     def count_data_rows(self) -> int:
         return sum(1 for row in range(self.raw_data.shape[0]) if not self._is_row_empty(row))
 
-
     def _ensure_empty_bottom_row(self) -> None:
         if self.raw_data.shape[0] == 0 or not self._is_row_empty(self.raw_data.shape[0] - 1):
             self._insert_empty_rows(1)

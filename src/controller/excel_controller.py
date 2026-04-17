@@ -156,10 +156,7 @@ class ExcelController:
             headers = _deduplicate_headers(raw_headers)
             num_columns = len(headers)
 
-            data = [
-                [_format_cell(cell) for cell in row[:num_columns]]
-                for row in rows[1:]
-            ]
+            data = [[_format_cell(cell) for cell in row[:num_columns]] for row in rows[1:]]
 
             # Strip trailing rows where every cell is empty
             while data and all(cell == "" for cell in data[-1]):
@@ -220,7 +217,8 @@ class ExcelController:
                 _warn_user(
                     ui_errors["anchor_not_found"]["title"],
                     ui_errors["anchor_not_found"]["text"].format(
-                        anchor=anchor, sheet_name=OVERDRACHTSLIJST_SHEET_NAME,
+                        anchor=anchor,
+                        sheet_name=OVERDRACHTSLIJST_SHEET_NAME,
                     ),
                 )
                 return None
@@ -238,8 +236,8 @@ class ExcelController:
             num_columns = len(headers)
             data = []
 
-            for row in rows[anchor_row + 1:]:
-                row_cells = row[anchor_col: anchor_col + num_columns]
+            for row in rows[anchor_row + 1 :]:
+                row_cells = row[anchor_col : anchor_col + num_columns]
                 row_data = [_format_cell(cell) for cell in row_cells]
 
                 if all(v == "" for v in row_data):

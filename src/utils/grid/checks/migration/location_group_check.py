@@ -53,10 +53,7 @@ def validate_location_columns(columns: list[str]) -> str | None:
 
         if len(found) != 4:
             missing = [col.rstrip() for col in group if col not in columns]
-            return (
-                f"Onvolledige set locatie kolommen gevonden. "
-                f"Ontbrekend: {', '.join(missing)}"
-            )
+            return f"Onvolledige set locatie kolommen gevonden. Ontbrekend: {', '.join(missing)}"
 
         # Verify order: the 4 columns must appear in the correct relative order
         indices = [columns.index(col) for col in group]
@@ -96,15 +93,11 @@ class LocationGroupCheck(BaseCheck):
                     if not has_all:
                         for i, c in enumerate(group_col_indices):
                             if not values[i].strip():
-                                results.append(
-                                    (row, c, None, UI_TEXT["location_group_required"], None)
-                                )
+                                results.append((row, c, None, UI_TEXT["location_group_required"], None))
                 elif has_any and not has_all:
                     # Subsequent groups: all-or-nothing
                     for i, c in enumerate(group_col_indices):
                         if not values[i].strip():
-                            results.append(
-                                (row, c, None, UI_TEXT["location_group_incomplete"], None)
-                            )
+                            results.append((row, c, None, UI_TEXT["location_group_incomplete"], None))
 
         return results

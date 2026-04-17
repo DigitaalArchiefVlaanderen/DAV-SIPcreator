@@ -133,7 +133,7 @@ def create_migration_series_sips(sip, configuration, series_data: list) -> bool:
     from src.utils.constants import BusinessRules
 
     configuration.create_locations()
-    ol_name = sip.name[:BusinessRules.SIP_TITLE_MAX_LENGTH]
+    ol_name = sip.name[: BusinessRules.SIP_TITLE_MAX_LENGTH]
 
     for _, series_id, df in series_data:
         import_template_loc = APIController.get_import_template(
@@ -172,9 +172,10 @@ def update_metadata_in_zip(metadata_path: str, sip_location: str, sidecar_locati
 
     temp_zip = sip_location + ".tmp"
 
-    with zipfile.ZipFile(sip_location, "r") as zin, zipfile.ZipFile(
-        temp_zip, "w", compression=zipfile.ZIP_DEFLATED
-    ) as zout:
+    with (
+        zipfile.ZipFile(sip_location, "r") as zin,
+        zipfile.ZipFile(temp_zip, "w", compression=zipfile.ZIP_DEFLATED) as zout,
+    ):
         for item in zin.infolist():
             if item.filename == "Metadata.xlsx":
                 continue

@@ -46,16 +46,11 @@ class CommonDataVerificationTable(DataTable):
 
         type_col = self.raw_data.columns.get_loc(ColumnName.TYPE)
 
-        return {
-            row
-            for row in range(self.raw_data.shape[0])
-            if self.raw_data.iat[row, type_col] == RowType.GEEN
-        }
+        return {row for row in range(self.raw_data.shape[0]) if self.raw_data.iat[row, type_col] == RowType.GEEN}
 
     def _run_bulk_validators(self, cell_range: CellRange) -> tuple[list[BulkResult], set[int]]:
         results: list[BulkResult] = []
         empty_rows = self._get_empty_rows()
-
 
         for column_name, check in self.COLUMN_VALIDATORS.items():
             if column_name.value not in self.raw_data.columns:
@@ -146,10 +141,7 @@ class CommonDataVerificationTable(DataTable):
                     or (key[2] == MarkingSource.CELL and self.markings[key][0] != CellColor.GREY)
                 )
             )
-            or (
-                key[0] in empty_indices
-                and self.markings[key][0] == CellColor.RED
-            )
+            or (key[0] in empty_indices and self.markings[key][0] == CellColor.RED)
         ]
 
         for key in keys_to_remove:

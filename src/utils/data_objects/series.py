@@ -62,9 +62,7 @@ class Series:
         }
 
         if self.valid_from is not None:
-            data[APIResponseKey.VALIDITY_PERIOD][APIResponseKey.FROM] = self.str_from_datetime(
-                self.valid_from
-            )
+            data[APIResponseKey.VALIDITY_PERIOD][APIResponseKey.FROM] = self.str_from_datetime(self.valid_from)
         if self.valid_to is not None:
             data[APIResponseKey.VALIDITY_PERIOD][APIResponseKey.TO] = self.str_from_datetime(self.valid_to)
 

@@ -55,9 +55,7 @@ class FileController(BaseObject):
         filtered.reset_index(drop=True, inplace=True)
 
         if strip_name_extensions and ColumnName.NAAM in filtered.columns:
-            filtered[ColumnName.NAAM] = filtered[ColumnName.NAAM].apply(
-                lambda v: v.rsplit(".", 1)[0] if v else v
-            )
+            filtered[ColumnName.NAAM] = filtered[ColumnName.NAAM].apply(lambda v: v.rsplit(".", 1)[0] if v else v)
 
         return filtered
 
@@ -105,8 +103,7 @@ class FileController(BaseObject):
         sidecar_location = os.path.join(storage_location, sip.sidecar_file_name)
 
         additional_files = {
-            location[ColumnName.PATH_IN_SIP]: location["path"]
-            for location in filtered_folder_structure.values()
+            location[ColumnName.PATH_IN_SIP]: location["path"] for location in filtered_folder_structure.values()
         }
 
         try:

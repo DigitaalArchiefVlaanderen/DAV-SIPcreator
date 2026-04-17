@@ -25,4 +25,3 @@ class SIPStatus(enum.Enum):
         from src.utils.constants import UI_TEXT_ELEMENTS
 
         return UI_TEXT_ELEMENTS["sip"]["status"][self.name.lower()]["priority"]
-

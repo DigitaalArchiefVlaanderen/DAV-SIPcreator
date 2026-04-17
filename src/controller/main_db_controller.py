@@ -81,8 +81,7 @@ class MainDBController(BaseObject):
     def initialize_version_info(self) -> None:
         def _initialize(conn: sql.Connection) -> None:
             row = conn.execute(
-                f"SELECT {DBColumnName.VERSION}, {DBColumnName.TRANSFORMED} "
-                f"FROM {DBTableName.SIP_CREATOR}"
+                f"SELECT {DBColumnName.VERSION}, {DBColumnName.TRANSFORMED} FROM {DBTableName.SIP_CREATOR}"
             ).fetchone()
 
             if row is None:
