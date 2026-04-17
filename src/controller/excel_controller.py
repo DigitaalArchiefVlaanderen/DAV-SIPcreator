@@ -18,18 +18,19 @@ def _format_number(value, number_format: str) -> str:
     if number_format == "0":
         return str(int(round(value)))
 
+    # Percentage: "0%", "0.00%"  — must be checked before decimal places
+    # because "0.00%" also contains a decimal group.
+    if "%" in number_format:
+        decimal_match = re.search(r"\.([0#]+)", number_format)
+        decimal_places = len(decimal_match.group(1)) if decimal_match else 0
+        return f"{value * 100:.{decimal_places}f}%"
+
     # Fixed decimal places: "0.00", "0.0", "#,##0.00", etc.
     decimal_match = re.search(r"\.([0#]+)", number_format)
 
     if decimal_match:
         decimal_places = len(decimal_match.group(1))
         return f"{value:.{decimal_places}f}"
-
-    # Percentage: "0%", "0.00%"
-    if "%" in number_format:
-        decimal_match = re.search(r"\.([0#]+)", number_format)
-        decimal_places = len(decimal_match.group(1)) if decimal_match else 0
-        return f"{value * 100:.{decimal_places}f}%"
 
     # Fallback: same as General
     if isinstance(value, float) and value == int(value):
