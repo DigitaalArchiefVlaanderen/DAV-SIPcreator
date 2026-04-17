@@ -211,6 +211,7 @@ class APIController:
         params = {
             "size": 100,
             "page": 0,
+            "sort": "ArchiveDate,desc",
         }
 
         while True:
@@ -247,6 +248,7 @@ class APIController:
         params = {
             "size": 100,
             "page": 0,
+            "sort": "ArchiveDate,desc",
         }
 
         while True:
@@ -294,6 +296,9 @@ class APIController:
             url=f"{base_url}/{endpoint}",
             headers=headers,
         ).json()
+
+        if "SipStatus" not in response:
+            return None
 
         status = SIP_STATUS_MAPPING.get(response["SipStatus"])
         fail_reason = None

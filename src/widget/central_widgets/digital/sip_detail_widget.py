@@ -77,9 +77,7 @@ class SipDetailWidget(CentralWidget):
     def open_folder_structure_handler(self) -> None:
         self._update_tag_mapping()
 
-        has_path_in_sip = any(
-            import_col == ColumnName.PATH_IN_SIP for _, import_col in self.sip.tag_mapping
-        )
+        has_path_in_sip = any(import_col == ColumnName.PATH_IN_SIP for _, import_col in self.sip.tag_mapping)
 
         if not has_path_in_sip:
             self.application.notify_user_signal.emit(
@@ -108,6 +106,13 @@ class SipDetailWidget(CentralWidget):
             return
 
         self._update_tag_mapping()
+
+        if not self.tag_mapping_widget.is_valid_mapping():
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["sip"]["mapping_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["sip"]["mapping_error"]["text"],
+            )
+            return
 
         self.application.window_controller.open_digital_grid_signal.emit(self.sip)
 

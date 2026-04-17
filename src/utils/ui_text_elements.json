@@ -66,6 +66,7 @@
             "upload_button_text": "Upload",
             "upload_no_series_tooltip": "De serie is niet gevonden in de huidige configuratie, mogelijks is deze nog aan het inladen",
             "edepot_button_text": "E-depot locatie",
+            "edepot_not_found_tooltip": "E-depot ID is nog niet gevonden",
             "remove_button_text": "Verwijder",
 
             "actions": {
@@ -191,6 +192,7 @@
         "edepot_dialog": {
             "title": "E-depot locatie",
             "description": "Selecteer een serie om te openen in e-depot:",
+            "open_button_text": "Openen",
             "close_button_text": "Sluiten"
         }
     },
@@ -552,7 +554,8 @@
         "migration": {
             "location_group_incomplete": "Alle locatie kolommen in een groep moeten ingevuld zijn",
             "location_group_required": "De eerste set locatie kolommen is verplicht",
-            "path_in_sip_slash_error": "Path in SIP mag geen '/' bevatten"
+            "path_in_sip_slash_error": "Path in SIP mag geen '/' bevatten",
+            "dossier_not_in_grid": "Dossier is niet teruggevonden in grid"
         },
         "analog": {
             "beschrijving_empty_error": "ID beschrijving moet een waarde hebben",

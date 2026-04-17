@@ -248,6 +248,8 @@ class MigrationTabWindow(Window):
         self.series_tabs: dict[str, MigrationGridView] = {}
         self._active_workers: list[tuple[Worker, QtCore.QThread]] = []
         self._tabs_loading: bool = False
+        self._main_has_unsaved_changes: bool = False
+        self._deleted_series: set[str] = set()
 
         self.setWindowTitle(self.sip.name)
         self.resize(1200, 800)
@@ -747,7 +749,7 @@ class MigrationTabWindow(Window):
                 del self.series_tabs[series_name]
                 del self.sip.series_grid_data[series_name]
 
-                self.application.migration_sip_db_controller.delete_series_table(self.sip, series_name)
+                self._deleted_series.add(series_name)
             else:
                 grid_view.grid_data.data_as_df = remaining_df
 
@@ -755,7 +757,7 @@ class MigrationTabWindow(Window):
                 grid_view.table_model.raw_data = remaining_df
                 grid_view.table_model.endResetModel()
 
-                self.application.migration_sip_db_controller.save_series_data(self.sip, series_name, remaining_df)
+                grid_view.has_unsaved_changes = True
 
         # Remove rows from main DataFrame
         updated_main_df = main_df.drop(index=source_rows).reset_index(drop=True)
@@ -765,7 +767,7 @@ class MigrationTabWindow(Window):
         self.main_tab_view.table_model.raw_data = updated_main_df
         self.main_tab_view.table_model.endResetModel()
 
-        self.application.migration_sip_db_controller.save_main_data(self.sip, updated_main_df)
+        self._main_has_unsaved_changes = True
         self.main_tab_view._validate_series()
 
     def _delete_rows_from_series(self, series_name: str, source_rows: list[int]) -> None:
@@ -801,7 +803,7 @@ class MigrationTabWindow(Window):
             self.main_tab_view.table_model.raw_data = main_df
             self.main_tab_view.table_model.endResetModel()
 
-            self.application.migration_sip_db_controller.save_main_data(self.sip, main_df)
+            self._main_has_unsaved_changes = True
             self.main_tab_view._validate_series()
 
         # Remove rows from series DataFrame
@@ -815,7 +817,7 @@ class MigrationTabWindow(Window):
             del self.series_tabs[series_name]
             del self.sip.series_grid_data[series_name]
 
-            self.application.migration_sip_db_controller.delete_series_table(self.sip, series_name)
+            self._deleted_series.add(series_name)
         else:
             grid_view.grid_data.data_as_df = remaining_df
 
@@ -823,7 +825,8 @@ class MigrationTabWindow(Window):
             grid_view.table_model.raw_data = remaining_df
             grid_view.table_model.endResetModel()
 
-            self.application.migration_sip_db_controller.save_series_data(self.sip, series_name, remaining_df)
+            grid_view.has_unsaved_changes = True
+            grid_view.table_model.validate_all()
 
         self.update_global_create_sip_button()
 
@@ -916,7 +919,11 @@ class MigrationTabWindow(Window):
         self.close()
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
-        has_unsaved = any(grid_view.has_unsaved_changes for grid_view in self.series_tabs.values())
+        has_unsaved = (
+            self._main_has_unsaved_changes
+            or bool(self._deleted_series)
+            or any(grid_view.has_unsaved_changes for grid_view in self.series_tabs.values())
+        )
 
         if has_unsaved:
             dialog = YesNoDialog(
@@ -926,9 +933,7 @@ class MigrationTabWindow(Window):
             dialog.exec()
 
             if dialog.result():
-                for grid_view in self.series_tabs.values():
-                    if grid_view.has_unsaved_changes:
-                        grid_view._save_button_clicked(silent=True)
+                self._save_all_pending_changes()
 
                 self.application.notify_user_signal.emit(
                     UI_TEXT["save_all_success"]["title"],
@@ -936,3 +941,18 @@ class MigrationTabWindow(Window):
                 )
 
         super().closeEvent(event)
+
+    def _save_all_pending_changes(self) -> None:
+        db_controller = self.application.migration_sip_db_controller
+
+        if self._main_has_unsaved_changes:
+            db_controller.save_main_data(self.sip, self.sip.main_grid_data.data_as_df)
+            self._main_has_unsaved_changes = False
+
+        for series_name in self._deleted_series:
+            db_controller.delete_series_table(self.sip, series_name)
+        self._deleted_series.clear()
+
+        for grid_view in self.series_tabs.values():
+            if grid_view.has_unsaved_changes:
+                grid_view._save_button_clicked(silent=True)

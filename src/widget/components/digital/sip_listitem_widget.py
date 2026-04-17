@@ -142,7 +142,7 @@ class ControlsWidget(BaseSipControlsWidget):
         self.sip.series_changed_signal.connect(self.sip_status_changed_handler)
 
     def _has_edepot_info(self) -> bool:
-        return True  # Digital always shows edepot button when status allows
+        return bool(self.sip.edepot_sip_id)
 
     def _upload_allowed(self) -> bool:
         return self.sip.series is not None and self.sip.grid_valid

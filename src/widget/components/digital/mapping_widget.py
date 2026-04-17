@@ -176,6 +176,13 @@ class TagMappingWidget(QtWidgets.QFrame):
 
         self.output_mapping.remove_selected_tag()
 
+    def is_valid_mapping(self) -> bool:
+        """A mapping is valid if it's empty or includes Path in SIP."""
+        mapping = self.get_mapping()
+        if not mapping:
+            return True
+        return any(imp.rstrip() == ColumnName.PATH_IN_SIP for _, imp in mapping)
+
     def get_mapping(self) -> list[tuple[str, str]]:
         return [
             (b.text().split(" -> ", 1)[0], self._display_to_actual[self.output_mapping.button_group.id(b)])

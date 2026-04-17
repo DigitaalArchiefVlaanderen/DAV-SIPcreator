@@ -123,7 +123,8 @@ class MigrationControlsWidget(BaseSipControlsWidget):
         self.application.application_role_changed_signal.connect(self._update_role_visibility)
 
     def _has_edepot_info(self) -> bool:
-        return bool(getattr(self.sip, "series_edepot_ids", None))
+        # Always True for migration — the dialog handles per-series edepot state
+        return True
 
     def _upload_allowed(self) -> bool:
         return self.sip.grid_valid
@@ -138,10 +139,8 @@ class MigrationControlsWidget(BaseSipControlsWidget):
         self.open_overdrachtslijst_signal.emit(self.sip)
 
     def edepot_button_clicked_handler(self) -> None:
-        if not getattr(self.sip, "series_edepot_ids", None):
-            return
-
         dialog = MigrationEdepotDialog(
+            series_statuses=self.sip.series_statuses,
             series_edepot_ids=self.sip.series_edepot_ids,
             base_url=self.sip.environment.api_url,
         )

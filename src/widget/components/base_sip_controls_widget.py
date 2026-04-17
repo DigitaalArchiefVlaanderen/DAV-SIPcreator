@@ -9,6 +9,7 @@ from PySide6 import QtCore, QtWidgets
 from src.utils.constants import UI_TEXT_ELEMENTS
 from src.utils.data_objects.sip import SIP
 from src.utils.data_objects.sip_status import SIPStatus
+from src.utils.pyside_helper import clear_widget_warning_style, set_widget_warning_style
 
 from src.widget.base_widget import BaseWidget
 
@@ -51,7 +52,7 @@ class BaseSipControlsWidget(BaseWidget):
         self.sip.grid_validity_changed_signal.connect(self._on_grid_validity_changed)
 
         self.open_button.clicked.connect(self.open_button_clicked_handler)
-        self.upload_button.clicked.connect(self.upload_button_clicked_handler)
+        self.upload_button.clicked.connect(self._on_upload_clicked)
         self.edepot_button.clicked.connect(self.edepot_button_clicked_handler)
         self.remove_button.clicked.connect(self.remove_button_clicked_handler)
 
@@ -115,10 +116,30 @@ class BaseSipControlsWidget(BaseWidget):
             case x:
                 raise ValueError(f"Found unknown SIPStatus: {x}")
 
+        # Show warning on edepot button when status expects edepot info but it's missing
+        edepot_expected = self.sip.status in (
+            SIPStatus.PARTIALLY_UPLOADED,
+            SIPStatus.UPLOADED,
+            SIPStatus.PROCESSING,
+            SIPStatus.ACCEPTED,
+            SIPStatus.REJECTED,
+        )
+        if edepot_expected and not has_edepot:
+            set_widget_warning_style(
+                self.edepot_button,
+                UI_TEXT_ELEMENTS["sip"]["controls"]["edepot_not_found_tooltip"],
+            )
+        else:
+            clear_widget_warning_style(self.edepot_button)
+
         self._on_status_updated()
 
     def _on_status_updated(self) -> None:
         """Hook for subclasses to run additional logic after status update (e.g. styling)."""
+
+    def _on_upload_clicked(self) -> None:
+        self.upload_button.setEnabled(False)
+        self.upload_button_clicked_handler()
 
     # Abstract methods -- subclasses must override
     def open_button_clicked_handler(self) -> None:

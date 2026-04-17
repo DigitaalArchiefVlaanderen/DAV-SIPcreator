@@ -51,7 +51,7 @@ class SIPStatusChecker(WorkerUser):
 
                         continue
 
-                    if sip.edepot_sip_id is None:
+                    if not sip.edepot_sip_id:
                         edepot_id = APIController.get_sip_id(sip)
 
                         if edepot_id:
