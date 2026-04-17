@@ -133,5 +133,12 @@ class SIP(BaseObject):
     def __hash__(self):
         return hash(self.__id)
 
-    def open_edepot_url(self) -> str:
-        return os.startfile(f"{self.environment.api_url}/input/processing-list/{self.edepot_sip_id}")
+    def open_edepot_url(self) -> None:
+        if not self.edepot_sip_id:
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["sip"]["no_edepot_id"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["sip"]["no_edepot_id"]["text"].format(name=self.__name),
+            )
+            return
+
+        os.startfile(f"{self.environment.api_url}/input/processing-list/{self.edepot_sip_id}")

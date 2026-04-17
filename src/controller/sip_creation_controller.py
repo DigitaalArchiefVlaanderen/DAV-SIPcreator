@@ -75,7 +75,8 @@ def create_sip_zip(
             for archive_name, disk_path in additional_files.items():
                 zfile.write(disk_path, archive_name)
 
-    md5 = hashlib.md5(open(sip_location, "rb").read()).hexdigest()  # noqa: SIM115
+    with open(sip_location, "rb") as f:
+        md5 = hashlib.md5(f.read()).hexdigest()
 
     with open(sidecar_location, "w", encoding="utf-8") as f:
         f.write(SIDECAR_TEMPLATE.format(md5=md5))
@@ -185,7 +186,8 @@ def update_metadata_in_zip(metadata_path: str, sip_location: str, sidecar_locati
 
     os.replace(temp_zip, sip_location)
 
-    md5 = hashlib.md5(open(sip_location, "rb").read()).hexdigest()  # noqa: SIM115
+    with open(sip_location, "rb") as f:
+        md5 = hashlib.md5(f.read()).hexdigest()
 
     with open(sidecar_location, "w", encoding="utf-8") as f:
         f.write(SIDECAR_TEMPLATE.format(md5=md5))

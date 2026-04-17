@@ -407,6 +407,10 @@
             "no_import_template_error": {
                 "title": "Importsjabloon ontbreekt",
                 "text": "Er is geen importsjabloon beschikbaar. Download eerst een importsjabloon."
+            },
+            "no_edepot_id": {
+                "title": "Geen e-depot ID",
+                "text": "SIP '{name}' heeft nog geen e-depot ID. De status is mogelijk nog niet opgehaald."
             }
         },
         "upload": {

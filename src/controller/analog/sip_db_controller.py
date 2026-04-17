@@ -80,13 +80,6 @@ class AnalogSIPDBController(BaseSIPDBController):
 
     def read_sip_db(self, db_file_name: str) -> tuple[AnalogSIP, str, str]:
         def _read(conn: sql.Connection) -> tuple[AnalogSIP, str, str]:
-            result = conn.execute(
-                f"SELECT {DBColumnName.NAME}, {DBColumnName.STATUS}, {DBColumnName.ENVIRONMENT_NAME}, "
-                f"{DBColumnName.SERIES_ID}, {DBColumnName.SERIES_NAME}, "
-                f"{DBColumnName.EDEPOT_SIP_ID}, {DBColumnName.UPLOADED} "
-                f"FROM {DBTableName.SIP};"
-            ).fetchone()
-
             columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()]
             has_grid_valid = DBColumnName.GRID_VALID in columns
 
