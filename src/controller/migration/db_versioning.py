@@ -28,7 +28,8 @@ def _infer_environment_name(conn: sql.Connection) -> str:
     from src.utils.constants import PROD_ENVIRONMENT_NAME, TI_ENVIRONMENT_NAME
 
     uris = conn.execute(
-        'SELECT "URI Serieregister" FROM tables WHERE "URI Serieregister" IS NOT NULL AND "URI Serieregister" != ""'
+        f'SELECT "{DBColumnName.URI_SERIEREGISTER}" FROM {DBTableName.TABLES} '
+        f'WHERE "{DBColumnName.URI_SERIEREGISTER}" IS NOT NULL AND "{DBColumnName.URI_SERIEREGISTER}" != ""'
     ).fetchall()
 
     for uri, *_ in uris:
@@ -112,16 +113,20 @@ def migrate_to_3_0(conn: sql.Connection) -> None:
             series_table_names.append(clean)
 
     # 4. Ensure tables.status column exists (absorbs _migrate_tables_uploaded_to_status)
-    if "uploaded" in tables_columns and "status" not in tables_columns:
-        conn.execute(f"ALTER TABLE {DBTableName.TABLES} ADD COLUMN status text default '{SIPStatus.IN_PROGRESS.name}'")
+    if DBColumnName.UPLOADED in tables_columns and DBColumnName.STATUS not in tables_columns:
+        conn.execute(
+            f"ALTER TABLE {DBTableName.TABLES} ADD COLUMN {DBColumnName.STATUS} text default '{SIPStatus.IN_PROGRESS.name}'"
+        )
         conn.execute(f"""
-            UPDATE {DBTableName.TABLES} SET status = CASE
-                WHEN uploaded = 1 THEN '{SIPStatus.UPLOADED.name}'
+            UPDATE {DBTableName.TABLES} SET {DBColumnName.STATUS} = CASE
+                WHEN {DBColumnName.UPLOADED} = 1 THEN '{SIPStatus.UPLOADED.name}'
                 ELSE '{SIPStatus.IN_PROGRESS.name}'
             END
         """)
-    elif "status" not in tables_columns:
-        conn.execute(f"ALTER TABLE {DBTableName.TABLES} ADD COLUMN status text default '{SIPStatus.IN_PROGRESS.name}'")
+    elif DBColumnName.STATUS not in tables_columns:
+        conn.execute(
+            f"ALTER TABLE {DBTableName.TABLES} ADD COLUMN {DBColumnName.STATUS} text default '{SIPStatus.IN_PROGRESS.name}'"
+        )
 
     # 5. For each series table: drop id, keep main_id
     for series_name in series_table_names:

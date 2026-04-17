@@ -180,10 +180,6 @@
             "title": "Upload fout",
             "text": "De upload van volgende importsjablonen is mislukt:\n\n{failed_series}"
         },
-        "migration_series_error": {
-            "title": "Migratie fout",
-            "text": "Serie '{series_name}' kon niet gemigreerd worden uit de oude database."
-        },
         "tab_status_dialog": {
             "title": "Status per importsjabloon",
             "series_column": "Importsjabloon",

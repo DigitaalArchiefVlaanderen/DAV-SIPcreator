@@ -117,7 +117,7 @@ class DigitalSIPDBController(BaseSIPDBController):
         """
 
         def _read(conn: sql.Connection) -> tuple[SIP, str, str]:
-            columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()]
+            columns = [col_name for _, col_name, *_ in conn.execute(f"PRAGMA table_info({DBTableName.SIP});").fetchall()]
             has_grid_valid = DBColumnName.GRID_VALID in columns
 
             result = conn.execute(
@@ -165,7 +165,7 @@ class DigitalSIPDBController(BaseSIPDBController):
             return
 
         def _persist(conn: sql.Connection) -> None:
-            columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()]
+            columns = [col_name for _, col_name, *_ in conn.execute(f"PRAGMA table_info({DBTableName.SIP});").fetchall()]
 
             if DBColumnName.GRID_VALID in columns:
                 conn.execute(
@@ -205,10 +205,10 @@ class DigitalSIPDBController(BaseSIPDBController):
             run_db_migrations(conn, db_path)
 
             # Ensure the SIP name is set (migration creates it empty)
-            name_row = conn.execute("SELECT name FROM sip").fetchone()
+            name_row = conn.execute(f"SELECT {DBColumnName.NAME} FROM {DBTableName.SIP}").fetchone()
             if name_row and not name_row[0]:
                 sip_name = os.path.splitext(sip_db_file_name)[0]
-                conn.execute("UPDATE sip SET name = ?", (sip_name,))
+                conn.execute(f"UPDATE {DBTableName.SIP} SET {DBColumnName.NAME} = ?", (sip_name,))
 
             db_tables = [r for r, *_ in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
 
@@ -217,17 +217,17 @@ class DigitalSIPDBController(BaseSIPDBController):
 
             columns = {
                 column_name: data_type.lower()
-                for _, column_name, data_type, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()
+                for _, column_name, data_type, *_ in conn.execute(f"PRAGMA table_info({DBTableName.SIP});").fetchall()
             }
 
             expected_columns = {
-                "status": "text",
-                "environment_name": "text",
-                "series_name": "text",
-                "edepot_sip_id": "text",
-                "dossiers_list": "text",
-                "tag_mapping": "text",
-                "folder_mapping": "text",
+                DBColumnName.STATUS: "text",
+                DBColumnName.ENVIRONMENT_NAME: "text",
+                DBColumnName.SERIES_NAME: "text",
+                DBColumnName.EDEPOT_SIP_ID: "text",
+                DBColumnName.DOSSIERS_LIST: "text",
+                DBColumnName.TAG_MAPPING: "text",
+                DBColumnName.FOLDER_MAPPING: "text",
             }
 
             for column, data_type in expected_columns.items():

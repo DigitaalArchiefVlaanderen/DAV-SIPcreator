@@ -196,7 +196,7 @@ class APIController:
         return file_location
 
     @staticmethod
-    def get_sip_id(sip: SIP) -> str:
+    def get_sip_id(sip: SIP) -> str | None:
         environment = sip.environment
         access_token = APIController._get_access_token(environment)
 
@@ -234,7 +234,7 @@ class APIController:
             params["page"] = params["page"] + 1
 
     @staticmethod
-    def get_sip_id_for_name(environment: Environment, zip_name: str) -> str:
+    def get_sip_id_for_name(environment: Environment, zip_name: str) -> str | None:
         access_token = APIController._get_access_token(environment)
 
         base_url = environment.api_url
@@ -272,15 +272,15 @@ class APIController:
             params["page"] = params["page"] + 1
 
     @staticmethod
-    def get_sip_status_by_id(environment: Environment, edepot_id: str) -> tuple[SIPStatus, str | None]:
+    def get_sip_status_by_id(environment: Environment, edepot_id: str) -> tuple[SIPStatus, str | None] | None:
         return APIController._fetch_sip_status(environment, edepot_id)
 
     @staticmethod
-    def get_sip_status(sip: SIP) -> tuple[SIPStatus, str | None]:
+    def get_sip_status(sip: SIP) -> tuple[SIPStatus, str | None] | None:
         return APIController._fetch_sip_status(sip.environment, sip.edepot_sip_id)
 
     @staticmethod
-    def _fetch_sip_status(environment: Environment, edepot_id: str) -> tuple[SIPStatus, str | None]:
+    def _fetch_sip_status(environment: Environment, edepot_id: str) -> tuple[SIPStatus, str | None] | None:
         access_token = APIController._get_access_token(environment)
 
         base_url = environment.api_url

@@ -11,6 +11,7 @@ import pandas as pd
 from src.controller.db_versioning_common import run_db_migrations as _run_db_migrations
 
 from src.utils.constants import (
+    MIGRATION_ID_COLUMN,
     PROD_ENVIRONMENT_NAME,
     SIP_CREATOR_VERSION,
     UNKNOWN_TRANSFORMED,
@@ -47,8 +48,8 @@ def migrate_analog_to_3_0(
 
     # 2. Parse series_json
     series_dict = json.loads(series_json_str)
-    series_id = series_dict.get("_id", "")
-    series_name = series_dict.get("name", "")
+    series_id = series_dict.get(MIGRATION_ID_COLUMN, "")
+    series_name = series_dict.get(DBColumnName.NAME, "")
 
     # 3. Resolve environment
     environment_name = PROD_ENVIRONMENT_NAME
@@ -68,10 +69,10 @@ def migrate_analog_to_3_0(
     uploaded = bool(edepot_id)
 
     # 5. Remove _id column from data table
-    df = pd.read_sql("SELECT * FROM data", conn, dtype=str).fillna("")
-    if "_id" in df.columns:
-        df = df.drop(columns=["_id"])
-    conn.execute("DROP TABLE data")
+    df = pd.read_sql(f"SELECT * FROM {DBTableName.DATA}", conn, dtype=str).fillna("")
+    if MIGRATION_ID_COLUMN in df.columns:
+        df = df.drop(columns=[MIGRATION_ID_COLUMN])
+    conn.execute(f"DROP TABLE {DBTableName.DATA}")
     df.to_sql(DBTableName.DATA, conn, index=False, dtype="text")
 
     # 6. Drop extra table

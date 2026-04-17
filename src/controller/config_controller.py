@@ -8,7 +8,6 @@ from src.utils.constants import (
     CONFIG_KEY_SIP_STORAGE,
     CONFIG_KEY_TYPE_SIPS,
     CONFIG_SECTION_MISC,
-    CONFIGURATION_FILE_NAME,
     ConfigKey,
     SaveLocations,
     SIPType,
@@ -104,7 +103,7 @@ class ConfigController:
 
     @staticmethod
     def get_configuration(root_path: str) -> Configuration:
-        configuration_path = os.path.join(root_path, CONFIGURATION_FILE_NAME)
+        configuration_path = os.path.join(root_path, SaveLocations.CONFIGURATION_FILE)
 
         if not os.path.exists(configuration_path):
             return Configuration.get_default(root_path)

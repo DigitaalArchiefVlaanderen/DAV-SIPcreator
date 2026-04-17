@@ -80,7 +80,7 @@ class AnalogSIPDBController(BaseSIPDBController):
 
     def read_sip_db(self, db_file_name: str) -> tuple[AnalogSIP, str, str]:
         def _read(conn: sql.Connection) -> tuple[AnalogSIP, str, str]:
-            columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()]
+            columns = [col_name for _, col_name, *_ in conn.execute(f"PRAGMA table_info({DBTableName.SIP});").fetchall()]
             has_grid_valid = DBColumnName.GRID_VALID in columns
 
             result = conn.execute(
@@ -127,7 +127,7 @@ class AnalogSIPDBController(BaseSIPDBController):
 
         def _persist(conn: sql.Connection) -> None:
             series_name = sip.series.get_full_name() if sip.series else (sip.saved_series_name or "")
-            columns = [col_name for _, col_name, *_ in conn.execute("PRAGMA table_info(sip);").fetchall()]
+            columns = [col_name for _, col_name, *_ in conn.execute(f"PRAGMA table_info({DBTableName.SIP});").fetchall()]
 
             if DBColumnName.GRID_VALID in columns:
                 conn.execute(
@@ -154,10 +154,10 @@ class AnalogSIPDBController(BaseSIPDBController):
             run_db_migrations(conn, db_path, environment_resolver=self._resolve_environment)
 
             # Ensure the SIP name is set (migration creates it empty)
-            name_row = conn.execute("SELECT name FROM sip").fetchone()
+            name_row = conn.execute(f"SELECT {DBColumnName.NAME} FROM {DBTableName.SIP}").fetchone()
             if name_row and not name_row[0]:
                 sip_name = os.path.splitext(db_file_name)[0]
-                conn.execute("UPDATE sip SET name = ?", (sip_name,))
+                conn.execute(f"UPDATE {DBTableName.SIP} SET {DBColumnName.NAME} = ?", (sip_name,))
 
             tables = [r for r, *_ in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
 

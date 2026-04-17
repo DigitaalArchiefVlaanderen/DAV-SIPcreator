@@ -61,15 +61,11 @@ class DBTableName(StrEnum):
 
 class DBColumnName(StrEnum):
     NAME = "name"
-    PATH = "path"
     STATUS = "status"
     ENVIRONMENT_NAME = "environment_name"
     EDEPOT_SIP_ID = "edepot_sip_id"
-    SERIES_JSON = "series_json"
-    METADATA_FILE_PATH = "metadata_file_path"
     TAG_MAPPING = "tag_mapping"
     FOLDER_MAPPING = "folder_mapping"
-    OVERDRACHTSLIJST_NAME = "overdrachtslijst_name"
     TABLE_NAME = "table_name"
     URI_SERIEREGISTER = "URI Serieregister"
     EDEPOT_ID = "edepot_id"
@@ -205,8 +201,6 @@ DEFAULT_PROD_FTPS_URL = "ingest.digitaalarchief.vlaanderen.be"
 
 TI_ENVIRONMENT_NAME = "ti"
 PROD_ENVIRONMENT_NAME = "prod"
-ENVIRONMENT_NAMES = (TI_ENVIRONMENT_NAME, PROD_ENVIRONMENT_NAME)
-
 FILE_REGEXES_TO_IGNORE = [
     r"^~.*",
     r"^.+\.te?mp$",
@@ -241,5 +235,4 @@ RRN_STRICT_PATTERN = re.compile(r"^\d{2}\.\d{2}\.\d{2}-\d{3}\.\d{2}$")
 
 OVERDRACHTSLIJST_SHEET_NAME = "Overdrachtslijst"
 
-CONFIGURATION_FILE_NAME = "configuration.json"
 APPDATA_FALLBACK_FOLDER = "SIP_Creator"
