@@ -25,6 +25,7 @@ class MigrationDataVerificationTable(CommonDataVerificationTable):
             ColumnName.PATH_IN_SIP: path_in_sip_check,
         }
 
+        self._infer_missing_type_and_dossier_ref()
         self.re_mark_disabled_columns()
 
     def re_mark_disabled_columns(self) -> None:
@@ -47,6 +48,33 @@ class MigrationDataVerificationTable(CommonDataVerificationTable):
             self._auto_update_type_and_dossier_ref(index, str(value))
 
         return super().setData(index, value, role)
+
+    def _infer_missing_type_and_dossier_ref(self) -> None:
+        if ColumnName.PATH_IN_SIP not in self.raw_data.columns:
+            return
+        if ColumnName.TYPE not in self.raw_data.columns:
+            return
+        if ColumnName.DOSSIER_REF not in self.raw_data.columns:
+            return
+
+        path_col = self.raw_data.columns.get_loc(ColumnName.PATH_IN_SIP)
+        type_col = self.raw_data.columns.get_loc(ColumnName.TYPE)
+        dossier_ref_col = self.raw_data.columns.get_loc(ColumnName.DOSSIER_REF)
+
+        for row in range(self.raw_data.shape[0]):
+            if str(self.raw_data.iat[row, type_col]).strip():
+                continue
+
+            value = str(self.raw_data.iat[row, path_col]).strip()
+
+            if not value:
+                continue
+            elif "/" in value:
+                self.raw_data.iat[row, type_col] = RowType.STUK
+                self.raw_data.iat[row, dossier_ref_col] = value.split("/", 1)[0]
+            else:
+                self.raw_data.iat[row, type_col] = RowType.DOSSIER
+                self.raw_data.iat[row, dossier_ref_col] = value
 
     def _auto_update_type_and_dossier_ref(self, index: QtCore.QModelIndex, value: str) -> None:
         if ColumnName.TYPE not in self.raw_data.columns:
