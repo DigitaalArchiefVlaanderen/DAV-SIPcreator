@@ -191,65 +191,72 @@ class Configuration:
         return {CONFIG_SECTION_MISC: self.misc.to_json(), **{env.name: env.to_json() for env in self.environments}}
 
     @staticmethod
+    def _misc_from_json(v: dict, root_path: str, version: ConfigurationVersion) -> Misc:
+        if version == ConfigurationVersion.V1:
+            misc_default = Misc.get_default(root_path)
+
+            return Misc(
+                environments_activity=v[CONFIG_KEY_ENVIRONMENTS],
+                role_activity=misc_default.role_activity,
+                type_activity=misc_default.type_activity,
+                save_location=v[CONFIG_KEY_SIP_STORAGE],
+                bestandscontrole_lijst_location="",
+            )
+
+        if version == ConfigurationVersion.V2:
+            types = v[CONFIG_KEY_TYPE_SIPS]
+            types[SIPType.ONROEREND_ERFGOED] = False
+            types[SIPType.ANALOOG] = False
+
+            return Misc(
+                environments_activity=v[CONFIG_KEY_ENVIRONMENTS],
+                role_activity=v[CONFIG_KEY_ROLES],
+                type_activity=types,
+                save_location=v[CONFIG_KEY_SIP_STORAGE],
+                bestandscontrole_lijst_location="",
+            )
+
+        if version == ConfigurationVersion.V3:
+            types = v[CONFIG_KEY_TYPE_SIPS]
+            types[SIPType.ONROEREND_ERFGOED] = False
+            types[SIPType.ANALOOG] = False
+
+            return Misc(
+                environments_activity=v[CONFIG_KEY_ENVIRONMENTS],
+                role_activity=v[CONFIG_KEY_ROLES],
+                type_activity=types,
+                save_location=v[CONFIG_KEY_SIP_STORAGE],
+                bestandscontrole_lijst_location=v[CONFIG_KEY_BESTANDSCONTROLE],
+            )
+
+        if version == ConfigurationVersion.V4:
+            types = v[CONFIG_KEY_TYPE_SIPS]
+            types[SIPType.ANALOOG] = False
+
+            return Misc(
+                environments_activity=v[CONFIG_KEY_ENVIRONMENTS],
+                role_activity=v[CONFIG_KEY_ROLES],
+                type_activity=types,
+                save_location=v[CONFIG_KEY_SIP_STORAGE],
+                bestandscontrole_lijst_location=v[CONFIG_KEY_BESTANDSCONTROLE],
+            )
+
+        return Misc(
+            environments_activity=v[CONFIG_KEY_ENVIRONMENTS],
+            role_activity=v[CONFIG_KEY_ROLES],
+            type_activity=v[CONFIG_KEY_TYPE_SIPS],
+            save_location=v[CONFIG_KEY_SIP_STORAGE],
+            bestandscontrole_lijst_location=v[CONFIG_KEY_BESTANDSCONTROLE],
+        )
+
+    @staticmethod
     def from_json(json: dict, root_path: str, version: ConfigurationVersion) -> "Configuration":
         environments = []
         misc = None
 
         for k, v in json.items():
             if k == CONFIG_SECTION_MISC:
-                if version == ConfigurationVersion.V1:
-                    misc_default = Misc.get_default(root_path)
-
-                    misc = Misc(
-                        environments_activity=v[CONFIG_KEY_ENVIRONMENTS],
-                        role_activity=misc_default.role_activity,
-                        type_activity=misc_default.type_activity,
-                        save_location=v[CONFIG_KEY_SIP_STORAGE],
-                        bestandscontrole_lijst_location="",
-                    )
-                elif version == ConfigurationVersion.V2:
-                    types = v[CONFIG_KEY_TYPE_SIPS]
-                    types[SIPType.ONROEREND_ERFGOED] = False
-                    types[SIPType.ANALOOG] = False
-
-                    misc = Misc(
-                        environments_activity=v[CONFIG_KEY_ENVIRONMENTS],
-                        role_activity=v[CONFIG_KEY_ROLES],
-                        type_activity=types,
-                        save_location=v[CONFIG_KEY_SIP_STORAGE],
-                        bestandscontrole_lijst_location="",
-                    )
-                elif version == ConfigurationVersion.V3:
-                    types = v[CONFIG_KEY_TYPE_SIPS]
-                    types[SIPType.ONROEREND_ERFGOED] = False
-                    types[SIPType.ANALOOG] = False
-
-                    misc = Misc(
-                        environments_activity=v[CONFIG_KEY_ENVIRONMENTS],
-                        role_activity=v[CONFIG_KEY_ROLES],
-                        type_activity=types,
-                        save_location=v[CONFIG_KEY_SIP_STORAGE],
-                        bestandscontrole_lijst_location=v[CONFIG_KEY_BESTANDSCONTROLE],
-                    )
-                elif version == ConfigurationVersion.V4:
-                    types = v[CONFIG_KEY_TYPE_SIPS]
-                    types[SIPType.ANALOOG] = False
-
-                    misc = Misc(
-                        environments_activity=v[CONFIG_KEY_ENVIRONMENTS],
-                        role_activity=v[CONFIG_KEY_ROLES],
-                        type_activity=types,
-                        save_location=v[CONFIG_KEY_SIP_STORAGE],
-                        bestandscontrole_lijst_location=v[CONFIG_KEY_BESTANDSCONTROLE],
-                    )
-                elif version == ConfigurationVersion.V5:
-                    misc = Misc(
-                        environments_activity=v[CONFIG_KEY_ENVIRONMENTS],
-                        role_activity=v[CONFIG_KEY_ROLES],
-                        type_activity=v[CONFIG_KEY_TYPE_SIPS],
-                        save_location=v[CONFIG_KEY_SIP_STORAGE],
-                        bestandscontrole_lijst_location=v[CONFIG_KEY_BESTANDSCONTROLE],
-                    )
+                misc = Configuration._misc_from_json(v, root_path, version)
             else:
                 api = v[ConfigKey.API]
                 ftps = v[ConfigKey.FTPS]

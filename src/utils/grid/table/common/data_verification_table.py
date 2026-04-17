@@ -355,70 +355,21 @@ class CommonDataVerificationTable(DataTable):
         if row_type != RowType.STUK:
             return
 
+        updates = self._compute_auto_updates({index.row()})
+
+        if updates:
+            for dossier_row_pos, col, value in updates:
+                self.setData(self.index(dossier_row_pos, col), value)
+            return
+
         dossier_ref_col = self.raw_data.columns.get_loc(ColumnName.DOSSIER_REF)
         dossier_ref = self.raw_data.iat[index.row(), dossier_ref_col]
-
-        opening_col = self.raw_data.columns.get_loc(ColumnName.OPENINGSDATUM)
-        closing_col = self.raw_data.columns.get_loc(ColumnName.SLUITINGSDATUM)
 
         dossier_mask = (self.raw_data.iloc[:, type_col] == RowType.DOSSIER) & (
             self.raw_data.iloc[:, dossier_ref_col] == dossier_ref
         )
         dossier_rows = self.raw_data.index[dossier_mask]
 
-        if len(dossier_rows) == 0:
-            return
-
-        dossier_row_pos = self.raw_data.index.get_loc(dossier_rows[0])
-
-        stuk_mask = (self.raw_data.iloc[:, type_col] == RowType.STUK) & (
-            self.raw_data.iloc[:, dossier_ref_col] == dossier_ref
-        )
-
-        series = self.sip.series
-        series_start = series.valid_from if series else None
-        series_end = series.valid_to if series else None
-
-        is_valid = lambda s: (
-            _check_format(s) is None
-            and _check_series_range(s, series_start, series_end) is None
-            and parse_date(s) is not None
-        )
-
-        stuk_openings = [
-            d
-            for v in self.raw_data.loc[stuk_mask, ColumnName.OPENINGSDATUM]
-            if is_valid(s := str(v)) and (d := parse_date(s)) is not None
-        ]
-        stuk_closings = [
-            d
-            for v in self.raw_data.loc[stuk_mask, ColumnName.SLUITINGSDATUM]
-            if is_valid(s := str(v)) and (d := parse_date(s)) is not None
-        ]
-
-        dossier_updated = False
-
-        if stuk_openings:
-            min_opening = min(stuk_openings).strftime("%Y-%m-%d")
-            current_opening = str(self.raw_data.iat[dossier_row_pos, opening_col])
-            current_is_valid = is_valid(current_opening)
-
-            should_update = not current_is_valid or current_opening > min_opening
-
-            if should_update:
-                self.setData(self.index(dossier_row_pos, opening_col), min_opening)
-                dossier_updated = True
-
-        if stuk_closings:
-            max_closing = max(stuk_closings).strftime("%Y-%m-%d")
-            current_closing = str(self.raw_data.iat[dossier_row_pos, closing_col])
-            current_is_valid = is_valid(current_closing)
-
-            should_update = not current_is_valid or current_closing < max_closing
-
-            if should_update:
-                self.setData(self.index(dossier_row_pos, closing_col), max_closing)
-                dossier_updated = True
-
-        if not dossier_updated:
+        if len(dossier_rows) > 0:
+            dossier_row_pos = self.raw_data.index.get_loc(dossier_rows[0])
             self._validate_single_row(dossier_row_pos)
