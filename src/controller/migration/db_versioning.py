@@ -78,7 +78,7 @@ def migrate_to_3_0(conn: sql.Connection) -> None:
 
     # 2. Rename id → _id in Overdrachtslijst
     if main_table:
-        main_df = pd.read_sql(f"SELECT * FROM [{DBTableName.OVERDRACHTSLIJST}]", conn, dtype=str).fillna("")
+        main_df = pd.read_sql(f"SELECT * FROM [{DBTableName.OVERDRACHTSLIJST}]", conn).fillna("").astype(str)
 
         if "id" in main_df.columns:
             main_df = main_df.rename(columns={"id": MIGRATION_ID_COLUMN})
@@ -131,7 +131,7 @@ def migrate_to_3_0(conn: sql.Connection) -> None:
     # 5. For each series table: drop id, keep main_id
     for series_name in series_table_names:
         try:
-            series_df = pd.read_sql(f"SELECT * FROM [{series_name}]", conn, dtype=str).fillna("")
+            series_df = pd.read_sql(f"SELECT * FROM [{series_name}]", conn).fillna("").astype(str)
         except Exception:
             continue
 
@@ -204,7 +204,7 @@ def _migrate_location_column_suffixes(conn: sql.Connection) -> None:
                     break
 
         if renames:
-            df = pd.read_sql(f"SELECT * FROM [{table_name}]", conn, dtype=str).fillna("")
+            df = pd.read_sql(f"SELECT * FROM [{table_name}]", conn).fillna("").astype(str)
             df = df.rename(columns=renames)
             conn.execute(f"DROP TABLE [{table_name}]")
             df.to_sql(table_name, conn, index=False, dtype="text")

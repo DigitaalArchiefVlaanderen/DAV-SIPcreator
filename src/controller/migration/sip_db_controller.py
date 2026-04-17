@@ -25,19 +25,19 @@ class MigrationSIPDBController(BaseSIPDBController):
     def db_location(self) -> str:
         return self.application.configuration.overdrachtslijsten_location
 
-    def create_sip_db(self, sip: MigrationSIP, transformed: str = "") -> None:
+    def create_sip_db(self, sip: MigrationSIP, transformed: str = "") -> bool:
         db_path = os.path.join(self.db_location, sip.db_name)
 
         if os.path.exists(db_path):
             self._warn_db_already_exists(db_path)
-            return
+            return False
 
         if not sip.main_grid_data.has_data:
             self.application.notify_user_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_when_db_has_no_data_error"]["title"],
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_when_db_has_no_data_error"]["text"],
             )
-            return
+            return False
 
         def _create(conn: sql.Connection) -> None:
             conn.execute(f"""
@@ -79,6 +79,8 @@ class MigrationSIPDBController(BaseSIPDBController):
 
         self._execute_with_conn(sip.db_name, _create)
 
+        return True
+
     def read_sip_db(self, sip_db_file_name: str) -> MigrationSIP:
         def _read(conn: sql.Connection) -> MigrationSIP:
             columns = [col_name for _, col_name, *_ in conn.execute(f"PRAGMA table_info({DBTableName.SIP});").fetchall()]
@@ -106,7 +108,7 @@ class MigrationSIPDBController(BaseSIPDBController):
     def read_main_data(self, sip_db_file_name: str) -> pd.DataFrame:
         return self._execute_with_conn(
             sip_db_file_name,
-            lambda conn: pd.read_sql(f"SELECT * FROM {DBTableName.OVERDRACHTSLIJST}", conn, dtype=str).fillna(""),
+            lambda conn: pd.read_sql(f"SELECT * FROM {DBTableName.OVERDRACHTSLIJST}", conn).fillna("").astype(str),
         )
 
     def read_tables(self, sip_db_file_name: str) -> list[tuple[str, str, str, str]]:
@@ -121,7 +123,7 @@ class MigrationSIPDBController(BaseSIPDBController):
 
     def read_series_data(self, sip_db_file_name: str, table_name: str) -> pd.DataFrame:
         return self._execute_with_conn(
-            sip_db_file_name, lambda conn: pd.read_sql(f"SELECT * FROM [{table_name}]", conn, dtype=str).fillna("")
+            sip_db_file_name, lambda conn: pd.read_sql(f"SELECT * FROM [{table_name}]", conn).fillna("").astype(str)
         )
 
     def create_series_table(self, sip: MigrationSIP, uri_serieregister: str, table_name: str, df: pd.DataFrame) -> None:
@@ -183,7 +185,7 @@ class MigrationSIPDBController(BaseSIPDBController):
         self, sip: MigrationSIP, table_name: str, columns: list[str], after_column: str
     ) -> None:
         def _add_columns(conn: sql.Connection) -> None:
-            df = pd.read_sql(f"SELECT * FROM [{table_name}]", conn, dtype=str).fillna("")
+            df = pd.read_sql(f"SELECT * FROM [{table_name}]", conn).fillna("").astype(str)
 
             col_loc = df.columns.get_loc(after_column)
 

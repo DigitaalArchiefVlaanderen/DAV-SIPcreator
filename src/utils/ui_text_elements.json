@@ -356,6 +356,10 @@
                 "title": "Fout bij het aanmaken van sip database",
                 "text": "Probeerde een sip db aan te maken terwijl deze al bestaat '{db_path}'"
             },
+            "old_db_series_not_found_error": {
+                "title": "Database niet overgenomen",
+                "text": "De database '{db_path}' is van een oud formaat en de serie (id={series_id}, naam={series_name}) kan niet gevonden worden in de huidige configuratie. De database is ongewijzigd gelaten."
+            },
             "db_creation_when_db_has_no_series_error": {
                 "title": "Fout bij het aanmaken van sip database",
                 "text": "Probeerde een sip db aan te maken zonder een serie toe te kennen"

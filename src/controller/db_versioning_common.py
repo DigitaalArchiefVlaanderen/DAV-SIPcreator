@@ -98,10 +98,27 @@ def run_db_migrations(
     if not migrations_to_run:
         return
 
-    backup_original(db_path)
+    backup_created = False
+    backup_path = db_path + ".original"
 
-    for migration_fn in migrations_to_run:
-        migration_fn(conn)
+    if not os.path.exists(backup_path):
+        backup_original(db_path)
+        backup_created = True
+
+    try:
+        for migration_fn in migrations_to_run:
+            migration_fn(conn)
+    except Exception:
+        # Remove the backup if we just created it and the migration failed
+        if backup_created and os.path.exists(backup_path):
+            os.remove(backup_path)
+
+            for suffix in ("-journal", "-wal", "-shm"):
+                bak = backup_path + suffix
+                if os.path.exists(bak):
+                    os.remove(bak)
+
+        raise
 
     # Update version to current
     conn.execute(

@@ -196,7 +196,7 @@ class DigitalSIPDBController(BaseSIPDBController):
     def read_sip_data(self, sip_db_file_name: str) -> pd.DataFrame:
         return self._execute_with_conn(
             sip_db_file_name,
-            lambda conn: pd.read_sql(f"SELECT * FROM {DBTableName.DATA}", conn, dtype=str).fillna(""),
+            lambda conn: pd.read_sql(f"SELECT * FROM {DBTableName.DATA}", conn).fillna("").astype(str),
         )
 
     def _validate_db(self, sip_db_file_name: str) -> bool:

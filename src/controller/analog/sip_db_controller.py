@@ -3,12 +3,13 @@ import sqlite3 as sql
 
 import pandas as pd
 
-from src.controller.analog.db_versioning import run_db_migrations
+from src.controller.analog.db_versioning import SeriesNotFoundError, run_db_migrations
 from src.controller.base_sip_db_controller import BaseSIPDBController
 
 from src.utils.constants import (
     PROD_ENVIRONMENT_NAME,
     TI_ENVIRONMENT_NAME,
+    UI_TEXT_ELEMENTS,
     DBColumnName,
     DBTableName,
 )
@@ -112,7 +113,7 @@ class AnalogSIPDBController(BaseSIPDBController):
     def read_data(self, db_file_name: str) -> pd.DataFrame:
         return self._execute_with_conn(
             db_file_name,
-            lambda conn: pd.read_sql(f"SELECT * FROM {DBTableName.DATA}", conn, dtype=str).fillna(""),
+            lambda conn: pd.read_sql(f"SELECT * FROM {DBTableName.DATA}", conn).fillna("").astype(str),
         )
 
     def save_data(self, sip: AnalogSIP, df: pd.DataFrame) -> None:
@@ -148,6 +149,27 @@ class AnalogSIPDBController(BaseSIPDBController):
 
         self._execute_with_conn(sip.db_name, _persist)
 
+    def is_valid_db(self, db_file_name: str) -> bool:
+        if not self._can_connect(db_file_name):
+            return False
+
+        try:
+            result = self._validate_db(db_file_name)
+        except SeriesNotFoundError as e:
+            db_path = os.path.join(self.db_location, db_file_name)
+            self.application.notify_user_signal.emit(
+                UI_TEXT_ELEMENTS["errors"]["sip"]["old_db_series_not_found_error"]["title"],
+                UI_TEXT_ELEMENTS["errors"]["sip"]["old_db_series_not_found_error"]["text"].format(
+                    db_path=db_path, series_id=e.series_id, series_name=e.series_name
+                ),
+            )
+            return False
+
+        if not result:
+            self._warn_invalid_db(db_file_name)
+
+        return result
+
     def _validate_db(self, db_file_name: str) -> bool:
         def _validate(conn: sql.Connection) -> bool:
             db_path = os.path.join(self.db_location, db_file_name)
@@ -165,12 +187,14 @@ class AnalogSIPDBController(BaseSIPDBController):
 
         return self._execute_with_conn(db_file_name, _validate)
 
-    def _resolve_environment(self, series_id: str) -> str | None:
-        all_series = self.application.sneaky_series()
+    def _resolve_environment(self, series_id: str, series_name: str) -> str | None:
+        all_series = self.application.series
 
         for env_name in (TI_ENVIRONMENT_NAME, PROD_ENVIRONMENT_NAME):
             for series in all_series.get(env_name, []):
                 if series._id == series_id:
+                    return env_name
+                if series.name == series_name or series.get_full_name() == series_name:
                     return env_name
 
         return None

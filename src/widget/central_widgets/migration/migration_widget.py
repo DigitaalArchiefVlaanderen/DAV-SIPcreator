@@ -158,7 +158,7 @@ class MigrationWidget(CentralWidget):
         sip.grid_data = sip.main_grid_data
 
         try:
-            self.application.migration_sip_db_controller.create_sip_db(sip)
+            success = self.application.migration_sip_db_controller.create_sip_db(sip)
         except PermissionError:
             self.application.notify_user_signal.emit(
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_permission_error"]["title"],
@@ -176,6 +176,9 @@ class MigrationWidget(CentralWidget):
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_filesystem_error"]["title"],
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_filesystem_error"]["text"].format(details=e),
             )
+            return
+
+        if not success:
             return
 
         self.application.add_sip(sip)

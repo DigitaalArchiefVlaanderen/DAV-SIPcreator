@@ -15,16 +15,26 @@ from src.utils.constants import (
     PROD_ENVIRONMENT_NAME,
     SIP_CREATOR_VERSION,
     UNKNOWN_TRANSFORMED,
+    APIResponseKey,
     DBColumnName,
     DBTableName,
 )
 from src.utils.data_objects.sip_status import SIPStatus
 
 
+class SeriesNotFoundError(Exception):
+    """Raised when an old analog DB's series cannot be found in any environment."""
+
+    def __init__(self, series_id: str, series_name: str) -> None:
+        self.series_id = series_id
+        self.series_name = series_name
+        super().__init__(f"Series not found: id={series_id!r}, name={series_name!r}")
+
+
 def migrate_analog_to_3_0(
     conn: sql.Connection,
     *,
-    environment_resolver: Callable[[str], str | None] | None = None,
+    environment_resolver: Callable[[str, str], str | None] | None = None,
 ) -> None:
     """Migrate a pre-3.0 analog database to the 3.0 schema **in-place**.
 
@@ -38,6 +48,10 @@ def migrate_analog_to_3_0(
     - ``sip`` table created with flattened fields
     - ``sip_creator`` table created
     - ``data`` table has ``_id`` column removed
+
+    Raises:
+        SeriesNotFoundError: If an environment_resolver is provided but cannot
+            find the series in any environment.
     """
     # 1. Read extra table
     extra = conn.execute("SELECT * FROM extra").fetchone()
@@ -46,17 +60,21 @@ def migrate_analog_to_3_0(
 
     series_json_str, edepot_id, data_changed = extra
 
-    # 2. Parse series_json
+    # 2. Parse series_json (handles both API response format and simplified format)
     series_dict = json.loads(series_json_str)
-    series_id = series_dict.get(MIGRATION_ID_COLUMN, "")
-    series_name = series_dict.get(DBColumnName.NAME, "")
+    series_id = series_dict.get(APIResponseKey.ID, series_dict.get(MIGRATION_ID_COLUMN, ""))
+    content = series_dict.get(APIResponseKey.CONTENT, {})
+    series_name = content.get(APIResponseKey.NAME, "") if isinstance(content, dict) else ""
+    if not series_name:
+        series_name = series_dict.get(DBColumnName.NAME, "")
 
-    # 3. Resolve environment
+    # 3. Resolve environment (must happen before any data modification)
     environment_name = PROD_ENVIRONMENT_NAME
     if environment_resolver is not None:
-        resolved = environment_resolver(series_id)
-        if resolved is not None:
-            environment_name = resolved
+        resolved = environment_resolver(series_id, series_name)
+        if resolved is None:
+            raise SeriesNotFoundError(series_id, series_name)
+        environment_name = resolved
 
     # 4. Infer status
     if edepot_id and not data_changed:
@@ -69,7 +87,7 @@ def migrate_analog_to_3_0(
     uploaded = bool(edepot_id)
 
     # 5. Remove _id column from data table
-    df = pd.read_sql(f"SELECT * FROM {DBTableName.DATA}", conn, dtype=str).fillna("")
+    df = pd.read_sql(f"SELECT * FROM {DBTableName.DATA}", conn).fillna("").astype(str)
     if MIGRATION_ID_COLUMN in df.columns:
         df = df.drop(columns=[MIGRATION_ID_COLUMN])
     conn.execute(f"DROP TABLE {DBTableName.DATA}")
@@ -128,7 +146,7 @@ def run_db_migrations(
     conn: sql.Connection,
     db_path: str,
     *,
-    environment_resolver: Callable[[str], str | None] | None = None,
+    environment_resolver: Callable[[str, str], str | None] | None = None,
 ) -> None:
     """Run all pending migrations for an analog SIP DB."""
     bound = {
