@@ -111,11 +111,7 @@ class TagMappingWidget(QtWidgets.QFrame):
         self._reset_mapping_state()
         self.import_mapping.clear_tags()
         self.import_mapping.add_tags(
-            [
-                t
-                for t in tags
-                if t not in (ColumnName.TYPE, ColumnName.DOSSIER_REF, ColumnName.ANALOOG)
-            ]
+            [t for t in tags if t not in (ColumnName.TYPE, ColumnName.DOSSIER_REF, ColumnName.ANALOOG)]
         )
 
     def add_to_mapping(self, tags: list):
@@ -136,6 +132,7 @@ class TagMappingWidget(QtWidgets.QFrame):
             return
 
         base_name = selected_importsjabloon_tag.text()
+
         slot = self._next_slot(base_name)
         effective_name = base_name + " " * slot
 
@@ -148,6 +145,10 @@ class TagMappingWidget(QtWidgets.QFrame):
         self._display_to_actual[btn_id] = effective_name
 
         self.metadata_mapping.remove_selected_tag()
+
+        # Path in SIP is a linking column — remove from import list so only one mapping is possible
+        if base_name == ColumnName.PATH_IN_SIP:
+            self.import_mapping.remove_selected_tag()
 
     def unmap_tags_clicked(self):
         selected_tag = self.output_mapping.get_selected_tag()
@@ -168,6 +169,10 @@ class TagMappingWidget(QtWidgets.QFrame):
                 del self._import_usage_slots[base_name]
 
         self.metadata_mapping.add_tag(metadata_tag)
+
+        # Re-add Path in SIP to the import list when unmapped
+        if base_name == ColumnName.PATH_IN_SIP:
+            self.import_mapping.add_tag(base_name)
 
         self.output_mapping.remove_selected_tag()
 
