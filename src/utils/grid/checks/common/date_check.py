@@ -138,8 +138,10 @@ class DateCheck(BaseCheck):
                 above_end = still_ok & no_error & (dates > pd.Timestamp(series_end)).values
                 cell_tooltips[above_end] = UI_TEXT["date_after_series_end_error"]
 
+        extra_results: list[BulkResult] = []
+
         if has_type and has_paired and ColumnName.DOSSIER_REF in raw_data.columns:
-            self._check_hierarchy_bulk(
+            extra_results = self._check_hierarchy_bulk(
                 raw_data,
                 row_list,
                 col,
@@ -152,7 +154,9 @@ class DateCheck(BaseCheck):
                 series_end,
             )
 
-        return [(row, col, None, cell_tooltips[i], wide_tooltips[i]) for i, row in enumerate(rows)]
+        results = [(row, col, None, cell_tooltips[i], wide_tooltips[i]) for i, row in enumerate(rows)]
+        results.extend(extra_results)
+        return results
 
     def _check_paired_columns_bulk(
         self,
@@ -227,7 +231,7 @@ class DateCheck(BaseCheck):
         wide_tooltips: np.ndarray,
         series_start: datetime | None,
         series_end: datetime | None,
-    ) -> None:
+    ) -> list[BulkResult]:
         type_col = raw_data.columns.get_loc(ColumnName.TYPE)
         dossier_ref_col = raw_data.columns.get_loc(ColumnName.DOSSIER_REF)
         opening_col = raw_data.columns.get_loc(OPENING_COL)
@@ -262,6 +266,25 @@ class DateCheck(BaseCheck):
         valid_closings = is_valid_date(all_closings, all_closings_str, bound_by_end=False)
 
         unique_refs = set()
+        extra_results: list[BulkResult] = []
+
+        def _compute_dossier_wide_tooltip(dossier_row_pos: int, stuk_valid_openings, stuk_valid_closings) -> str | None:
+            dossier_opening = all_openings.iloc[dossier_row_pos]
+            dossier_closing = all_closings.iloc[dossier_row_pos]
+
+            if is_opening and len(stuk_valid_openings) > 0 and pd.notna(dossier_opening):
+                min_stuk = stuk_valid_openings.min()
+
+                if dossier_opening > min_stuk:
+                    return UI_TEXT["date_dossier_opening_after_stuk_error"]
+
+            if not is_opening and len(stuk_valid_closings) > 0 and pd.notna(dossier_closing):
+                max_stuk = stuk_valid_closings.max()
+
+                if dossier_closing < max_stuk:
+                    return UI_TEXT["date_dossier_closing_before_stuk_error"]
+
+            return None
 
         for i, row in enumerate(row_list):
             row_type = raw_data.iat[row, type_col]
@@ -293,6 +316,12 @@ class DateCheck(BaseCheck):
             stuk_valid_closings = all_closings[stuk_mask & valid_closings]
 
             if dossier_row_pos not in row_list:
+                # Dossier is outside the changed range. Emit an extra result so its (possibly
+                # stale) wide marking can be cleared, and re-set if the violation still applies.
+                tooltip = _compute_dossier_wide_tooltip(
+                    dossier_row_pos, stuk_valid_openings, stuk_valid_closings
+                )
+                extra_results.append((dossier_row_pos, col, None, None, tooltip))
                 continue
 
             dossier_idx = row_list.index(dossier_row_pos)
@@ -300,17 +329,8 @@ class DateCheck(BaseCheck):
             if cell_tooltips[dossier_idx] is not None or wide_tooltips[dossier_idx] is not None:
                 continue
 
-            dossier_opening = all_openings.iloc[dossier_row_pos]
-            dossier_closing = all_closings.iloc[dossier_row_pos]
+            wide_tooltips[dossier_idx] = _compute_dossier_wide_tooltip(
+                dossier_row_pos, stuk_valid_openings, stuk_valid_closings
+            )
 
-            if is_opening and len(stuk_valid_openings) > 0 and pd.notna(dossier_opening):
-                min_stuk = stuk_valid_openings.min()
-
-                if dossier_opening > min_stuk:
-                    wide_tooltips[dossier_idx] = UI_TEXT["date_dossier_opening_after_stuk_error"]
-
-            if not is_opening and len(stuk_valid_closings) > 0 and pd.notna(dossier_closing):
-                max_stuk = stuk_valid_closings.max()
-
-                if dossier_closing < max_stuk:
-                    wide_tooltips[dossier_idx] = UI_TEXT["date_dossier_closing_before_stuk_error"]
+        return extra_results
