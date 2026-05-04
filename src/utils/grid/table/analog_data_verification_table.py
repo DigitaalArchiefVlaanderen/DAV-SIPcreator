@@ -94,6 +94,7 @@ class AnalogDataVerificationTable(CommonDataVerificationTable):
 
         self.raw_data.iat[index.row(), index.column()] = value
         self.dataChanged.emit(index, index)
+        self.data_edited_signal.emit()
 
         self._validate_single_row(index.row())
 
