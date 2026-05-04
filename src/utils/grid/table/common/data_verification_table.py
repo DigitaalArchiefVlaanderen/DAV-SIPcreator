@@ -277,9 +277,14 @@ class CommonDataVerificationTable(DataTable):
         series_start = series.valid_from if series else None
         series_end = series.valid_to if series else None
 
-        is_valid = lambda s: (
+        is_valid_opening = lambda s: (
             _check_format(s) is None
-            and _check_series_range(s, series_start, series_end) is None
+            and _check_series_range(s, series_start, series_end, bound_by_end=True) is None
+            and parse_date(s) is not None
+        )
+        is_valid_closing = lambda s: (
+            _check_format(s) is None
+            and _check_series_range(s, series_start, series_end, bound_by_end=False) is None
             and parse_date(s) is not None
         )
 
@@ -316,18 +321,18 @@ class CommonDataVerificationTable(DataTable):
             stuk_openings = [
                 d
                 for v in self.raw_data.loc[stuk_mask, ColumnName.OPENINGSDATUM]
-                if is_valid(s := str(v)) and (d := parse_date(s)) is not None
+                if is_valid_opening(s := str(v)) and (d := parse_date(s)) is not None
             ]
             stuk_closings = [
                 d
                 for v in self.raw_data.loc[stuk_mask, ColumnName.SLUITINGSDATUM]
-                if is_valid(s := str(v)) and (d := parse_date(s)) is not None
+                if is_valid_closing(s := str(v)) and (d := parse_date(s)) is not None
             ]
 
             if stuk_openings:
                 min_opening = min(stuk_openings).strftime("%Y-%m-%d")
                 current_opening = str(self.raw_data.iat[dossier_row_pos, opening_col])
-                current_is_valid = is_valid(current_opening)
+                current_is_valid = is_valid_opening(current_opening)
 
                 if not current_is_valid or current_opening > min_opening:
                     updates.append((dossier_row_pos, opening_col, min_opening))
@@ -335,7 +340,7 @@ class CommonDataVerificationTable(DataTable):
             if stuk_closings:
                 max_closing = max(stuk_closings).strftime("%Y-%m-%d")
                 current_closing = str(self.raw_data.iat[dossier_row_pos, closing_col])
-                current_is_valid = is_valid(current_closing)
+                current_is_valid = is_valid_closing(current_closing)
 
                 if not current_is_valid or current_closing < max_closing:
                     updates.append((dossier_row_pos, closing_col, max_closing))

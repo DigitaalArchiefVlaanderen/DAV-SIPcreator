@@ -36,7 +36,18 @@ def _check_format(value: str) -> str | None:
     return None
 
 
-def _check_series_range(value: str, series_start: datetime | None, series_end: datetime | None) -> str | None:
+def _check_series_range(
+    value: str,
+    series_start: datetime | None,
+    series_end: datetime | None,
+    bound_by_end: bool = True,
+) -> str | None:
+    """Validate a date against the series' validity window.
+
+    `bound_by_end=False` skips the upper-bound check; used for `Sluitingsdatum`,
+    which is allowed to fall after the series' valid_to (a dossier may be closed
+    off after the series itself was retired).
+    """
     date = parse_date(value)
 
     if date is None:
@@ -45,7 +56,7 @@ def _check_series_range(value: str, series_start: datetime | None, series_end: d
     if series_start is not None and date < series_start:
         return UI_TEXT["date_before_series_start_error"]
 
-    if series_end is not None and date > series_end:
+    if bound_by_end and series_end is not None and date > series_end:
         return UI_TEXT["date_after_series_end_error"]
 
     return None
@@ -122,7 +133,7 @@ class DateCheck(BaseCheck):
                 below_start = still_ok & no_error & (dates < pd.Timestamp(series_start)).values
                 cell_tooltips[below_start] = UI_TEXT["date_before_series_start_error"]
 
-            if series_end is not None:
+            if is_opening and series_end is not None:
                 no_error = cell_tooltips == None
                 above_end = still_ok & no_error & (dates > pd.Timestamp(series_end)).values
                 cell_tooltips[above_end] = UI_TEXT["date_after_series_end_error"]
@@ -183,7 +194,7 @@ class DateCheck(BaseCheck):
             below_start = still_ok & no_error & (dates < pd.Timestamp(series_start)).values
             cell_tooltips[below_start] = UI_TEXT["date_before_series_start_error"]
 
-        if series_end is not None:
+        if is_opening and series_end is not None:
             no_error = (cell_tooltips == None) & (wide_tooltips == None)
             above_end = still_ok & no_error & (dates > pd.Timestamp(series_end)).values
             cell_tooltips[above_end] = UI_TEXT["date_after_series_end_error"]
@@ -234,7 +245,7 @@ class DateCheck(BaseCheck):
         series_start_ts = pd.Timestamp(series_start) if series_start else None
         series_end_ts = pd.Timestamp(series_end) if series_end else None
 
-        def is_valid_date(date_series: pd.Series, str_series: pd.Series) -> pd.Series:
+        def is_valid_date(date_series: pd.Series, str_series: pd.Series, bound_by_end: bool) -> pd.Series:
             valid = date_series.notna()
             is_future = (date_series > now) & (date_series.dt.year != 9999)
             valid = valid & ~is_future
@@ -242,13 +253,13 @@ class DateCheck(BaseCheck):
             if series_start_ts is not None:
                 valid = valid & (date_series >= series_start_ts)
 
-            if series_end_ts is not None:
+            if bound_by_end and series_end_ts is not None:
                 valid = valid & (date_series <= series_end_ts)
 
             return valid
 
-        valid_openings = is_valid_date(all_openings, all_openings_str)
-        valid_closings = is_valid_date(all_closings, all_closings_str)
+        valid_openings = is_valid_date(all_openings, all_openings_str, bound_by_end=True)
+        valid_closings = is_valid_date(all_closings, all_closings_str, bound_by_end=False)
 
         unique_refs = set()
 
