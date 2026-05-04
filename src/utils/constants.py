@@ -227,6 +227,15 @@ DB_SCHEMA_CHANGE_VERSIONS: list[str] = [
 BASE_SIP_NAME = "SIP {number}"
 
 CHECKABLE_SIP_STATUSES = (SIPStatus.UPLOADED, SIPStatus.PROCESSING)
+
+# Series in any of these statuses have been handed off to the e-depot, so missing
+# an edepot_id means "not retrieved yet" rather than "not uploaded yet".
+UPLOADED_SIP_STATUSES = (
+    SIPStatus.UPLOADED,
+    SIPStatus.PROCESSING,
+    SIPStatus.ACCEPTED,
+    SIPStatus.REJECTED,
+)
 POLL_INTERVAL_SECONDS = 10
 
 # Grid checks constants

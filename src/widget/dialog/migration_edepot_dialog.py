@@ -2,11 +2,13 @@ import os
 
 from PySide6 import QtWidgets
 
-from src.utils.constants import UI_TEXT_ELEMENTS, get_logo
+from src.utils.constants import UI_TEXT_ELEMENTS, UPLOADED_SIP_STATUSES, get_logo
 from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.pyside_helper import set_widget_warning_style
 
 UI_TEXT = UI_TEXT_ELEMENTS["migration"]["edepot_dialog"]
+NOT_FOUND_TOOLTIP = UI_TEXT_ELEMENTS["sip"]["controls"]["edepot_not_found_tooltip"]
+NOT_UPLOADED_TOOLTIP = UI_TEXT["edepot_not_uploaded_tooltip"]
 
 
 class MigrationEdepotDialog(QtWidgets.QDialog):
@@ -34,9 +36,6 @@ class MigrationEdepotDialog(QtWidgets.QDialog):
         self.checkboxes: dict[str, QtWidgets.QCheckBox] = {}
 
         for series_name, status in series_statuses.items():
-            if status != SIPStatus.UPLOADED:
-                continue
-
             edepot_id = series_edepot_ids.get(series_name, "")
 
             checkbox = QtWidgets.QCheckBox(text=series_name)
@@ -44,10 +43,8 @@ class MigrationEdepotDialog(QtWidgets.QDialog):
 
             if not edepot_id:
                 checkbox.setEnabled(False)
-                set_widget_warning_style(
-                    checkbox,
-                    UI_TEXT_ELEMENTS["sip"]["controls"]["edepot_not_found_tooltip"],
-                )
+                tooltip = NOT_FOUND_TOOLTIP if status in UPLOADED_SIP_STATUSES else NOT_UPLOADED_TOOLTIP
+                set_widget_warning_style(checkbox, tooltip)
 
             layout.addWidget(checkbox)
 

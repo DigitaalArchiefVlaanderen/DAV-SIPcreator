@@ -189,7 +189,8 @@
             "title": "E-depot locatie",
             "description": "Selecteer een serie om te openen in e-depot:",
             "open_button_text": "Openen",
-            "close_button_text": "Sluiten"
+            "close_button_text": "Sluiten",
+            "edepot_not_uploaded_tooltip": "Deze serie is nog niet geüpload"
         }
     },
     "digital": {
