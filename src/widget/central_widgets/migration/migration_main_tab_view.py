@@ -9,6 +9,7 @@ from src.utils.grid.table.common.proxy_model import SortFilterProxyModel, TableF
 from src.widget.base_widget import BaseWidget
 
 UI_TEXT = UI_TEXT_ELEMENTS["migration"]["main_tab"]
+GRID_UI_TEXT = UI_TEXT_ELEMENTS["migration"]["grid"]
 
 URI_SERIEREGISTER_COLUMN = DBColumnName.URI_SERIEREGISTER
 
@@ -53,6 +54,8 @@ class MigrationMainTabView(BaseWidget):
 
         self.delete_rows_button = QtWidgets.QPushButton(text=UI_TEXT["delete_rows_button_text"])
 
+        self.default_sorting_button = QtWidgets.QPushButton(text=GRID_UI_TEXT["default_sorting_button_text"])
+
         self.save_button = QtWidgets.QPushButton(text=UI_TEXT["save_button_text"])
         self.create_sip_button = QtWidgets.QPushButton(text=UI_TEXT["create_sip_button_text"])
 
@@ -64,6 +67,7 @@ class MigrationMainTabView(BaseWidget):
         self.grid_layout.addWidget(self.series_dropdown, 0, 1)
         self.grid_layout.addWidget(self.assign_button, 0, 2)
         self.grid_layout.addWidget(self.delete_rows_button, 1, 0)
+        self.grid_layout.addWidget(self.default_sorting_button, 1, 2)
         self.grid_layout.addWidget(self.table_view, 2, 0, 1, 3)
         self.grid_layout.addLayout(button_layout, 3, 0, 1, 3)
 
@@ -77,6 +81,7 @@ class MigrationMainTabView(BaseWidget):
     def setup_signals(self) -> None:
         self.assign_button.clicked.connect(self._assign_button_clicked)
         self.delete_rows_button.clicked.connect(self._delete_rows_clicked)
+        self.default_sorting_button.clicked.connect(self.proxy_model.reset_sorting)
         self.unassigned_only_checkbox.stateChanged.connect(self._unassigned_only_clicked)
         self.save_button.clicked.connect(self._save_button_clicked)
         self.create_sip_button.clicked.connect(self._create_sip_clicked)
