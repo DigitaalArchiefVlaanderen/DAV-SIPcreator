@@ -708,6 +708,7 @@ class MigrationTabWindow(Window):
 
                 grid_view.table_model.beginResetModel()
                 grid_view.table_model.raw_data = remaining_df
+                grid_view.table_model.drop_orphan_markings()
                 grid_view.table_model.endResetModel()
 
                 self.application.migration_sip_db_controller.save_series_data(self.sip, old_series_name, remaining_df)
@@ -755,9 +756,12 @@ class MigrationTabWindow(Window):
 
                 grid_view.table_model.beginResetModel()
                 grid_view.table_model.raw_data = remaining_df
+                grid_view.table_model.drop_orphan_markings()
                 grid_view.table_model.endResetModel()
 
                 grid_view.has_unsaved_changes = True
+                grid_view.table_model.re_mark_disabled_columns()
+                grid_view.table_model.validate_all()
 
         # Remove rows from main DataFrame
         updated_main_df = main_df.drop(index=source_rows).reset_index(drop=True)
@@ -765,6 +769,7 @@ class MigrationTabWindow(Window):
 
         self.main_tab_view.table_model.beginResetModel()
         self.main_tab_view.table_model.raw_data = updated_main_df
+        self.main_tab_view.table_model.drop_orphan_markings()
         self.main_tab_view.table_model.endResetModel()
 
         self._main_has_unsaved_changes = True
@@ -823,6 +828,7 @@ class MigrationTabWindow(Window):
 
             grid_view.table_model.beginResetModel()
             grid_view.table_model.raw_data = remaining_df
+            grid_view.table_model.drop_orphan_markings()
             grid_view.table_model.endResetModel()
 
             grid_view.has_unsaved_changes = True

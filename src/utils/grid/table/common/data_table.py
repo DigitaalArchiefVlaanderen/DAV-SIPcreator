@@ -136,6 +136,19 @@ class DataTable(QtCore.QAbstractTableModel, ApplicationMixin):
 
         self.markings = updated
 
+    def drop_orphan_markings(self) -> None:
+        """Remove markings whose row index no longer exists in raw_data.
+
+        After raw_data is replaced with a smaller/reindexed df, markings keyed by
+        the old row index become orphans. They are invisible but still count toward
+        has_bad_rows, so they must be cleared.
+        """
+        live_indices = set(self.raw_data.index)
+        orphan_keys = [key for key in self.markings if key[0] not in live_indices]
+
+        for key in orphan_keys:
+            del self.markings[key]
+
     def filter_name_column(self, active: bool) -> None:
         self.should_filter_name_column = active
 
