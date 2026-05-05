@@ -3,7 +3,12 @@ import re
 import openpyxl
 import pandas as pd
 
-from src.utils.constants import OVERDRACHTSLIJST_SHEET_NAME, UI_TEXT_ELEMENTS, OverdrachtslijstColumnName
+from src.utils.constants import (
+    DATE_FORMAT,
+    OVERDRACHTSLIJST_SHEET_NAME,
+    UI_TEXT_ELEMENTS,
+    OverdrachtslijstColumnName,
+)
 
 
 def _format_number(value, number_format: str) -> str:
@@ -46,7 +51,7 @@ def _format_cell(cell) -> str:
     if value is None:
         return ""
     if hasattr(value, "strftime"):
-        return value.strftime("%Y-%m-%d")
+        return value.strftime(DATE_FORMAT)
     if isinstance(value, (int, float)):
         return _format_number(value, cell.number_format)
 

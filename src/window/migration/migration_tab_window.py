@@ -1,4 +1,3 @@
-import os
 import re
 
 import pandas as pd
@@ -9,6 +8,7 @@ from src.controller.excel_controller import ExcelController
 
 from src.utils.constants import (
     ANALOOG_DEFAULT_VALUE,
+    LOCATION_COLUMNS,
     MIGRATION_ID_COLUMN,
     MIGRATION_MAIN_ID_COLUMN,
     SERIES_NAME_COLUMN,
@@ -164,9 +164,6 @@ def map_main_to_series(
     extra_location_groups: list[list[str]] = []
     if template_columns:
         template_set = set(template_columns)
-
-        # First, find complete location column duplicate sets
-        from src.utils.grid.checks.migration.location_group_check import LOCATION_COLUMNS
 
         suffix = 1
         while True:

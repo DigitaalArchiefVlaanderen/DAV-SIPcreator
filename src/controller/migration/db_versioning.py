@@ -187,7 +187,7 @@ def migrate_to_3_0(conn: sql.Connection) -> None:
 
 def _migrate_location_column_suffixes(conn: sql.Connection) -> None:
     """Rename ``_N`` suffixed location columns to trailing-space convention."""
-    from src.utils.grid.checks.migration.location_group_check import LOCATION_COLUMNS
+    from src.utils.constants import LOCATION_COLUMNS
 
     all_tables = [name for name, *_ in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
 

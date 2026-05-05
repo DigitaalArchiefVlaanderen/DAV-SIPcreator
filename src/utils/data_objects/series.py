@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
-from src.utils.constants import APIResponseKey
+from src.utils.constants import DATE_FORMAT, APIResponseKey
 
 
 class SeriesStatus(Enum):
@@ -24,11 +24,11 @@ class Series:
         if date_str is None:
             return
 
-        return datetime.strptime(date_str, "%Y-%m-%d")
+        return datetime.strptime(date_str, DATE_FORMAT)
 
     @staticmethod
     def str_from_datetime(date: datetime) -> str:
-        return date.strftime("%Y-%m-%d")
+        return date.strftime(DATE_FORMAT)
 
     @staticmethod
     def from_dict(series: dict):

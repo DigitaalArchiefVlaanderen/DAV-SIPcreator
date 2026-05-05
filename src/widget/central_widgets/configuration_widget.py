@@ -2,10 +2,11 @@ import contextlib
 from copy import deepcopy
 from functools import partial
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from src.utils.constants import PROD_ENVIRONMENT_NAME, TI_ENVIRONMENT_NAME, UI_TEXT_ELEMENTS
 from src.utils.data_objects.configuration import Environment, Misc
+from src.utils.pyside_helper import make_section_title_font
 
 from src.widget.base_widget import BaseWidget
 
@@ -110,11 +111,8 @@ class MiscTab(BaseWidget):
         self.grid_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
         self.setLayout(self.grid_layout)
 
-        title_font = QtGui.QFont()
-        title_font.setBold(True)
-        title_font.setPointSize(20)
         self.title_label = QtWidgets.QLabel(text=self.UI_TEXT["title"])
-        self.title_label.setFont(title_font)
+        self.title_label.setFont(make_section_title_font())
 
         self.save_location_text_label = QtWidgets.QLabel(text=self.UI_TEXT["sip_creator_save_location_label_text"])
         self.save_location_label = QtWidgets.QLabel(text=self.misc.save_location)
@@ -164,12 +162,8 @@ class MiscTab(BaseWidget):
     def add_to_button_group(
         self, button_group: QtWidgets.QButtonGroup, title: str, activity_dict: dict[str, bool], row: int, col: int
     ) -> None:
-        title_font = QtGui.QFont()
-        title_font.setBold(True)
-        title_font.setPointSize(20)
-
         title_widget = QtWidgets.QLabel(text=title)
-        title_widget.setFont(title_font)
+        title_widget.setFont(make_section_title_font())
 
         button_layout = QtWidgets.QVBoxLayout()
         button_widget = QtWidgets.QWidget()
@@ -222,9 +216,7 @@ class EnvironmentTab(BaseWidget):
         self.grid_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
         self.setLayout(self.grid_layout)
 
-        title_font = QtGui.QFont()
-        title_font.setBold(True)
-        title_font.setPointSize(20)
+        title_font = make_section_title_font()
         self.api_title = QtWidgets.QLabel(text="API")
         self.api_title.setFont(title_font)
 

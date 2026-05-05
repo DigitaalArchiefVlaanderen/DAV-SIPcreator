@@ -1,4 +1,6 @@
-from PySide6 import QtGui, QtWidgets
+from PySide6 import QtWidgets
+
+from src.utils.pyside_helper import make_page_title_font
 
 from src.widget.base_widget import BaseWidget
 from src.widget.components.digital.mapping_widget import FolderMappingWidget
@@ -18,12 +20,8 @@ class FolderStructureWidget(BaseWidget):
         self.vertical_layout = QtWidgets.QVBoxLayout()
         self.setLayout(self.vertical_layout)
 
-        font = QtGui.QFont()
-        font.setBold(True)
-        font.setUnderline(True)
-        font.setPointSize(20)
         title = QtWidgets.QLabel(text=self.parent_window.sip.name)
-        title.setFont(font)
+        title.setFont(make_page_title_font())
 
         self.folder_mapping_widget = FolderMappingWidget()
 

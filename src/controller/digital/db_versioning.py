@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import json
-import os
 import sqlite3 as sql
 from collections.abc import Callable
-
-import pandas as pd
 
 from src.controller.db_versioning_common import run_db_migrations as _run_db_migrations
 
@@ -18,7 +15,6 @@ from src.utils.constants import (
     DBColumnName,
     DBTableName,
 )
-from src.utils.data_objects.sip_status import SIPStatus
 
 
 def migrate_digital_to_3_0(conn: sql.Connection) -> None:

@@ -118,6 +118,17 @@ class RowType(StrEnum):
 class BusinessRules(IntEnum):
     SIP_TITLE_MAX_LENGTH = 185
     MAX_ROWS_PER_SERIES = 9998
+    NAME_MAX_LENGTH = 255
+
+
+# Canonical location-column set for migration SIPs. Subsequent location groups are
+# created by appending spaces to each column name (see BUSINESS_RULES.md §8).
+LOCATION_COLUMNS: tuple[str, str, str, str] = (
+    ColumnName.ORIGINEEL_DOOSNUMMER,
+    ColumnName.LEGACY_LOCATIE_ID,
+    ColumnName.LEGACY_RANGE,
+    ColumnName.VERPAKKINGSTYPE,
+)
 
 
 def resource_path(relative_path):
@@ -216,6 +227,13 @@ FILE_REGEXES_TO_IGNORE = [
 MAIN_DB_NAME = "sip_creator.db"
 OLD_MAIN_DB_NAME = "sqlite.db"
 UNKNOWN_TRANSFORMED = "<3.0"
+
+# Canonical date format used everywhere in the SIP Creator (grid, series, excel I/O).
+DATE_FORMAT = "%Y-%m-%d"
+
+# Sentinel year used to mark "open-ended" / "until further notice" dates.
+# Dates with this year are exempt from the future-date check.
+OPEN_ENDED_YEAR = 9999
 
 # Ordered list of versions where DB schema changes were introduced.
 # Only major.minor matters — patch/build numbers are ignored.

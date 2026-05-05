@@ -4,12 +4,11 @@ import numpy as np
 import pandas as pd
 from pandas import DataFrame
 
-from src.utils.constants import UI_TEXT_ELEMENTS, ColumnName, RowType
+from src.utils.constants import DATE_FORMAT, OPEN_ENDED_YEAR, UI_TEXT_ELEMENTS, ColumnName, RowType
 from src.utils.grid.checks.base_check import BaseCheck, BulkResult, CellRange
 
 UI_TEXT = UI_TEXT_ELEMENTS["grid_checks"]["common"]
 
-DATE_FORMAT = "%Y-%m-%d"
 OPENING_COL = ColumnName.OPENINGSDATUM
 CLOSING_COL = ColumnName.SLUITINGSDATUM
 
@@ -30,7 +29,7 @@ def _check_format(value: str) -> str | None:
     if date is None:
         return UI_TEXT["date_format_error"]
 
-    if date > datetime.now() and date.year != 9999:
+    if date > datetime.now() and date.year != OPEN_ENDED_YEAR:
         return UI_TEXT["date_future_error"]
 
     return None
@@ -102,7 +101,7 @@ class DateCheck(BaseCheck):
         bad_format = has_value & ~parsed_ok
         cell_tooltips[bad_format] = UI_TEXT["date_format_error"]
 
-        is_future = parsed_ok & (dates > now).values & (dates.dt.year != 9999).values
+        is_future = parsed_ok & (dates > now).values & (dates.dt.year != OPEN_ENDED_YEAR).values
         still_ok = has_value & parsed_ok & ~is_future
         cell_tooltips[is_future] = UI_TEXT["date_future_error"]
 
@@ -251,7 +250,7 @@ class DateCheck(BaseCheck):
 
         def is_valid_date(date_series: pd.Series, str_series: pd.Series, bound_by_end: bool) -> pd.Series:
             valid = date_series.notna()
-            is_future = (date_series > now) & (date_series.dt.year != 9999)
+            is_future = (date_series > now) & (date_series.dt.year != OPEN_ENDED_YEAR)
             valid = valid & ~is_future
 
             if series_start_ts is not None:

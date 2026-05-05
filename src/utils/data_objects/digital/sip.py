@@ -18,7 +18,7 @@ import pandas as pd
 
 from src.controller.excel_controller import ExcelController
 
-from src.utils.constants import FILE_REGEXES_TO_IGNORE, UI_TEXT_ELEMENTS, ColumnName, RowType
+from src.utils.constants import DATE_FORMAT, FILE_REGEXES_TO_IGNORE, UI_TEXT_ELEMENTS, ColumnName, RowType
 from src.utils.data_objects.sip import SIP as CommonSIP
 from src.utils.pyside_helper import Helper
 
@@ -61,7 +61,6 @@ class SIP(CommonSIP):
 
         return ExcelController.read_excel(self.metadata_path)
 
-    # TODO clean this mess up?
     def _map_file_location_to_sip_location(self, location: str) -> str:
         """
         Since we have some mappings, we may need to map a real location
@@ -199,7 +198,7 @@ class SIP(CommonSIP):
             df.loc[df[type_col] == RowType.STUK]
             .groupby(by=dossier_ref_col)[opening_col]
             .min()
-            .apply(lambda t: datetime.fromtimestamp(t).strftime("%Y-%m-%d")),
+            .apply(lambda t: datetime.fromtimestamp(t).strftime(DATE_FORMAT)),
             on=dossier_ref_col,
             rsuffix="_r",
         )
@@ -207,7 +206,7 @@ class SIP(CommonSIP):
             df.loc[df[type_col] == RowType.STUK]
             .groupby(by=dossier_ref_col)[closing_col]
             .max()
-            .apply(lambda t: datetime.fromtimestamp(t).strftime("%Y-%m-%d")),
+            .apply(lambda t: datetime.fromtimestamp(t).strftime(DATE_FORMAT)),
             on=dossier_ref_col,
             rsuffix="_r",
         )

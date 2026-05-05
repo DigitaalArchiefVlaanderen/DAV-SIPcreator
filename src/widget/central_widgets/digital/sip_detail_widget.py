@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from src.utils.constants import UI_TEXT_ELEMENTS, BusinessRules, ColumnName
 from src.utils.data_objects.digital.sip import SIP
 from src.utils.data_objects.series import SeriesStatus
+from src.utils.pyside_helper import make_page_title_font
 
 from src.widget.base_widget import ApplicationMixin, BaseWidget, ComponentWidget
 from src.widget.central_widgets.central_widget import CentralWidget
@@ -159,11 +160,8 @@ class SipNameEditAndStatusWidget(ComponentWidget):
         self.horizontal_layout = QtWidgets.QHBoxLayout()
         self.setLayout(self.horizontal_layout)
 
-        title_font = QtGui.QFont()
-        title_font.setBold(True)
-        title_font.setPointSize(20)
         self.title_edit = QtWidgets.QLineEdit(text=self.sip.name)
-        self.title_edit.setFont(title_font)
+        self.title_edit.setFont(make_page_title_font())
         self.title_edit.setMaxLength(BusinessRules.SIP_TITLE_MAX_LENGTH)
 
         self.status_label = QtWidgets.QLabel(text=self.sip.status.status_label)

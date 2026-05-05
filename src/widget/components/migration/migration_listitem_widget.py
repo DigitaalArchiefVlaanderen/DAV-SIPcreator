@@ -1,11 +1,12 @@
 import os
 from contextlib import suppress
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from src.utils.constants import KLANT_ROLE, MIGRATION_MAIN_ID_COLUMN, UI_TEXT_ELEMENTS
 from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.sip_status import SIPStatus
+from src.utils.pyside_helper import make_listitem_title_font
 from src.utils.workers.worker import Worker
 
 from src.widget.components.base_sip_controls_widget import BaseSipControlsWidget
@@ -60,11 +61,8 @@ class MigrationNameAndStatusWidget(QtWidgets.QFrame):
 
         self.setFrameShape(QtWidgets.QFrame.Box)
 
-        name_font = QtGui.QFont()
-        name_font.setBold(True)
-        name_font.setUnderline(True)
         self.name_label = QtWidgets.QLabel(text=self.sip.name)
-        self.name_label.setFont(name_font)
+        self.name_label.setFont(make_listitem_title_font())
 
         self.status_label = QtWidgets.QLabel(text=self.sip.status.status_label)
         self.status_label.setStyleSheet(self.sip.status.value)

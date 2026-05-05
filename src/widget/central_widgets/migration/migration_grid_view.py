@@ -1,16 +1,21 @@
-import re
-
 from PySide6 import QtCore, QtWidgets
 
 from src.controller.migration.bestandscontrole_controller import VALUE_TO_COLUMN
 
-from src.utils.constants import KLANT_ROLE, MIGRATION_ID_COLUMN, MIGRATION_MAIN_ID_COLUMN, UI_TEXT_ELEMENTS, ColumnName
+from src.utils.constants import (
+    KLANT_ROLE,
+    LOCATION_COLUMNS,
+    MIGRATION_ID_COLUMN,
+    MIGRATION_MAIN_ID_COLUMN,
+    UI_TEXT_ELEMENTS,
+    ColumnName,
+)
 from src.utils.data_objects.grid_data import GridData
 from src.utils.data_objects.migration.sip import MigrationSIP
 from src.utils.data_objects.series import Series
 from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.grid.checks.common.date_check import DateCheck
-from src.utils.grid.checks.migration.location_group_check import LOCATION_COLUMNS, _get_location_groups
+from src.utils.grid.checks.migration.location_group_check import _get_location_groups
 from src.utils.grid.table.migration_data_verification_table import MigrationDataVerificationTable
 from src.utils.pyside_helper import clear_widget_warning_style, set_widget_warning_style
 

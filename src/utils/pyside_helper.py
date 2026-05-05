@@ -6,17 +6,53 @@ import os
 import time
 from typing import Any
 
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from src.utils.base_object import BaseObject
 from src.utils.constants import BASE_SIP_NAME, UI_TEXT_ELEMENTS
+
+# Default point size for emphasised titles (page titles, section headers).
+TITLE_FONT_POINT_SIZE = 20
+
+# Stylesheet snippets re-used across the app.
+WARNING_TEXT_STYLE = "color: red;"
+LABEL_DEFAULT_STYLE = "QLabel {color: black;}"
+LABEL_OVER_LIMIT_STYLE = "QLabel {color: red;}"
+
+
+def make_listitem_title_font() -> QtGui.QFont:
+    """Bold + underlined font for SIP-list-item names (default size).
+
+    Used by analog/digital/migration list-item name labels and similar small headers.
+    """
+    font = QtGui.QFont()
+    font.setBold(True)
+    font.setUnderline(True)
+    return font
+
+
+def make_section_title_font(point_size: int = TITLE_FONT_POINT_SIZE) -> QtGui.QFont:
+    """Bold font at title size, no underline. Used for section headers."""
+    font = QtGui.QFont()
+    font.setBold(True)
+    font.setPointSize(point_size)
+    return font
+
+
+def make_page_title_font(point_size: int = TITLE_FONT_POINT_SIZE) -> QtGui.QFont:
+    """Bold + underlined font at title size. Used for top-of-page titles."""
+    font = QtGui.QFont()
+    font.setBold(True)
+    font.setUnderline(True)
+    font.setPointSize(point_size)
+    return font
 
 
 def set_widget_warning_style(widget: QtWidgets.QWidget, tooltip: str = "") -> None:
     font = widget.font()
     font.setBold(True)
     widget.setFont(font)
-    widget.setStyleSheet("color: red;")
+    widget.setStyleSheet(WARNING_TEXT_STYLE)
     widget.setToolTip(tooltip)
 
 

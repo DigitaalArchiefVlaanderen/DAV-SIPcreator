@@ -1,6 +1,7 @@
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from src.utils.constants import ColumnName
+from src.utils.pyside_helper import make_listitem_title_font
 
 
 class TagWidget(QtWidgets.QFrame):
@@ -24,11 +25,8 @@ class TagListWidget(QtWidgets.QScrollArea):
         central_widget.setLayout(self.vertical_layout)
         self.setWidget(central_widget)
 
-        font = QtGui.QFont()
-        font.setBold(True)
-        font.setUnderline(True)
         title = QtWidgets.QLabel(text=title)
-        title.setFont(font)
+        title.setFont(make_listitem_title_font())
         self.vertical_layout.addWidget(title)
 
         self.button_group = QtWidgets.QButtonGroup()

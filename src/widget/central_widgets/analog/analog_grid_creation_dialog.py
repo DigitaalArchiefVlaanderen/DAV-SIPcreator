@@ -1,8 +1,9 @@
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from src.utils.base_object import ApplicationMixin
 from src.utils.constants import UI_TEXT_ELEMENTS, BusinessRules
 from src.utils.data_objects.series import SeriesStatus
+from src.utils.pyside_helper import make_page_title_font
 
 UI_TEXT = UI_TEXT_ELEMENTS["analog"]["grid_creation"]
 
@@ -24,13 +25,8 @@ class AnalogGridCreationDialog(QtWidgets.QWidget, ApplicationMixin):
         layout = QtWidgets.QGridLayout()
         self.setLayout(layout)
 
-        font = QtGui.QFont()
-        font.setBold(True)
-        font.setUnderline(True)
-        font.setPointSize(20)
-
         self.title_input = QtWidgets.QLineEdit(text=self._get_next_name())
-        self.title_input.setFont(font)
+        self.title_input.setFont(make_page_title_font())
         self.title_input.setMaxLength(BusinessRules.SIP_TITLE_MAX_LENGTH)
 
         self.series_combobox = QtWidgets.QComboBox()

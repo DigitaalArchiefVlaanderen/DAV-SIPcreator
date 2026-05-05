@@ -1,11 +1,12 @@
 import os
 from contextlib import suppress
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from src.utils.constants import KLANT_ROLE, UI_TEXT_ELEMENTS
 from src.utils.data_objects.analog.sip import AnalogSIP
 from src.utils.data_objects.sip_status import SIPStatus
+from src.utils.pyside_helper import make_listitem_title_font
 
 from src.widget.components.base_sip_controls_widget import BaseSipControlsWidget
 from src.widget.dialog.yes_no_dialog import YesNoDialog
@@ -57,11 +58,8 @@ class AnalogNameAndStatusWidget(QtWidgets.QFrame):
 
         self.setFrameShape(QtWidgets.QFrame.Box)
 
-        name_font = QtGui.QFont()
-        name_font.setBold(True)
-        name_font.setUnderline(True)
         self.name_label = QtWidgets.QLabel(text=self.sip.name)
-        self.name_label.setFont(name_font)
+        self.name_label.setFont(make_listitem_title_font())
 
         self.status_label = QtWidgets.QLabel(text=self.sip.status.status_label)
         self.status_label.setStyleSheet(self.sip.status.value)

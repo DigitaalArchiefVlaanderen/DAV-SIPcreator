@@ -12,6 +12,7 @@ from src.utils.grid.table.analog_data_verification_table import (
     NON_DUPLICATABLE_COLUMNS,
     AnalogDataVerificationTable,
 )
+from src.utils.pyside_helper import LABEL_DEFAULT_STYLE, LABEL_OVER_LIMIT_STYLE
 from src.utils.workers.worker import Worker
 
 from src.widget.central_widgets.base_grid_view import BaseGridView
@@ -83,9 +84,9 @@ class AnalogGridView(BaseGridView):
         self.row_count_label.setText(UI_TEXT["row_count_label"].format(count=count))
 
         if count > BusinessRules.MAX_ROWS_PER_SERIES:
-            self.row_count_label.setStyleSheet("QLabel {color: red;}")
+            self.row_count_label.setStyleSheet(LABEL_OVER_LIMIT_STYLE)
         else:
-            self.row_count_label.setStyleSheet("QLabel {color: black;}")
+            self.row_count_label.setStyleSheet(LABEL_DEFAULT_STYLE)
 
     def _add_column_button_clicked(self) -> None:
         column = self.column_dropdown.currentText()
