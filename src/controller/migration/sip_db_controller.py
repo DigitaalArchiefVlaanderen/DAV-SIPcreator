@@ -37,6 +37,7 @@ class MigrationSIPDBController(BaseSIPDBController):
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_when_db_has_no_data_error"]["title"],
                 UI_TEXT_ELEMENTS["errors"]["sip"]["db_creation_when_db_has_no_data_error"]["text"],
             )
+
             return False
 
         def _create(conn: sql.Connection) -> None:

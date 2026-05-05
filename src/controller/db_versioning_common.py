@@ -92,6 +92,7 @@ def run_db_migrations(
     for schema_version in DB_SCHEMA_CHANGE_VERSIONS:
         if db_version is None or is_version_older(db_version, schema_version):
             migration_fn = schema_migrations.get(schema_version)
+
             if migration_fn:
                 migrations_to_run.append(migration_fn)
 

@@ -26,9 +26,10 @@ class SeriesNotFoundError(Exception):
     """Raised when an old analog DB's series cannot be found in any environment."""
 
     def __init__(self, series_id: str, series_name: str) -> None:
+        super().__init__(f"Series not found: id={series_id!r}, name={series_name!r}")
+
         self.series_id = series_id
         self.series_name = series_name
-        super().__init__(f"Series not found: id={series_id!r}, name={series_name!r}")
 
 
 def migrate_analog_to_3_0(
@@ -55,6 +56,7 @@ def migrate_analog_to_3_0(
     """
     # 1. Read extra table
     extra = conn.execute("SELECT * FROM extra").fetchone()
+
     if extra is None:
         return
 
@@ -65,15 +67,19 @@ def migrate_analog_to_3_0(
     series_id = series_dict.get(APIResponseKey.ID, series_dict.get(MIGRATION_ID_COLUMN, ""))
     content = series_dict.get(APIResponseKey.CONTENT, {})
     series_name = content.get(APIResponseKey.NAME, "") if isinstance(content, dict) else ""
+
     if not series_name:
         series_name = series_dict.get(DBColumnName.NAME, "")
 
     # 3. Resolve environment (must happen before any data modification)
     environment_name = PROD_ENVIRONMENT_NAME
+
     if environment_resolver is not None:
         resolved = environment_resolver(series_id, series_name)
+
         if resolved is None:
             raise SeriesNotFoundError(series_id, series_name)
+
         environment_name = resolved
 
     # 4. Infer status
@@ -88,8 +94,10 @@ def migrate_analog_to_3_0(
 
     # 5. Remove _id column from data table
     df = pd.read_sql(f"SELECT * FROM {DBTableName.DATA}", conn).fillna("").astype(str)
+
     if MIGRATION_ID_COLUMN in df.columns:
         df = df.drop(columns=[MIGRATION_ID_COLUMN])
+
     conn.execute(f"DROP TABLE {DBTableName.DATA}")
     df.to_sql(DBTableName.DATA, conn, index=False, dtype="text")
 
@@ -133,10 +141,7 @@ def migrate_analog_to_3_0(
     )
 
 
-# ---------------------------------------------------------------------------
-# Migration registry & runner
-# ---------------------------------------------------------------------------
-
+# NOTE: mapping for whichever type of db we are migrating to
 SCHEMA_MIGRATIONS: dict[str, Callable[[sql.Connection], None]] = {
     "3.0": migrate_analog_to_3_0,
 }

@@ -20,9 +20,6 @@ from src.utils.data_objects.sip_status import SIPStatus
 class AnalogSIPDBController(BaseSIPDBController):
     SIP_TYPE = AnalogSIP
 
-    def __init__(self) -> None:
-        super().__init__()
-
     @property
     def db_location(self) -> str:
         return self.application.configuration.analoog_location
@@ -177,6 +174,7 @@ class AnalogSIPDBController(BaseSIPDBController):
 
             # Ensure the SIP name is set (migration creates it empty)
             name_row = conn.execute(f"SELECT {DBColumnName.NAME} FROM {DBTableName.SIP}").fetchone()
+
             if name_row and not name_row[0]:
                 sip_name = os.path.splitext(db_file_name)[0]
                 conn.execute(f"UPDATE {DBTableName.SIP} SET {DBColumnName.NAME} = ?", (sip_name,))

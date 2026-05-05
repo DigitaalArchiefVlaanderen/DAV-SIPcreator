@@ -49,6 +49,7 @@ def migrate_digital_to_3_0(conn: sql.Connection) -> None:
     series_id = series_dict.get(APIResponseKey.ID, "")
     series_name = ""
     content = series_dict.get(APIResponseKey.CONTENT)
+
     if isinstance(content, dict):
         series_name = content.get(APIResponseKey.NAME, "")
 
@@ -113,13 +114,8 @@ def migrate_digital_to_3_0(conn: sql.Connection) -> None:
         (SIP_CREATOR_VERSION, UNKNOWN_TRANSFORMED, SIP_CREATOR_VERSION),
     )
 
-    # 8. data table is left untouched
 
-
-# ---------------------------------------------------------------------------
-# Migration registry & runner
-# ---------------------------------------------------------------------------
-
+# NOTE: mapping for whichever type of db we are migrating to
 SCHEMA_MIGRATIONS: dict[str, Callable[[sql.Connection], None]] = {
     "3.0": migrate_digital_to_3_0,
 }

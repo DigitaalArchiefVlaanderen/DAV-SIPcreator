@@ -18,10 +18,6 @@ from src.utils.constants import (
 )
 from src.utils.data_objects.sip_status import SIPStatus
 
-# ---------------------------------------------------------------------------
-# Migration: pre-3.0 → 3.0
-# ---------------------------------------------------------------------------
-
 
 def _infer_environment_name(conn: sql.Connection) -> str:
     """Infer the environment name from URIs stored in the ``tables`` table."""
@@ -33,6 +29,7 @@ def _infer_environment_name(conn: sql.Connection) -> str:
     ).fetchall()
 
     for uri, *_ in uris:
+        # NOTE: not a super solid check
         if "-ti." in uri:
             return TI_ENVIRONMENT_NAME
 
@@ -72,6 +69,7 @@ def migrate_to_3_0(conn: sql.Connection) -> None:
     """
     # 1. Find and standardize the Overdrachtslijst table
     main_table = _find_overdrachtslijst_table(conn)
+
     if main_table and main_table != DBTableName.OVERDRACHTSLIJST:
         conn.execute(f"ALTER TABLE [{main_table}] RENAME TO [{DBTableName.OVERDRACHTSLIJST}]")
         main_table = DBTableName.OVERDRACHTSLIJST
@@ -98,6 +96,7 @@ def migrate_to_3_0(conn: sql.Connection) -> None:
 
     for (table_name,) in rows:
         clean = table_name.strip('"')
+
         if clean.lower() == "overdrachtslijst":
             conn.execute(
                 f"DELETE FROM {DBTableName.TABLES} WHERE {DBColumnName.TABLE_NAME} = ?",
@@ -110,6 +109,7 @@ def migrate_to_3_0(conn: sql.Connection) -> None:
                     f"UPDATE {DBTableName.TABLES} SET {DBColumnName.TABLE_NAME} = ? WHERE {DBColumnName.TABLE_NAME} = ?",
                     (clean, table_name),
                 )
+
             series_table_names.append(clean)
 
     # 4. Ensure tables.status column exists (absorbs _migrate_tables_uploaded_to_status)
@@ -210,10 +210,8 @@ def _migrate_location_column_suffixes(conn: sql.Connection) -> None:
             df.to_sql(table_name, conn, index=False, dtype="text")
 
 
-# ---------------------------------------------------------------------------
-# Migration registry & runner
-# ---------------------------------------------------------------------------
 
+# NOTE: mapping for whichever type of db we are migrating to
 SCHEMA_MIGRATIONS: dict[str, Callable[[sql.Connection], None]] = {
     "3.0": migrate_to_3_0,
 }
