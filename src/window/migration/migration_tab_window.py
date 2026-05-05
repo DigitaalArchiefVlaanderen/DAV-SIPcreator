@@ -51,6 +51,12 @@ AUTO_MAP_BLOCKED_COLUMNS = {
     ColumnName.ANALOOG,
 }
 
+# Overdrachtslijst column names that already have explicit destinations in
+# MAIN_TO_SERIES_COLUMN_MAPPING and must NOT additionally feed a template column with the
+# same name. E.g. `Beschrijving` is mapped to `Naam` and `Path in SIP`; the template's own
+# `Beschrijving` column is a different semantic field and must not be auto-filled from it.
+AUTO_MAP_BLOCKED_SOURCE_COLUMNS = {OverdrachtslijstColumnName.BESCHRIJVING}
+
 URI_SERIEREGISTER_COLUMN = DBColumnName.URI_SERIEREGISTER
 
 
@@ -88,9 +94,11 @@ def _derive_type_and_dossier_ref(mapped_data: dict[str, list], row_count: int) -
         if not value or value == "nan":
             types.append("")
             refs.append("")
+
         elif "/" in value:
             types.append(RowType.STUK)
             refs.append(value.split("/", 1)[0])
+
         else:
             types.append(RowType.DOSSIER)
             refs.append(value)
@@ -120,6 +128,7 @@ def map_main_to_series(
 ) -> pd.DataFrame:
     if all_data is None:
         all_data = selected_data
+
     mapped_data: dict[str, list] = {}
     row_count = len(selected_data)
 
@@ -150,6 +159,9 @@ def map_main_to_series(
             if col.rstrip() in AUTO_MAP_BLOCKED_COLUMNS or col not in selected_data.columns:
                 continue
 
+            if col.rstrip() in AUTO_MAP_BLOCKED_SOURCE_COLUMNS:
+                continue
+
             if not all_data[col].astype(str).str.strip().any():
                 continue
 
@@ -170,27 +182,38 @@ def map_main_to_series(
             spaces = " " * suffix
             group = [f"{base}{spaces}" for base in LOCATION_COLUMNS]
             present = [col for col in group if col in selected_data.columns]
+
             if not present:
                 break
+
             # Check if any of the 4 columns have data in the selected rows
             has_data = any(selected_data[col].astype(str).str.strip().any() for col in present)
+
             if has_data and len(present) == 4:
                 for col in group:
                     mapped_data[col] = selected_data[col].values.tolist()
                     auto_mapped_columns.add(col)
+
                 extra_location_groups.append(group)
+
             suffix += 1
 
         # Then, find regular (non-location) duplicate columns
         location_base_set = set(LOCATION_COLUMNS)
+
         for col in selected_data.columns:
             if col in template_set or col in mapped_data:
                 continue
-            if col.rstrip() in AUTO_MAP_BLOCKED_COLUMNS:
+
+            if (base_col := col.rstrip()) in AUTO_MAP_BLOCKED_COLUMNS:
                 continue
-            base_col = col.rstrip()
+
+            if base_col in AUTO_MAP_BLOCKED_SOURCE_COLUMNS:
+                continue
+
             if base_col in location_base_set:
-                continue  # Handled above as location group
+                continue
+
             if base_col in template_set and col != base_col:
                 if selected_data[col].astype(str).str.strip().any():
                     mapped_data[col] = selected_data[col].values.tolist()
@@ -213,6 +236,7 @@ def map_main_to_series(
         for col in template_columns:
             if col not in ordered_columns and col != DBColumnName.URI_SERIEREGISTER:
                 ordered_columns.append(col)
+
                 # Insert regular duplicate columns right after their base column
                 if col.rstrip() not in location_base_set:
                     for dup_col in extra_duplicate_columns:
