@@ -23,6 +23,8 @@ from src.utils.data_objects.configuration import Configuration
 from src.utils.data_objects.series import Series
 from src.utils.data_objects.sip import SIP
 from src.utils.pyside_helper import Helper
+from src.utils.temp_diagnostic_log import init as init_temp_log
+from src.utils.temp_diagnostic_log import log as temp_log
 from src.utils.worker_user.analog.analog_retriever import AnalogRetriever
 from src.utils.worker_user.digital.digital_retriever import DigitalRetriever
 from src.utils.worker_user.migration.migration_retriever import MigrationRetriever
@@ -77,6 +79,8 @@ class Application(QtWidgets.QApplication):
                 UI_ERROR_TEXT["root_path"]["text"],
             )
             sys.exit(1)
+
+        init_temp_log(root_path)
 
         self.configuration: Configuration = ConfigController.get_configuration(root_path)
 
@@ -274,6 +278,23 @@ class Application(QtWidgets.QApplication):
         if isinstance(exception, IgnorableException):
             return
 
+        traceback.print_exception(type(exception), exception, exception.__traceback__)
+        temp_log(f"error_handler: {type(exception).__name__}: {exception}", exc=exception)
+
+        if isinstance(exception, requests.exceptions.RequestException):
+            response = getattr(exception, "response", None)
+            request = getattr(exception, "request", None)
+
+            if request is not None:
+                temp_log(f"  Request: {request.method} {request.url}")
+
+            if response is not None:
+                body = response.text or ""
+                if len(body) > 2000:
+                    body = body[:2000] + "... [truncated]"
+                temp_log(f"  Response: HTTP {response.status_code} {response.reason}")
+                temp_log(f"  Body: {body}")
+
         from src.controller.api_controller import APIAuthenticationError
 
         if isinstance(exception, APIAuthenticationError):
@@ -304,8 +325,6 @@ class Application(QtWidgets.QApplication):
             text = UI_ERROR_TEXT["unexpected_error"]["text"].format(
                 exception_name=type(exception).__name__, exception=exception
             )
-
-            traceback.print_exception(type(exception), exception, exception.__traceback__)
         else:
             title = title_and_text["title"]
             text = title_and_text["text"]

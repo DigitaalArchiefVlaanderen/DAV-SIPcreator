@@ -797,7 +797,6 @@ class MigrationTabWindow(Window):
         self.main_tab_view._validate_series()
 
     def _delete_rows_from_series(self, series_name: str, source_rows: list[int]) -> None:
-        """Delete rows from a series tab and clear the assignment in Overdrachtslijst."""
         if series_name not in self.series_tabs:
             return
 
@@ -805,28 +804,22 @@ class MigrationTabWindow(Window):
         series_df = grid_view.table_model.raw_data
 
         # Get main_ids for the rows being deleted
-        deleted_main_ids = set()
+        deleted_main_ids: set[str] = set()
         if MIGRATION_MAIN_ID_COLUMN in series_df.columns:
             for row in source_rows:
                 deleted_main_ids.add(str(series_df.iloc[row, series_df.columns.get_loc(MIGRATION_MAIN_ID_COLUMN)]))
 
-        # Clear series_name and URI in the main DataFrame for matching rows
+        # Cascade: drop the matching rows from the Overdrachtslijst as well
         main_df = self.sip.main_grid_data.data_as_df
-        if SERIES_NAME_COLUMN in main_df.columns and MIGRATION_ID_COLUMN in main_df.columns:
-            name_col = main_df.columns.get_loc(SERIES_NAME_COLUMN)
-            uri_col = main_df.columns.get_loc(URI_SERIEREGISTER_COLUMN)
-            id_col = main_df.columns.get_loc(MIGRATION_ID_COLUMN)
+        if deleted_main_ids and MIGRATION_ID_COLUMN in main_df.columns:
+            mask = main_df[MIGRATION_ID_COLUMN].astype(str).isin(deleted_main_ids)
+            updated_main_df = main_df[~mask].reset_index(drop=True)
 
-            for main_id in deleted_main_ids:
-                matches = main_df.index[main_df.iloc[:, id_col].astype(str) == str(main_id)]
-                for row_idx in matches:
-                    main_df.iat[row_idx, name_col] = ""
-                    main_df.iat[row_idx, uri_col] = ""
-
-            self.sip.main_grid_data.data_as_df = main_df
+            self.sip.main_grid_data.data_as_df = updated_main_df
 
             self.main_tab_view.table_model.beginResetModel()
-            self.main_tab_view.table_model.raw_data = main_df
+            self.main_tab_view.table_model.raw_data = updated_main_df
+            self.main_tab_view.table_model.drop_orphan_markings()
             self.main_tab_view.table_model.endResetModel()
 
             self._main_has_unsaved_changes = True

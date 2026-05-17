@@ -8,7 +8,7 @@ from PySide6 import QtGui
 
 from src.utils.data_objects.sip_status import SIPStatus
 
-SIP_CREATOR_VERSION = "3.0.0.6"
+SIP_CREATOR_VERSION = "3.0.0.7"
 
 
 class SaveLocations(StrEnum):
@@ -183,7 +183,7 @@ def determine_root_path() -> str | None:
     return None
 
 
-with open(resource_path("src/utils/ui_text_elements.json")) as f:
+with open(resource_path("src/utils/ui_text_elements.json"), encoding="utf-8") as f:
     UI_TEXT_ELEMENTS = json.load(f)
 
 

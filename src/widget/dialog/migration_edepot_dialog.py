@@ -5,6 +5,7 @@ from PySide6 import QtWidgets
 from src.utils.constants import UI_TEXT_ELEMENTS, UPLOADED_SIP_STATUSES, get_logo
 from src.utils.data_objects.sip_status import SIPStatus
 from src.utils.pyside_helper import set_widget_warning_style
+from src.utils.temp_diagnostic_log import log as temp_log
 
 UI_TEXT = UI_TEXT_ELEMENTS["migration"]["edepot_dialog"]
 NOT_FOUND_TOOLTIP = UI_TEXT_ELEMENTS["sip"]["controls"]["edepot_not_found_tooltip"]
@@ -67,8 +68,17 @@ class MigrationEdepotDialog(QtWidgets.QDialog):
         return {name: self.series_edepot_ids.get(name, "") for name, cb in self.checkboxes.items() if cb.isChecked()}
 
     def _open_clicked(self) -> None:
-        for edepot_id in self.selected_edepot_ids.values():
-            if edepot_id:
-                os.startfile(f"{self.base_url}/input/processing-list/{edepot_id}")
+        for series_name, edepot_id in self.selected_edepot_ids.items():
+            if not edepot_id:
+                temp_log(f"[edepot] skipping '{series_name}': no edepot_id stored")
+                continue
+
+            url = f"{self.base_url}/input/processing-list/{edepot_id}"
+            temp_log(f"[edepot] opening '{series_name}': {url}")
+
+            try:
+                os.startfile(url)
+            except OSError as e:
+                temp_log(f"[edepot] os.startfile failed for '{series_name}'", exc=e)
 
         self.accept()
