@@ -49,6 +49,30 @@ class MigrationDataVerificationTable(CommonDataVerificationTable):
 
         return super().setData(index, value, role)
 
+    def set_bulk_data(self, changes) -> None:
+        # Bulk edits (paste / cut / delete) bypass setData, so mirror its
+        # Type/DossierRef derivation here for every changed Path in SIP cell.
+        if (
+            ColumnName.PATH_IN_SIP in self.raw_data.columns
+            and ColumnName.TYPE in self.raw_data.columns
+            and ColumnName.DOSSIER_REF in self.raw_data.columns
+        ):
+            path_col = self.raw_data.columns.get_loc(ColumnName.PATH_IN_SIP)
+            type_col = self.raw_data.columns.get_loc(ColumnName.TYPE)
+            dossier_ref_col = self.raw_data.columns.get_loc(ColumnName.DOSSIER_REF)
+
+            for index, value in changes:
+                if index.column() != path_col:
+                    continue
+
+                new_type, new_ref = self._derive_type_and_dossier_ref(str(value))
+                self.raw_data.iat[index.row(), type_col] = new_type
+                self.raw_data.iat[index.row(), dossier_ref_col] = new_ref
+
+        # super() writes the Path in SIP cells and emits a full-grid dataChanged,
+        # which repaints the Type/DossierRef cells updated above.
+        super().set_bulk_data(changes)
+
     def _infer_missing_type_and_dossier_ref(self) -> None:
         if ColumnName.PATH_IN_SIP not in self.raw_data.columns:
             return
@@ -76,6 +100,16 @@ class MigrationDataVerificationTable(CommonDataVerificationTable):
                 self.raw_data.iat[row, type_col] = RowType.DOSSIER
                 self.raw_data.iat[row, dossier_ref_col] = value
 
+    @staticmethod
+    def _derive_type_and_dossier_ref(value: str) -> tuple[str, str]:
+        value = value.strip()
+
+        if not value:
+            return "", ""
+        if "/" in value:
+            return RowType.STUK, value.split("/", 1)[0]
+        return RowType.DOSSIER, value
+
     def _auto_update_type_and_dossier_ref(self, index: QtCore.QModelIndex, value: str) -> None:
         if ColumnName.TYPE not in self.raw_data.columns:
             return
@@ -87,17 +121,7 @@ class MigrationDataVerificationTable(CommonDataVerificationTable):
         type_col = self.raw_data.columns.get_loc(ColumnName.TYPE)
         dossier_ref_col = self.raw_data.columns.get_loc(ColumnName.DOSSIER_REF)
 
-        value = value.strip()
-
-        if not value:
-            new_type = ""
-            new_ref = ""
-        elif "/" in value:
-            new_type = RowType.STUK
-            new_ref = value.split("/", 1)[0]
-        else:
-            new_type = RowType.DOSSIER
-            new_ref = value
+        new_type, new_ref = self._derive_type_and_dossier_ref(value)
 
         self.raw_data.iat[row, type_col] = new_type
         self.raw_data.iat[row, dossier_ref_col] = new_ref
