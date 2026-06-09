@@ -87,7 +87,7 @@ Implemented in [name_check.py](src/utils/grid/checks/common/name_check.py).
 
 | Rule | Value / Detail |
 | --- | --- |
-| Maximum length | 255 characters (`NAME_MAX_LENGTH`) |
+| Maximum length | 255 characters ([`BusinessRules.NAME_MAX_LENGTH`](src/utils/constants.py)) |
 | Required for dossiers | Rows with `Type == dossier` must have a non-empty `Naam` |
 | Unique per dossier | Dossier names must be unique within the grid |
 
@@ -146,7 +146,26 @@ A location group is the four columns: `Origineel Doosnummer`, `Legacy locatie ID
 
 ---
 
-## 9. Re-uploads (REJECTED status)
+## 9. Overdrachtslijst → series-template auto-mapping
+
+Implemented in [`map_main_to_series`](src/window/migration/migration_tab_window.py).
+
+When assigning Overdrachtslijst rows to a series, columns are filled in two passes:
+
+1. **Explicit mapping** ([`MAIN_TO_SERIES_COLUMN_MAPPING`](src/window/migration/migration_tab_window.py)): a fixed routing from Overdrachtslijst columns to one or more template columns.
+   - `Beschrijving` → `Naam`, `Path in SIP`
+   - `Begindatum` → `Openingsdatum`
+   - `Einddatum` → `Sluitingsdatum`
+   - `Doosnr` → `Origineel Doosnummer`
+2. **Auto-mapping**: any other Overdrachtslijst column whose name matches a template column is copied 1-to-1.
+
+**Auto-mapping exclusions:**
+- Read-only template columns are never auto-filled (`Type`, `DossierRef`, `Analoog?`).
+- Overdrachtslijst columns that already have explicit destinations in step 1 are blocked from auto-mapping to a same-named template column. Concretely: an Overdrachtslijst `Beschrijving` value never feeds a template `Beschrijving` column — the template's `Beschrijving` is a different semantic field. Source: [`AUTO_MAP_BLOCKED_SOURCE_COLUMNS`](src/window/migration/migration_tab_window.py).
+
+---
+
+## 10. Re-uploads (REJECTED status)
 
 When the e-depot returns `REJECTED` for an uploaded SIP, the user must be able to re-open the grid, fix the issue, and re-upload. This applies to **all** SIP types (digital, migration, analog, onroerend erfgoed).
 
@@ -154,7 +173,24 @@ A SIP in `REJECTED` state is treated like one that hasn't been uploaded yet: its
 
 ---
 
+## 11. Migration row deletion
+
+Implemented in [`MigrationTabWindow._delete_main_ids_everywhere`](src/window/migration/migration_tab_window.py).
+
+Deleting rows in a migration SIP — from either the **Overdrachtslijst** tab or any **series** tab — is a *permanent, complete* removal, not an un-assignment:
+
+- A deleted row disappears from the Overdrachtslijst **and** from every series tab it appears in. Rows are matched across tabs by their main id (`_id` ↔ `main_id`).
+- **Dossier cascade:** when a deleted row is a dossier (`Type == dossier`), every stuk belonging to that same dossier is deleted too. A stuk cannot exist without its dossier. The dossier ↔ stuk hierarchy is read from the Overdrachtslijst (the `Beschrijving` value: a stuk's value is `<dossier>/<stuk>`, a dossier's value is its own name).
+- **Confirmation:** because deletion is permanent, the user must confirm. The confirmation states how many rows will be affected. The count is the number of distinct **Overdrachtslijst** rows removed (including cascaded stukken). Rows that are also present in a series tab are counted **once** (via the Overdrachtslijst) — never double-counted.
+- Deletion only mutates in-memory data; it is persisted on save (or on the save-on-close prompt), consistent with all other grid edits.
+
+**Why complete removal rather than un-assignment?** A row that no longer belongs anywhere should not linger in the Overdrachtslijst. Earlier builds (v3.0.0.7) cleared only the series assignment on a series-tab delete; this was confirmed with the client to be wrong — delete means delete.
+
+---
+
 ## Change log
 
 - **2026-05-04** — Initial document for v3.0.0.6.
 - **2026-05-04** — Rule 3.3: `Sluitingsdatum` is no longer bound by the series' `valid_to`; only `Openingsdatum` is. Reason: dossiers can legitimately be closed after a series is retired.
+- **2026-05-05** — Rule 9: Overdrachtslijst's `Beschrijving` column is now blocked from auto-mapping to a same-named template `Beschrijving` column. Reason: it already has explicit routing to `Naam` and `Path in SIP`, and the template's `Beschrijving` is a different field.
+- **2026-06-09** — Rule 11 added: migration row deletion (from the Overdrachtslijst or a series tab) is now a permanent, complete removal across all tabs, with a dossier→stukken cascade and a confirmation dialog showing the affected Overdrachtslijst-row count. Reason: client confirmed delete means delete (reinstating and extending behavior that had been reverted in v3.0.0.7).

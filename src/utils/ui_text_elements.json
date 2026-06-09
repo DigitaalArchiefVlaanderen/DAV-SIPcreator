@@ -142,6 +142,10 @@
             "template_retrieval_error": {
                 "title": "Importsjabloon ophalen mislukt",
                 "text": "Het importsjabloon kon niet opgehaald worden voor de geselecteerde serie. De kolommen worden niet automatisch ingevuld."
+            },
+            "delete_confirmation": {
+                "title": "Rijen verwijderen",
+                "text": "Je staat op het punt om {count} rij(en) definitief te verwijderen uit de Overdrachtslijst en alle bijbehorende tabbladen. Wanneer je een dossier verwijdert, worden ook alle bijbehorende stukken verwijderd.\n\nDeze actie kan niet ongedaan gemaakt worden. Wil je doorgaan?"
             }
         },
         "grid": {

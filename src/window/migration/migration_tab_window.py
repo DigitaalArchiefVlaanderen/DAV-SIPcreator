@@ -79,6 +79,24 @@ def _format_origineel_doosnummer(mapped_data: dict[str, list], sip_name: str) ->
         mapped_data[col][i] = f"{raw}/{sip_name}"
 
 
+def classify_path(value: str) -> tuple[str, str]:
+    """Classify a Path-in-SIP / Beschrijving value into ``(row_type, dossier_ref)``.
+
+    A value containing ``/`` is a stuk belonging to the dossier named by the part before
+    the first ``/``. A non-empty value without ``/`` is a dossier (its own ref). An empty
+    value is unclassified (``("", "")``).
+    """
+    value = str(value).strip()
+
+    if not value or value == "nan":
+        return "", ""
+
+    if "/" in value:
+        return RowType.STUK, value.split("/", 1)[0]
+
+    return RowType.DOSSIER, value
+
+
 def _derive_type_and_dossier_ref(mapped_data: dict[str, list], row_count: int) -> None:
     path_col = ColumnName.PATH_IN_SIP
 
@@ -89,19 +107,9 @@ def _derive_type_and_dossier_ref(mapped_data: dict[str, list], row_count: int) -
     refs = []
 
     for value in mapped_data[path_col]:
-        value = str(value).strip()
-
-        if not value or value == "nan":
-            types.append("")
-            refs.append("")
-
-        elif "/" in value:
-            types.append(RowType.STUK)
-            refs.append(value.split("/", 1)[0])
-
-        else:
-            types.append(RowType.DOSSIER)
-            refs.append(value)
+        row_type, ref = classify_path(value)
+        types.append(row_type)
+        refs.append(ref)
 
     mapped_data[ColumnName.TYPE] = types
     mapped_data[ColumnName.DOSSIER_REF] = refs
@@ -745,13 +753,96 @@ class MigrationTabWindow(Window):
         )
 
     def _delete_rows_from_main(self, source_rows: list[int]) -> None:
-        """Delete rows from the Overdrachtslijst and cascade to series tabs."""
+        """Permanently delete the selected Overdrachtslijst rows everywhere they appear."""
         main_df = self.sip.main_grid_data.data_as_df
         id_col = main_df.columns.get_loc(MIGRATION_ID_COLUMN)
-        main_ids = [str(main_df.iat[row, id_col]) for row in source_rows]
-        main_id_set = set(main_ids)
+        main_ids = {str(main_df.iat[row, id_col]) for row in source_rows}
 
-        # Remove matching rows from all series tabs
+        self._delete_main_ids_everywhere(main_ids)
+
+    def _delete_rows_from_series(self, series_name: str, source_rows: list[int]) -> None:
+        """Permanently delete the selected series rows everywhere they appear."""
+        if series_name not in self.series_tabs:
+            return
+
+        series_df = self.series_tabs[series_name].table_model.raw_data
+
+        if MIGRATION_MAIN_ID_COLUMN not in series_df.columns:
+            return
+
+        main_id_col = series_df.columns.get_loc(MIGRATION_MAIN_ID_COLUMN)
+        main_ids = {str(series_df.iloc[row, main_id_col]) for row in source_rows}
+
+        self._delete_main_ids_everywhere(main_ids)
+
+    def _delete_main_ids_everywhere(self, main_ids: set[str]) -> None:
+        """Cascade-delete the given rows (keyed by main id) from the Overdrachtslijst and
+        from every series tab they appear in. Selecting a dossier also removes all stukken
+        belonging to it, since a stuk cannot exist without its dossier. The user is asked to
+        confirm first, because the deletion is permanent.
+        """
+        if not main_ids:
+            return
+
+        main_ids = self._expand_with_dossier_stukken(main_ids)
+
+        if not self._confirm_deletion(len(main_ids)):
+            return
+
+        self._remove_main_ids_from_series_tabs(main_ids)
+        self._remove_main_ids_from_main(main_ids)
+
+        self.update_global_create_sip_button()
+
+    def _expand_with_dossier_stukken(self, main_ids: set[str]) -> set[str]:
+        """Expand a set of main ids so that, whenever a dossier row is selected, every stuk
+        belonging to that same dossier is included too. The Overdrachtslijst is the single
+        source of truth for the dossier/stuk hierarchy (via the Beschrijving column).
+        """
+        main_df = self.sip.main_grid_data.data_as_df
+
+        if OverdrachtslijstColumnName.BESCHRIJVING not in main_df.columns:
+            return set(main_ids)
+
+        id_col = main_df.columns.get_loc(MIGRATION_ID_COLUMN)
+        beschrijving_col = main_df.columns.get_loc(OverdrachtslijstColumnName.BESCHRIJVING)
+
+        classified: list[tuple[str, str, str]] = []
+        deleted_dossier_refs: set[str] = set()
+
+        for row in range(main_df.shape[0]):
+            main_id = str(main_df.iat[row, id_col])
+            row_type, dossier_ref = classify_path(main_df.iat[row, beschrijving_col])
+            classified.append((main_id, row_type, dossier_ref))
+
+            if main_id in main_ids and row_type == RowType.DOSSIER:
+                deleted_dossier_refs.add(dossier_ref)
+
+        if not deleted_dossier_refs:
+            return set(main_ids)
+
+        expanded = set(main_ids)
+
+        for main_id, row_type, dossier_ref in classified:
+            if row_type == RowType.STUK and dossier_ref in deleted_dossier_refs:
+                expanded.add(main_id)
+
+        return expanded
+
+    def _confirm_deletion(self, affected_count: int) -> bool:
+        """Ask the user to confirm a permanent deletion of ``affected_count`` Overdrachtslijst
+        rows. Each main id maps to exactly one Overdrachtslijst row, so this count is the full
+        blast radius without double-counting rows that are also present in a series tab.
+        """
+        dialog = YesNoDialog(
+            title=UI_TEXT["delete_confirmation"]["title"],
+            text=UI_TEXT["delete_confirmation"]["text"].format(count=affected_count),
+        )
+        dialog.exec()
+
+        return bool(dialog.result())
+
+    def _remove_main_ids_from_series_tabs(self, main_id_set: set[str]) -> None:
         for series_name in list(self.series_tabs.keys()):
             grid_view = self.series_tabs[series_name]
             series_df = grid_view.table_model.raw_data
@@ -762,6 +853,10 @@ class MigrationTabWindow(Window):
             remaining_df = series_df[~series_df[MIGRATION_MAIN_ID_COLUMN].astype(str).isin(main_id_set)].reset_index(
                 drop=True
             )
+
+            if len(remaining_df) == len(series_df):
+                # Nothing from this tab was deleted; leave it untouched.
+                continue
 
             if remaining_df.empty:
                 tab_index = self.tab_widget.indexOf(grid_view)
@@ -784,8 +879,13 @@ class MigrationTabWindow(Window):
                 grid_view.table_model.re_mark_disabled_columns()
                 grid_view.table_model.validate_all()
 
-        # Remove rows from main DataFrame
-        updated_main_df = main_df.drop(index=source_rows).reset_index(drop=True)
+    def _remove_main_ids_from_main(self, main_id_set: set[str]) -> None:
+        main_df = self.sip.main_grid_data.data_as_df
+        id_col = main_df.columns.get_loc(MIGRATION_ID_COLUMN)
+
+        mask = main_df.iloc[:, id_col].astype(str).isin(main_id_set)
+        updated_main_df = main_df[~mask].reset_index(drop=True)
+
         self.sip.main_grid_data.data_as_df = updated_main_df
 
         self.main_tab_view.table_model.beginResetModel()
@@ -795,67 +895,6 @@ class MigrationTabWindow(Window):
 
         self._main_has_unsaved_changes = True
         self.main_tab_view._validate_series()
-
-    def _delete_rows_from_series(self, series_name: str, source_rows: list[int]) -> None:
-        """Delete rows from a series tab and clear the assignment in Overdrachtslijst."""
-        if series_name not in self.series_tabs:
-            return
-
-        grid_view = self.series_tabs[series_name]
-        series_df = grid_view.table_model.raw_data
-
-        # Get main_ids for the rows being deleted
-        deleted_main_ids = set()
-        if MIGRATION_MAIN_ID_COLUMN in series_df.columns:
-            for row in source_rows:
-                deleted_main_ids.add(str(series_df.iloc[row, series_df.columns.get_loc(MIGRATION_MAIN_ID_COLUMN)]))
-
-        # Clear series_name and URI in the main DataFrame for matching rows
-        main_df = self.sip.main_grid_data.data_as_df
-        if SERIES_NAME_COLUMN in main_df.columns and MIGRATION_ID_COLUMN in main_df.columns:
-            name_col = main_df.columns.get_loc(SERIES_NAME_COLUMN)
-            uri_col = main_df.columns.get_loc(URI_SERIEREGISTER_COLUMN)
-            id_col = main_df.columns.get_loc(MIGRATION_ID_COLUMN)
-
-            for main_id in deleted_main_ids:
-                matches = main_df.index[main_df.iloc[:, id_col].astype(str) == str(main_id)]
-                for row_idx in matches:
-                    main_df.iat[row_idx, name_col] = ""
-                    main_df.iat[row_idx, uri_col] = ""
-
-            self.sip.main_grid_data.data_as_df = main_df
-
-            self.main_tab_view.table_model.beginResetModel()
-            self.main_tab_view.table_model.raw_data = main_df
-            self.main_tab_view.table_model.endResetModel()
-
-            self._main_has_unsaved_changes = True
-            self.main_tab_view._validate_series()
-
-        # Remove rows from series DataFrame
-        remaining_df = series_df.drop(index=source_rows).reset_index(drop=True)
-
-        if remaining_df.empty:
-            tab_index = self.tab_widget.indexOf(grid_view)
-            self.tab_widget.removeTab(tab_index)
-            grid_view.deleteLater()
-
-            del self.series_tabs[series_name]
-            del self.sip.series_grid_data[series_name]
-
-            self._deleted_series.add(series_name)
-        else:
-            grid_view.grid_data.data_as_df = remaining_df
-
-            grid_view.table_model.beginResetModel()
-            grid_view.table_model.raw_data = remaining_df
-            grid_view.table_model.drop_orphan_markings()
-            grid_view.table_model.endResetModel()
-
-            grid_view.has_unsaved_changes = True
-            grid_view.table_model.validate_all()
-
-        self.update_global_create_sip_button()
 
     def update_global_create_sip_button(self) -> None:
         all_valid = (
