@@ -8,7 +8,7 @@ from PySide6 import QtGui
 
 from src.utils.data_objects.sip_status import SIPStatus
 
-SIP_CREATOR_VERSION = "3.0.0.7"
+SIP_CREATOR_VERSION = "3.0.1.0"
 
 
 class SaveLocations(StrEnum):
